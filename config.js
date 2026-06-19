@@ -1,141 +1,131 @@
 'use strict';
 // ================================================================
-// config.js  ─  調整が必要な値はすべてここに集約されています
+// config.js  ─  スプライト座標（実測値）+ ゲーム定数
 // ================================================================
-// 【スプライト座標チューニング手順】
-//   1. DEBUG_SPRITES = true にして画面でキャラを動かす
-//   2. 赤い枠 = 想定スプライト位置  /  枠とドット絵がズレていたら
-//   3. 各 sectionX・anims.y を±数px単位で調整
-//   4. 合ったら DEBUG_SPRITES = false に戻す
+// 【実測データ】sprites.png = 1408 × 768 px
+//
+// ── アニメ行 Y範囲（全キャラ共通） ──────────────────────────────
+//   IDLE 行      : y =   0 ~ 158  (sh=159)
+//   MOVE 行      : y = 159 ~ 346  (sh=188)
+//   ATTACK/CAST行: y = 350 ~ 547  (sh=198, y=350~384は斬撃エフェクト込み)
+//   HIT/VICTORY行: y = 553 ~ 762  (sh=210)
+//
+// ── キャラクター X列 ────────────────────────────────────────────
+//   ラティ : x =    0 ~ 345
+//   ミリー : x =  346 ~ 695
+//   フェルウォーム  : x =  701 ~ 891
+//   ブッシュウォーカー: x = 894 ~ 1128
+//   ロバーアクス  : x = 1134 ~ 1407
 // ================================================================
 
-// ▼ デバッグ：trueで各スプライトに赤い枠線を描画
+// ▼ デバッグ：trueにすると各スプライトに赤枠を描画
 const DEBUG_SPRITES = false;
 
-// ▼ スプライトシート画像ファイルパス（images/フォルダに置く）
+// ▼ スプライトシートのパス（images/ に sprites.png を置くこと）
 const SPRITE_SHEET_PATH = 'images/sprites.png';
 
 // ▼ クロマキー除去設定（マゼンタ背景を透明化）
 const CHROMA = { r: 255, g: 0, b: 255, tolerance: 60 };
 
-// ランタイムで game.js が設定するグローバル変数（変更不要）
+// ランタイムで game.js が設定（変更不要）
 var spriteCanvas = null;
 
 // ================================================================
-// SPRITE_DEFS  ─  スプライト座標定義
+// フレーム定義ヘルパー
+// F(sy, sh, sx0, sw0, sx1, sw1, ...) で各コマの切り出し矩形を生成
 // ================================================================
-// ◆ sectionX    : このキャラのスプライト列が始まるX座標（PNG内ピクセル）
-// ◆ frameW/H    : 1コマのサイズ（PNG内のピクセル数）
-// ◆ displayScale: 拡大倍率（2 → 48x48 を 96x96 で描画）
-// ◆ offsetX/Y   : キャラクター中央-底部からの描画オフセット
-//                  offsetX = -(frameW×scale)/2  ←左右センタリング
-//                  offsetY = -(frameH×scale)    ←底面を基準に上へ
-// ◆ anims[]:
-//     y        : アニメ行のY座標（★最もよく調整する値）
-//     frames   : コマ数
-//     speed    : コマ送り間隔（フレーム数。大きいほど遅い）
-//     colStart : 行内の開始列オフセット（省略=0）
-//     loop     : false=最後のコマで停止（攻撃アニメ用）
+function F(sy, sh) {
+  const rest = Array.prototype.slice.call(arguments, 2);
+  const out = [];
+  for (let i = 0; i < rest.length; i += 2) {
+    out.push({ sx: rest[i], sy: sy, sw: rest[i+1], sh: sh });
+  }
+  return out;
+}
+
+// ================================================================
+// SPRITE_DEFS  ─  全キャラのスプライト座標定義
+//
+// anims[state].frames = [{sx, sy, sw, sh}, ...]  ← 実測値
+// anims[state].speed  = コマ送り間隔（フレーム数）
+// anims[state].loop   = false → 最終コマで停止
+//
+// displayScale : 描画倍率（1=等倍、1.5=1.5倍など）
 // ================================================================
 
 const SPRITE_DEFS = {
 
-  // ── ラティクス（48×48 / 左列）──────────────────────────────
+  // ── ラティクス ────────────────────────────────────────────────
+  // 列: x=0~345  フレーム幅: col0=128px, col1~2=88px
   ratix: {
-    sectionX: 0,       // ★ ラティクス列の開始X座標
-    frameW: 48,
-    frameH: 48,
-    displayScale: 2,
-    offsetX: -48,      // -(48×2)/2
-    offsetY: -96,      // -(48×2)
+    displayScale: 1,
     anims: {
-      IDLE:    { y:  20, frames: 4, speed: 12, colStart: 0 },
-      MOVE:    { y:  75, frames: 6, speed:  6, colStart: 0 },
-      ATTACK:  { y: 135, frames: 5, speed:  5, colStart: 0, loop: false },
-      HIT:     { y: 200, frames: 1, speed: 10, colStart: 0 },
-      VICTORY: { y: 200, frames: 2, speed: 12, colStart: 1 }, // HITの隣
-      DEAD:    { y: 200, frames: 1, speed: 10, colStart: 0 },
+      IDLE:    { speed:12, frames: F(  0,159,   0,128, 128,88, 216,88) },
+      MOVE:    { speed: 6, frames: F(159,188,   0,128, 128,88, 216,88) },
+      ATTACK:  { speed: 5, frames: F(350,198,   0,195, 197,148), loop: false },
+      HIT:     { speed:10, frames: F(553,210,   0,156) },
+      VICTORY: { speed:12, frames: F(553,210,   0,156) },
+      DEAD:    { speed:10, frames: F(553,210,   0,156) },
     }
   },
 
-  // ── ミリー（48×48 / ラティスの右列）──────────────────────────
+  // ── ミリー・キリート ──────────────────────────────────────────
+  // 列: x=346~695  フレーム間隔 ≈100px
   millie: {
-    sectionX: 300,     // ★ ミリー列の開始X座標
-    frameW: 48,
-    frameH: 48,
-    displayScale: 2,
-    offsetX: -48,
-    offsetY: -96,
+    displayScale: 1,
     anims: {
-      IDLE:       { y:  20, frames: 4, speed: 12, colStart: 0 },
-      MOVE:       { y:  75, frames: 6, speed:  8, colStart: 0 },
-      CAST_CHANT: { y: 135, frames: 4, speed:  8, colStart: 0 },
-      HIT:        { y: 200, frames: 1, speed: 10, colStart: 0 },
-      VICTORY:    { y: 200, frames: 2, speed: 12, colStart: 1 },
-      DEAD:       { y: 200, frames: 1, speed: 10, colStart: 0 },
+      IDLE:       { speed:12, frames: F(  0,159, 346,100, 446,100, 546,100) },
+      MOVE:       { speed: 8, frames: F(159,188, 346,100, 446,100, 546,100) },
+      CAST_CHANT: { speed: 8, frames: F(350,198, 346,132, 479, 99, 579,116) },
+      HIT:        { speed:10, frames: F(553,210, 346, 89) },
+      VICTORY:    { speed:12, frames: F(553,210, 458,238) },
+      DEAD:       { speed:10, frames: F(553,210, 346, 89) },
     }
   },
 
-  // ── 敵（64×64 / 縦積みレイアウト・同一X列）──────────────────
-  // 縦積みとは: Felworm(y=0〜255)→Bushwalker(y=256〜511)→RobberAxe(y=512〜767)
-  // もしシート上で横並びの場合は各敵の sectionX を個別に設定し、
-  // y をすべて 0/64/128/192 に戻してください。
-
+  // ── フェルウォーム（x=701~891, 幅191px）─────────────────────
   felworm: {
-    sectionX: 680,     // ★ 敵列の開始X座標（3体共通）
-    frameW: 64,
-    frameH: 64,
-    displayScale: 2,
-    offsetX: -64,      // -(64×2)/2
-    offsetY: -128,     // -(64×2)
+    displayScale: 1,
     anims: {
-      IDLE:   { y:   0, frames: 4, speed: 12, colStart: 0 },
-      MOVE:   { y:  64, frames: 6, speed:  6, colStart: 0 },
-      ATTACK: { y: 128, frames: 4, speed:  6, colStart: 0, loop: false },
-      HIT:    { y: 192, frames: 1, speed: 10, colStart: 0 },
-      DEAD:   { y: 192, frames: 1, speed: 10, colStart: 0 },
+      IDLE:   { speed:12, frames: F(  0,159, 701,191) },
+      MOVE:   { speed: 6, frames: F(159,188, 701, 95, 796, 95) },
+      ATTACK: { speed: 6, frames: F(350,198, 701,191), loop: false },
+      HIT:    { speed:10, frames: F(553,210, 701,109, 818, 74) },
+      DEAD:   { speed:10, frames: F(553,210, 701,109) },
     }
   },
 
+  // ── ブッシュウォーカー（x=894~1128, 幅235px）────────────────
   bushwalker: {
-    sectionX: 680,     // felworm と同じX列、Y=256から開始
-    frameW: 64,
-    frameH: 64,
-    displayScale: 2,
-    offsetX: -64,
-    offsetY: -128,
+    displayScale: 1,
     anims: {
-      IDLE:   { y: 256, frames: 4, speed: 12, colStart: 0 },
-      MOVE:   { y: 320, frames: 6, speed:  6, colStart: 0 },
-      ATTACK: { y: 384, frames: 4, speed:  6, colStart: 0, loop: false },
-      HIT:    { y: 448, frames: 1, speed: 10, colStart: 0 },
-      DEAD:   { y: 448, frames: 1, speed: 10, colStart: 0 },
+      IDLE:   { speed:12, frames: F(  0,159,  894,235) },
+      MOVE:   { speed: 6, frames: F(159,188,  894,116, 1032, 92) },
+      ATTACK: { speed: 6, frames: F(350,198,  904,125, 1030, 99), loop: false },
+      HIT:    { speed:10, frames: F(553,210,  903,121, 1032, 95) },
+      DEAD:   { speed:10, frames: F(553,210,  903,121) },
     }
   },
 
+  // ── ロバーアクス（x=1134~1407, 幅274px）─────────────────────
   robberaxe: {
-    sectionX: 680,     // felworm と同じX列、Y=512から開始
-    frameW: 64,
-    frameH: 64,
-    displayScale: 2,
-    offsetX: -64,
-    offsetY: -128,
+    displayScale: 1,
     anims: {
-      IDLE:   { y: 512, frames: 4, speed: 12, colStart: 0 },
-      MOVE:   { y: 576, frames: 6, speed:  6, colStart: 0 },
-      ATTACK: { y: 640, frames: 4, speed:  6, colStart: 0, loop: false },
-      HIT:    { y: 704, frames: 1, speed: 10, colStart: 0 },
-      DEAD:   { y: 704, frames: 1, speed: 10, colStart: 0 },
+      IDLE:   { speed:12, frames: F(  0,159, 1134,274) },
+      MOVE:   { speed: 6, frames: F(159,188, 1134,134, 1268,134) },
+      ATTACK: { speed: 6, frames: F(350,198, 1134,119, 1275,114), loop: false },
+      HIT:    { speed:10, frames: F(553,210, 1134,125, 1264,127) },
+      DEAD:   { speed:10, frames: F(553,210, 1134,125) },
     }
   }
 };
 
-// キャラクター名 → スプライトキー マッピング
+// キャラクター名 → スプライトキー
 const CHAR_SPRITE_KEY = {
   'ラティ':          'ratix',
   'ミリー':          'millie',
   'フェルウォーム':   'felworm',
-  'ブッシュワーカー': 'bushwalker',
+  'ブッシュウォーカー':'bushwalker',
   'ロバーアクス':     'robberaxe',
 };
 
@@ -149,12 +139,11 @@ const RATIX_ARTS = {
 
 // ================================================================
 // ミリー 紋章術データ
-//   cast = 詠唱秒数（その間も戦闘はリアルタイムで進む）
-//   stop = 発動後の画面停止秒数（0＝停止なし）
+// cast = 詠唱秒数  /  stop = 発動後の画面停止秒数（0=停止なし）
 // ================================================================
 const MILLIE_SPELLS = {
-  heal:     { name: 'ヒール',           mp:  4, cast: 0.2, stop: 0.0, type: 'healSingle', amount:  280 },
-  cureAll:  { name: 'キュアオール',     mp: 24, cast: 2.5, stop: 5.5, type: 'healAll',    amount:  450 },
-  acidRain: { name: 'アシッドレイン',   mp:  8, cast: 1.0, stop: 6.5, type: 'debuffDef',  mult:    1.3, duration: 8 },
+  heal:     { name: 'ヒール',           mp:  4, cast: 0.2, stop: 0.0, type: 'healSingle', amount: 280 },
+  cureAll:  { name: 'キュアオール',     mp: 24, cast: 2.5, stop: 5.5, type: 'healAll',    amount: 450 },
+  acidRain: { name: 'アシッドレイン',   mp:  8, cast: 1.0, stop: 6.5, type: 'debuffDef',  mult:   1.3, duration: 8 },
   fixCloud: { name: 'フィクスクラウド', mp:  6, cast: 1.5, stop: 5.5, type: 'stunAll',   duration: 3 }
 };
