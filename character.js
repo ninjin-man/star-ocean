@@ -30,6 +30,7 @@ class BattleCharacter {
     this.isStunned   = false;
     this.stunTimer   = 0;
     this.manualVx    = 0;
+    this.manualVy    = 0;
 
     const key = CHAR_SPRITE_KEY[name];
     this.spriteDef = key ? SPRITE_DEFS[key] : null;
@@ -103,15 +104,24 @@ class BattleCharacter {
         }
         break;
 
-      case 'MANUAL_MOVE':
-        this.x += this.manualVx;
-        this.x  = Math.max(20, Math.min(780, this.x));
-        this.side = this.manualVx > 0 ? 1 : -1;
+      case 'MANUAL_MOVE': {
+        const dirX = this.manualVx, dirY = this.manualVy;
+        if (dirX !== 0 || dirY !== 0) {
+          // 斜め移動でも速度が一定になるよう正規化
+          const mag   = Math.hypot(dirX, dirY) || 1;
+          const speed = 4;
+          this.x += (dirX / mag) * speed;
+          this.y += (dirY / mag) * speed * 0.55; // クォータービュー比率（MOVEと同じ）
+          this.x  = Math.max(20, Math.min(780, this.x));
+          this.y  = Math.max(100, Math.min(380, this.y));
+          if (dirX !== 0) this.side = dirX > 0 ? 1 : -1;
+        }
         if (this.isPlayer && Math.random() < 0.18) {
           engine.effects.push(new GhostEffect(
             this.x, this.y, this.z, this.spriteDef, this.animFrame, this.side));
         }
         break;
+      }
 
       case 'MOVE': {
         if (!this.target || this.target.hp <= 0) { this.state = 'IDLE'; break; }

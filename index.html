@@ -77,15 +77,24 @@
       padding: 4px 8px;
     }
 
-    /* 十字キー（左右のみ） */
-    .d-pad { display: flex; gap: 6px; background: #9aa4a8; padding: 8px; border-radius: 50%; }
+    /* 十字キー（8方向：3x3グリッド） */
+    .d-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 34px);
+      grid-template-rows: repeat(3, 34px);
+      gap: 4px;
+      background: #9aa4a8;
+      padding: 8px;
+      border-radius: 14px;
+    }
     .d-btn {
       background: #222; color: #fff; border: none;
-      width: 52px; height: 46px; font-size: 18px; font-weight: bold;
-      cursor: pointer; box-shadow: 0 4px 0 #000; border-radius: 5px;
-      font-family: inherit;
+      font-size: 14px; font-weight: bold;
+      cursor: pointer; box-shadow: 0 3px 0 #000; border-radius: 6px;
+      font-family: inherit; display: flex; align-items: center; justify-content: center;
     }
-    .d-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+    .d-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #000; }
+    .d-btn-center { background: transparent; box-shadow: none; }
 
     /* システムボタン（RESET） */
     .sys-btn {
@@ -135,14 +144,33 @@
 
     <!-- メインコントローラー -->
     <div class="controller-row">
-      <!-- 十字キー -->
+      <!-- 十字キー（8方向） -->
       <div class="d-pad">
         <button class="d-btn"
-          onmousedown="startManualMove(-4)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
-          ontouchstart="startManualMove(-4)" ontouchend="stopManualMove()">◀</button>
+          onmousedown="startManualMove(-1,-1)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(-1,-1)" ontouchend="stopManualMove()">↖</button>
         <button class="d-btn"
-          onmousedown="startManualMove(4)"  onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
-          ontouchstart="startManualMove(4)" ontouchend="stopManualMove()">▶</button>
+          onmousedown="startManualMove(0,-1)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(0,-1)" ontouchend="stopManualMove()">▲</button>
+        <button class="d-btn"
+          onmousedown="startManualMove(1,-1)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(1,-1)" ontouchend="stopManualMove()">↗</button>
+        <button class="d-btn"
+          onmousedown="startManualMove(-1,0)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(-1,0)" ontouchend="stopManualMove()">◀</button>
+        <div class="d-btn d-btn-center"></div>
+        <button class="d-btn"
+          onmousedown="startManualMove(1,0)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(1,0)" ontouchend="stopManualMove()">▶</button>
+        <button class="d-btn"
+          onmousedown="startManualMove(-1,1)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(-1,1)" ontouchend="stopManualMove()">↙</button>
+        <button class="d-btn"
+          onmousedown="startManualMove(0,1)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(0,1)" ontouchend="stopManualMove()">▼</button>
+        <button class="d-btn"
+          onmousedown="startManualMove(1,1)" onmouseup="stopManualMove()" onmouseleave="stopManualMove()"
+          ontouchstart="startManualMove(1,1)" ontouchend="stopManualMove()">↘</button>
       </div>
 
       <!-- RESET -->

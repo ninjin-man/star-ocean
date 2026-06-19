@@ -188,13 +188,14 @@ function castMillieAcidRain() {
   engine.castMillieSpell(engine.entities[1], MILLIE_SPELLS.acidRain);
 }
 
-/** 十字キー：手動横移動（原作SFCには存在しない、タッチ操作用拡張） */
-function startManualMove(speed) {
+/** 十字キー：手動8方向移動（原作SFCには存在しない、タッチ操作用拡張） */
+function startManualMove(dx, dy) {
   const pl = engine.player;
   if (pl && pl.state !== 'DEAD' && pl.state !== 'ATTACK'
          && pl.state !== 'CAST_CHANT' && pl.state !== 'VICTORY') {
     pl.state    = 'MANUAL_MOVE';
-    pl.manualVx = speed;
+    pl.manualVx = dx;
+    pl.manualVy = dy;
   }
 }
 function stopManualMove() {
@@ -202,6 +203,7 @@ function stopManualMove() {
   if (pl && pl.state === 'MANUAL_MOVE') {
     pl.state    = 'IDLE';
     pl.manualVx = 0;
+    pl.manualVy = 0;
   }
 }
 
