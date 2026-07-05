@@ -1,174 +1,180 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><title>Non-AI Character Analyzer v0.9</title><style>
-:root{--bg:#0e121a;--panel:#151b27;--line:#2b3446;--ink:#edf3ff;--mut:#9aa8bd;--ok:#65e394;--warn:#ffb86b;--bad:#ff7a7a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif}header{padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#0e121af2;z-index:5}h1{font-size:22px;margin:0 0 4px}.sub{color:var(--mut);font-size:13px;line-height:1.55}main{padding:12px;max-width:1240px;margin:auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.btn{border:1px solid var(--line);border-radius:11px;background:#202838;color:var(--ink);font-weight:700;padding:10px 12px;min-height:42px}.primary{background:#113853;border-color:#24658e}.good{background:#15381f;border-color:#2f7e45}.btn:disabled{opacity:.45}input[type=file]{display:none}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}@media(min-width:1040px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}.panel{background:#0b0f17;border:1px solid var(--line);border-radius:14px;padding:9px}.panel h2{font-size:15px;margin:0 0 8px}.wrap{background:#fff;border-radius:10px;overflow:hidden;min-height:170px;display:flex;align-items:center;justify-content:center}canvas{max-width:100%;height:auto;display:block}.control{display:grid;grid-template-columns:132px 1fr 54px;gap:8px;align-items:center;color:var(--mut);font-size:13px;margin:7px 0}.control input,.control select{width:100%}.log{font:12px ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;line-height:1.45;color:#dbe6ff;background:#0b0f17;border:1px solid var(--line);border-radius:12px;padding:10px;max-height:430px;overflow:auto}.note{color:var(--mut);font-size:13px;line-height:1.5}.progress{color:var(--ok);font-weight:700}.warn{color:var(--warn)}.bad{color:var(--bad)}
-</style></head><body><header><h1>Non-AI Character Analyzer v0.9</h1><div class="sub">Canvasだけの従来型画像処理。v0.9は背景除去を3段階化。①確実な本体、②通常前景、③薄い髪・布の回収を分け、最終切り抜きは統合マスクで表示します。</div></header><main>
-<section class="card"><div class="row"><label class="btn primary">画像を選ぶ<input id="file" type="file" accept="image/*"></label><button id="sample" class="btn">サンプル読込</button><button id="run" class="btn good" disabled>解析実行</button><button id="save" class="btn" disabled>まとめPNG保存</button><span id="status" class="progress">待機中</span></div></section>
-<section class="card"><div class="control"><span>背景許容</span><input id="thr" type="range" min="10" max="95" value="36"><b id="thrV">36</b></div><div class="control"><span>前景補正</span><select id="mode"><option value="balanced">標準</option><option value="soft">薄い髪・布を残す</option><option value="strict">背景混入を減らす</option></select><b></b></div><div class="control"><span>最小Region</span><input id="minA" type="range" min="40" max="1600" value="180"><b id="minAV">180</b></div><div class="control"><span>色数</span><input id="k" type="range" min="4" max="10" value="8"><b id="kV">8</b></div><div class="note">注意：v0.7は単純背景・白背景・透過PNG専用です。複雑背景・室内背景・小物背景は解析前に非対応判定します。AIではなくCanvas画像処理だけです。</div></section>
-<section class="grid">
-<div class="panel"><h2>0. 元画像</h2><div class="wrap"><canvas id="orig"></canvas></div></div><div class="panel"><h2>1. 背景モデル</h2><div class="wrap"><canvas id="bgmodel"></canvas></div></div><div class="panel"><h2>2. 背景除去RGBA</h2><div class="wrap"><canvas id="cutout"></canvas></div></div>
-<div class="panel"><h2>3. 背景除去3段階</h2><div class="wrap"><canvas id="masks"></canvas></div></div><div class="panel"><h2>4. 最終前景マスク</h2><div class="wrap"><canvas id="mask"></canvas></div></div><div class="panel"><h2>5. 品質スコア</h2><div class="wrap"><canvas id="quality"></canvas></div></div>
-<div class="panel"><h2>6. 構造軸</h2><div class="wrap"><canvas id="skel"></canvas></div></div><div class="panel"><h2>7. 頭・胴・脚</h2><div class="wrap"><canvas id="zones"></canvas></div></div><div class="panel"><h2>8. 色クラスタ</h2><div class="wrap"><canvas id="cluster"></canvas></div></div>
-<div class="panel"><h2>9. Region 大中小</h2><div class="wrap"><canvas id="regions"></canvas></div></div><div class="panel"><h2>10. Region統合</h2><div class="wrap"><canvas id="merged"></canvas></div></div><div class="panel"><h2>11. 候補分類</h2><div class="wrap"><canvas id="classed"></canvas></div></div><div class="panel"><h2>12. まとめ</h2><div class="wrap"><canvas id="summary"></canvas></div></div>
-<div class="panel"><h2>12. ログ</h2><div id="log" class="log">画像を読み込んでください。</div></div>
-</section></main><script>
-const $=id=>document.getElementById(id);['thr','minA','k'].forEach(id=>$(id).oninput=()=>$(id+'V').textContent=$(id).value);
-const ids=['orig','bgmodel','cutout','masks','mask','quality','skel','zones','cluster','regions','merged','classed','summary'];const C=Object.fromEntries(ids.map(id=>[id,$(id)]));let img=null,data=null,last=null;
-$('file').onchange=e=>{const f=e.target.files[0];if(f)load(URL.createObjectURL(f))};$('sample').onclick=()=>load('sample.png');$('run').onclick=()=>run();$('save').onclick=()=>{let a=document.createElement('a');a.href=C.summary.toDataURL('image/png');a.download='non_ai_analysis_summary_v0_9.png';a.click()};
-function setStatus(t,cls='progress'){$('status').textContent=t;$('status').className=cls}function log(t){$('log').textContent=t}function pause(){return new Promise(r=>setTimeout(r,20))}
-function load(src){let im=new Image();im.onload=()=>{img=im;setup();$('run').disabled=false;setStatus('読込完了');log('画像読込完了。解析実行を押してください。')};im.src=src}
-function setup(){let maxW=420,s=Math.min(1,maxW/img.width,660/img.height),w=Math.round(img.width*s),h=Math.round(img.height*s);for(let c of Object.values(C)){c.width=w;c.height=h}let ct=C.orig.getContext('2d');ct.clearRect(0,0,w,h);ct.drawImage(img,0,0,w,h);data=ct.getImageData(0,0,w,h)}
-async function run(){try{setup();$('save').disabled=true;setStatus('解析中');let w=data.width,h=data.height;let profile=diagnoseInput(data);let bg=buildBg(data,profile);drawBg(bg,w,h);await pause();if(profile.type==='complex'){drawUnsupported(profile);setStatus('非対応入力','progress bad');log('【v0.8 非対応】複雑背景を検出しました。\nこのツールは現在、単純背景・白背景・透過PNGのみ対象です。\n背景除去済みPNG、白背景、単色背景にしてから再実行してください。\n\n理由: '+profile.reasons.join(' / '));return}let base=makeMasks(data,bg,+$('thr').value,$('mode').value,profile);drawCutout(base.final);drawMasks(base);await pause();let raw=postMask(base.final,w,h);let comps=components(raw,w,h,20);let fg=selectMain(raw,w,h,comps,profile);drawMask(fg.mask,fg.bbox);await pause();let zones=zoneByProfile(fg.mask,w,h,fg.bbox);drawZones(zones,fg.bbox);let axis=profileAxis(fg.mask,w,h,fg.bbox);drawAxis(fg.mask,axis,fg.bbox);await pause();let km=kmeans(data,fg.mask,w,h,+$('k').value);drawCluster(km,fg.mask,w,h);await pause();let regs=extractRegions(km.labels,fg.mask,w,h,+$('minA').value,km.centers,fg.bbox);groupRegions(regs,fg.bbox);drawRegions(regs);let merged=mergeRegions(regs,fg.bbox,zones);classify(merged,fg.bbox,zones);drawMerged(merged);drawClassed(merged);let q=quality(fg,base,merged,zones,w,h,profile);drawQuality(q,fg.bbox);makeSummary(merged,fg.bbox,zones,km.centers,q,regs.length);last={fg,zones,regs:merged,rawRegs:regs,palette:km.centers,quality:q,profile};$('save').disabled=false;setStatus(q.score>=75?'完了':q.score>=60?'完了（確認推奨）':'完了（要調整）',q.score>=75?'progress':q.score>=60?'progress warn':'progress bad');log(resultText(last));}catch(e){setStatus('エラー','progress bad');log(e.stack||e.message)}}
-const idx=(x,y,w)=>y*w+x;function rgb(d,p){let i=p*4;return[d[i],d[i+1],d[i+2],d[i+3]]}function dist(a,b){let dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dr*dr+dg*dg+db*db)}function lum(c){return(c[0]+c[1]+c[2])/3}function sat(c){let mx=Math.max(c[0],c[1],c[2]),mn=Math.min(c[0],c[1],c[2]);return mx?(mx-mn)/mx:0}function avg(a){let r=0,g=0,b=0,n=a.length||1;for(let c of a){r+=c[0];g+=c[1];b+=c[2]}return[r/n|0,g/n|0,b/n|0]}
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Sprite Studio Preprocessor iPhone Test Viewer v0.1</title>
+<style>
+  :root{--bg:#10131a;--panel:#171c25;--panel2:#202633;--text:#eef3ff;--muted:#9ba8bd;--line:#30384a;--accent:#7fb0ff;--ok:#57d68d;--warn:#ffd166;--bad:#ff6b6b;}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;} 
+  header{position:sticky;top:0;z-index:10;background:rgba(16,19,26,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 14px;}
+  h1{font-size:18px;margin:0 0 4px;} .sub{font-size:12px;color:var(--muted)}
+  main{padding:14px;max-width:1120px;margin:auto;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:1 1 auto}
+  button,.fileLabel{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:11px 12px;font-weight:700;font-size:14px;text-align:center;display:inline-block;}
+  button.primary{background:#204773;border-color:#376da6}.danger{color:#ffb4b4}.mini{font-size:12px;padding:8px 9px;border-radius:10px;}
+  input[type=file]{display:none} select,input[type=range]{width:100%;}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.panel{background:#0c0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .panel h2{font-size:13px;margin:0;padding:8px 10px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center}.panel h2 span{font-size:11px;color:var(--muted);font-weight:500}
+  canvas{width:100%;height:auto;display:block;image-rendering:auto;background:#0f1218;}
+  .log{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#d9e6ff;max-height:360px;overflow:auto;background:#0c0f15;border:1px solid var(--line);border-radius:12px;padding:10px;}
+  table{width:100%;border-collapse:collapse;font-size:12px} th,td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left} th{color:var(--muted);font-weight:700} .score{font-weight:900}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:11px;color:var(--muted)}
+  .meter{height:8px;background:#0d1017;border-radius:999px;overflow:hidden;border:1px solid var(--line)} .bar{height:100%;background:var(--accent);width:0%}
+  @media (max-width:720px){.grid{grid-template-columns:1fr} main{padding:10px}.card{border-radius:12px;padding:10px} header{padding:10px 12px} h1{font-size:16px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sprite Studio Preprocessor iPhone Test Viewer v0.1</h1>
+  <div class="sub">AIなし / Canvasのみ / Original非破壊 / 複数Profile試行 / Quality Evaluation</div>
+</header>
+<main>
+  <section class="card">
+    <div class="row">
+      <label class="fileLabel">画像を選択<input id="file" type="file" accept="image/*"></label>
+      <button id="sampleBtn">sample.pngで試す</button>
+      <button id="runBtn" class="primary">解析する</button>
+    </div>
+    <div style="margin-top:10px" class="row">
+      <label>解析サイズ <span id="sizeText" class="pill">最大 768px</span><input id="maxSize" type="range" min="256" max="1024" step="128" value="768"></label>
+      <label>背景許容度 <span id="tolText" class="pill">標準</span><input id="tol" type="range" min="0" max="40" step="1" value="14"></label>
+    </div>
+    <div class="sub" style="margin-top:8px">対象：白背景・単色背景・薄グラデーション・透過PNG。複雑背景は警告のみ。</div>
+  </section>
 
-function median(vals){vals.sort((a,b)=>a-b);return vals[vals.length>>1]||0}
-function medianColor(list){return[median(list.map(c=>c[0])),median(list.map(c=>c[1])),median(list.map(c=>c[2]))]}
-function diagnoseInput(imgd){let w=imgd.width,h=imgd.height,d=imgd.data;let border=[],alphaCount=0,total=w*h,edgeSamples=0,edgeStrong=0;for(let y=0;y<h;y++)for(let x=0;x<w;x++){let p=idx(x,y,w),i=p*4;if(d[i+3]<245)alphaCount++;if(x<8||y<8||x>=w-8||y>=h-8)border.push([d[i],d[i+1],d[i+2],d[i+3]])}
- let trans=alphaCount/total;let bcols=border.filter(c=>c[3]>230).map(c=>[c[0],c[1],c[2]]);let bg=medianColor(bcols.length?bcols:[[255,255,255]]);let dev=0,dev2=0,n=0;for(let c of bcols){let dd=dist(c,bg);dev+=dd;dev2+=dd*dd;n++}dev/=Math.max(1,n);let std=Math.sqrt(dev2/Math.max(1,n)-dev*dev);for(let y=2;y<h-2;y+=3)for(let x=2;x<w-2;x+=3){let p=idx(x,y,w),i=p*4,c=[d[i],d[i+1],d[i+2]],r=[d[i+4*2],d[i+1+4*2],d[i+2+4*2]],dn=[d[i+w*4*2],d[i+1+w*4*2],d[i+2+w*4*2]];let e=dist(c,r)+dist(c,dn);edgeSamples++;if(e>90)edgeStrong++}
- let edgeRatio=edgeStrong/Math.max(1,edgeSamples);let reasons=[];let type='simple';if(trans>.01){type='transparent';reasons.push('alpha foreground available')}else if(dev<18&&std<22){type='simple';reasons.push('border color is stable')}else if(dev<34&&std<34&&edgeRatio<.15){type='gradient';reasons.push('border looks like mild gradient')}else{type='complex';reasons.push('border variance is high');if(edgeRatio>=.15)reasons.push('background edge density is high')}return{type,bg,trans,dev,std,edgeRatio,reasons}}
-function buildBg(imgd,profile){let w=imgd.width,h=imgd.height,d=imgd.data;if(profile&&profile.type==='transparent')return{kind:'transparent',base:profile.bg,top:profile.bg,bot:profile.bg,left:profile.bg,right:profile.bg};let top=[],bot=[],left=[],right=[];for(let x=0;x<w;x++){top.push(rgb(d,idx(x,0,w)));bot.push(rgb(d,idx(x,h-1,w)))}for(let y=0;y<h;y++){left.push(rgb(d,idx(0,y,w)));right.push(rgb(d,idx(w-1,y,w)))}return{kind:(profile&&profile.type)||'simple',base:profile?profile.bg:avg(top.concat(bot,left,right)),top:medianColor(top),bot:medianColor(bot),left:medianColor(left),right:medianColor(right)}}
-function bgAt(bg,x,y,w,h){if(bg.kind==='simple'||bg.kind==='transparent')return bg.base;let tx=x/(w-1||1),ty=y/(h-1||1);let lr=[bg.left[0]*(1-tx)+bg.right[0]*tx,bg.left[1]*(1-tx)+bg.right[1]*tx,bg.left[2]*(1-tx)+bg.right[2]*tx],tb=[bg.top[0]*(1-ty)+bg.bot[0]*ty,bg.top[1]*(1-ty)+bg.bot[1]*ty,bg.top[2]*(1-ty)+bg.bot[2]*ty];return[(lr[0]+tb[0])/2,(lr[1]+tb[1])/2,(lr[2]+tb[2])/2]}
+  <section class="card" id="statusCard">
+    <div class="row">
+      <div><b>入力種別：</b><span id="bgType">未解析</span></div>
+      <div><b>採用Profile：</b><span id="bestProfile">未解析</span></div>
+      <div><b>品質：</b><span id="quality">-</span></div>
+    </div>
+    <div style="margin-top:8px" class="meter"><div id="qualityBar" class="bar"></div></div>
+  </section>
 
-function makeMasks(imgd,bg,t,mode,profile){
-  let w=imgd.width,h=imgd.height,d=imgd.data;
-  let soft=new Uint8Array(w*h),mid=new Uint8Array(w*h),strict=new Uint8Array(w*h),recover=new Uint8Array(w*h);
-  let adj=mode==='soft'?-8:mode==='strict'?8:0;
-  if(profile&&profile.type==='transparent'){
-    for(let p=0;p<w*h;p++){let a=d[p*4+3];if(a>8)soft[p]=1;if(a>48)mid[p]=1;if(a>150)strict[p]=1}
-    let final=combineMasks(soft,mid,strict,w,h,mode);
-    return{soft,mid,strict,recover,final,stages:'alpha'}
-  }
-  // Stage1: strict core = 胴・脚など確実な本体だけ
-  // Stage2: middle = 通常の人物前景
-  // Stage3: soft/recover = 髪先・薄い布など、近傍接続があるものだけ回収
-  let scoreArr=new Float32Array(w*h);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    let p=idx(x,y,w),i=p*4,c=[d[i],d[i+1],d[i+2]],b=bgAt(bg,x,y,w);
-    let colorDiff=dist(c,b), sd=Math.abs(sat(c)-sat(b))*118, ld=Math.min(42,Math.abs(lum(c)-lum(b))*.48);
-    let score=colorDiff+sd+ld; scoreArr[p]=score;
-    let lowerShadow=(y>h*.72&&sat(c)<.20&&Math.abs(lum(c)-lum(b))<72&&colorDiff<82);
-    let borderLikely=(x<5||y<5||x>=w-5||y>=h-5)&&score<t+20;
-    if(!lowerShadow&&!borderLikely){
-      if(score>t+24+adj)strict[p]=1;
-      if(score>t+6+adj)mid[p]=1;
-      if(score>t-16+adj)soft[p]=1;
-    }
-  }
-  // Stage3の回収条件：softは「midまたはstrictの近く」だけ。背景の薄いムラを拾いすぎない。
-  for(let p=0;p<w*h;p++){
-    if(!soft[p]||mid[p])continue;
-    let x=p%w,y=p/w|0;
-    let nearMid=nearMask(mid,x,y,w,h,4);
-    let nearStrict=nearMask(strict,x,y,w,h,8);
-    let inOuterBand=scoreArr[p]>t-10+adj;
-    if((nearMid||nearStrict)&&inOuterBand)recover[p]=1;
-  }
-  let final=combineMasks(recover,mid,strict,w,h,mode);
-  return{soft:recover,mid,strict,recover,final,stages:'strict/mid/recover'}
-}
-function nearMask(m,x,y,w,h,r){for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){let xx=x+dx,yy=y+dy;if(xx>=0&&yy>=0&&xx<w&&yy<h&&m[idx(xx,yy,w)])return true}return false}
-function combineMasks(recover,mid,strict,w,h,mode){
-  // 1) strictを核にする。2) midを広げる。3) recoverは近傍接続のみ追加。
-  let base=mode==='strict'?strict:mid;
-  let out=new Uint8Array(base);
-  if(mode!=='strict'){
-    for(let p=0;p<out.length;p++)if(recover[p]){let x=p%w,y=p/w|0;if(nearMask(base,x,y,w,h,4))out[p]=1}
-  }
-  return out
-}
-function postMask(m,w,h){
-  // 背景除去後処理も3段階：端ノイズ除去 → 小穴補正 → 細部保持の軽い平滑化
-  let a=removeBorder(m,w,h,4);
-  a=removeTinyComponents(a,w,h,28);
-  let closed=dilate(a,w,h,1); closed=erode(closed,w,h,1);
-  // 元の細い髪・布を残すため、closedとaをORで合成
-  let out=new Uint8Array(w*h);for(let i=0;i<out.length;i++)out[i]=a[i]||closed[i]?1:0;
-  return out
-}function removeBorder(m,w,h,p){let o=new Uint8Array(m);for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(x<p||y<p||x>=w-p||y>=h-p)o[idx(x,y,w)]=0;return o}function dilate(m,w,h,r){let o=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(let dy=-r;dy<=r&&!v;dy++)for(let dx=-r;dx<=r;dx++){let xx=x+dx,yy=y+dy;if(xx>=0&&yy>=0&&xx<w&&yy<h&&m[idx(xx,yy,w)]){v=1;break}}o[idx(x,y,w)]=v}return o}function erode(m,w,h,r){let o=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=1;for(let dy=-r;dy<=r&&v;dy++)for(let dx=-r;dx<=r;dx++){let xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=w||yy>=h||!m[idx(xx,yy,w)]){v=0;break}}o[idx(x,y,w)]=v}return o}
-function removeTinyComponents(m,w,h,minA){let comps=components(m,w,h,1),o=new Uint8Array(w*h);for(let c of comps){let edge=(c.bbox.x<4||c.bbox.y<4||c.bbox.x+c.bbox.w>w-5||c.bbox.y+c.bbox.h>h-5);if(c.area>=minA&&!edge)for(let p of c.pixels)o[p]=1}return o}
-function components(m,w,h,minA=1){let seen=new Uint8Array(w*h),arr=[];for(let p=0;p<w*h;p++){if(!m[p]||seen[p])continue;let q=[p],head=0,area=0,minX=w,minY=h,maxX=0,maxY=0,sx=0,sy=0;seen[p]=1;while(head<q.length){let id=q[head++],x=id%w,y=id/w|0;area++;sx+=x;sy+=y;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);for(let nb of [id-1,id+1,id-w,id+w]){let nx=nb%w,ny=nb/w|0;if(nb>=0&&nb<w*h&&Math.abs(nx-x)+Math.abs(ny-y)===1&&m[nb]&&!seen[nb]){seen[nb]=1;q.push(nb)}}}if(area>=minA)arr.push({area,bbox:{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1},cx:sx/area,cy:sy/area,pixels:q})}arr.sort((a,b)=>b.area-a.area);return arr}
-function selectMain(m,w,h,comps,profile){let out=new Uint8Array(w*h);if(!comps.length)return{mask:out,bbox:{x:0,y:0,w,h},components:[]};let cx=w/2;let scored=comps.map(c=>{let centerBonus=1-Math.min(1,Math.abs(c.cx-cx)/(w*.5));let edgePenalty=(c.bbox.x<=5||c.bbox.x+c.bbox.w>=w-6)?0.55:1;let floorPenalty=(c.bbox.y>h*.70&&c.bbox.w>w*.45&&c.bbox.h<h*.20)?0.25:1;return{c,score:c.area*(.55+.45*centerBonus)*edgePenalty*floorPenalty}}).sort((a,b)=>b.score-a.score);let main=scored[0].c,keep=[];for(let c of comps){let near=Math.abs(c.cx-main.cx)<Math.max(main.bbox.w*.85,50)&&Math.abs(c.cy-main.cy)<Math.max(main.bbox.h*.90,70);let notFloor=!(c.bbox.y>main.bbox.y+main.bbox.h*.72&&c.bbox.w>main.bbox.w*.62&&c.bbox.h<main.bbox.h*.20);let notEdge=!(c.bbox.x<=4||c.bbox.x+c.bbox.w>=w-5);if((c===main||c.area>main.area*.014&&near)&&notFloor&&notEdge)keep.push(c)}let minX=w,minY=h,maxX=0,maxY=0;for(let c of keep){for(let p of c.pixels)out[p]=1;minX=Math.min(minX,c.bbox.x);minY=Math.min(minY,c.bbox.y);maxX=Math.max(maxX,c.bbox.x+c.bbox.w-1);maxY=Math.max(maxY,c.bbox.y+c.bbox.h-1)}return{mask:out,bbox:{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1},components:keep}}
-function zoneByProfile(m,w,h,b){let rows=[];for(let y=b.y;y<b.y+b.h;y++){let min=w,max=-1,c=0;for(let x=b.x;x<b.x+b.w;x++)if(m[idx(x,y,w)]){c++;min=Math.min(min,x);max=Math.max(max,x)}rows.push({y,c,width:max>=min?max-min+1:0})}let sm=rows.map((r,i)=>{let s=0,n=0;for(let j=-5;j<=5;j++){let k=i+j;if(rows[k]){s+=rows[k].width;n++}}return s/n});let top=sm.findIndex(v=>v>3);let bottom=sm.length-1;while(bottom>0&&sm[bottom]<3)bottom--;let hgt=bottom-top+1;let headEnd=top+Math.round(hgt*.24),legStart=top+Math.round(hgt*.58);let neck=headEnd;for(let i=top+10;i<top+hgt*.38;i++)if(sm[i]<sm[neck])neck=i;headEnd=Math.max(top+16,Math.min(neck+7,top+Math.round(hgt*.32)));return{head:{x:b.x,y:b.y+top,w:b.w,h:headEnd-top},torso:{x:b.x,y:b.y+headEnd,w:b.w,h:legStart-headEnd},legs:{x:b.x,y:b.y+legStart,w:b.w,h:bottom-legStart+1},profile:sm}}
-function profileAxis(m,w,h,b){let pts=[];for(let y=b.y;y<b.y+b.h;y+=4){let min=w,max=0,c=0;for(let x=b.x;x<b.x+b.w;x++)if(m[idx(x,y,w)]){c++;min=Math.min(min,x);max=Math.max(max,x)}if(c>3)pts.push({x:(min+max)/2,y,w:max-min+1})}return pts}
-function kmeans(imgd,m,w,h,K){let d=imgd.data,pix=[],pos=[];for(let p=0;p<w*h;p++)if(m[p]){let i=p*4;pix.push([d[i],d[i+1],d[i+2]]);pos.push(p)}let labels=new Int16Array(w*h).fill(-1);if(!pix.length)return{centers:[[0,0,0]],labels};let centers=[];for(let k=0;k<K;k++)centers.push(pix[Math.floor((pix.length-1)*k/(K-1||1))].slice());let assign=new Int16Array(pix.length);for(let it=0;it<9;it++){let sums=Array.from({length:K},()=>[0,0,0,0]);for(let i=0;i<pix.length;i++){let bi=0,bd=1e9;for(let k=0;k<K;k++){let dd=dist(pix[i],centers[k]);if(dd<bd){bd=dd;bi=k}}assign[i]=bi;let s=sums[bi],p=pix[i];s[0]+=p[0];s[1]+=p[1];s[2]+=p[2];s[3]++}for(let k=0;k<K;k++)if(sums[k][3])centers[k]=[sums[k][0]/sums[k][3]|0,sums[k][1]/sums[k][3]|0,sums[k][2]/sums[k][3]|0]}for(let i=0;i<pos.length;i++)labels[pos[i]]=assign[i];return{centers,labels}}
-function extractRegions(labels,m,w,h,minA,centers,b){let seen=new Uint8Array(w*h),regs=[];for(let p=0;p<w*h;p++){let lab=labels[p];if(!m[p]||lab<0||seen[p])continue;let q=[p],head=0,area=0,minX=w,minY=h,maxX=0,maxY=0,sx=0,sy=0;seen[p]=1;while(head<q.length){let id=q[head++],x=id%w,y=id/w|0;area++;sx+=x;sy+=y;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);for(let nb of [id-1,id+1,id-w,id+w]){let nx=nb%w,ny=nb/w|0;if(nb>=0&&nb<w*h&&Math.abs(nx-x)+Math.abs(ny-y)===1&&labels[nb]===lab&&!seen[nb]){seen[nb]=1;q.push(nb)}}}let bb={x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1},touch=bb.x<=4||bb.y<=4||bb.x+bb.w>=w-5||bb.y+bb.h>=h-5;if(area>=minA&&!touch)regs.push({id:0,lab,color:centers[lab],area,bbox:bb,cx:sx/area,cy:sy/area,primary:'未分類候補',size:'S',conf:0})}regs.sort((a,b)=>b.area-a.area);regs=regs.slice(0,70);regs.forEach((r,i)=>r.id=i+1);return regs}
-function groupRegions(regs,b){
-  // v0.6: 小Regionを近傍の大/中Regionへ吸収する前処理。完全な画像合成ではなく、分類ノイズ抑制用の親子関係を付ける。
-  let total=b.w*b.h;
-  for(let r of regs){let ar=r.area/total;r.size=ar>.018?'L':ar>.006?'M':'S';r.parent=null;r.reason=[]}
-  const big=regs.filter(r=>r.size!=='S');
-  for(let s of regs.filter(r=>r.size==='S')){
-    let best=null,bd=1e9;
-    for(let r of big){
-      let dx=s.cx-r.cx,dy=s.cy-r.cy,d=Math.sqrt(dx*dx+dy*dy);
-      let close=d<Math.max(28,Math.min(r.bbox.w,r.bbox.h)*0.55);
-      let overlap=!(s.bbox.x>r.bbox.x+r.bbox.w+10||s.bbox.x+s.bbox.w<r.bbox.x-10||s.bbox.y>r.bbox.y+r.bbox.h+10||s.bbox.y+s.bbox.h<r.bbox.y-10);
-      if((close||overlap)&&d<bd){bd=d;best=r}
-    }
-    if(best){s.parent=best.id;s.reason.push('small-region merged-near '+best.id)}
-  }
-}
+  <section class="grid">
+    <div class="panel"><h2>Original Image <span>非破壊</span></h2><canvas id="cOriginal"></canvas></div>
+    <div class="panel"><h2>Background Model <span>推定背景</span></h2><canvas id="cBg"></canvas></div>
+    <div class="panel"><h2>Mask Weak <span>薄い髪・布の回収</span></h2><canvas id="cWeak"></canvas></div>
+    <div class="panel"><h2>Mask Middle <span>通常前景</span></h2><canvas id="cMid"></canvas></div>
+    <div class="panel"><h2>Mask Strong <span>確実な本体</span></h2><canvas id="cStrong"></canvas></div>
+    <div class="panel"><h2>Analysis Image <span>背景透明化結果</span></h2><canvas id="cAnalysis"></canvas></div>
+    <div class="panel"><h2>Contour / Main Component <span>人物候補</span></h2><canvas id="cContour"></canvas></div>
+    <div class="panel"><h2>Diagnostic Overlay <span>漏れ・穴・重心</span></h2><canvas id="cOverlay"></canvas></div>
+  </section>
 
-function gapBox(a,b){let dx=Math.max(0,Math.max(a.x-b.x-b.w,b.x-a.x-a.w)),dy=Math.max(0,Math.max(a.y-b.y-b.h,b.y-a.y-a.h));return Math.sqrt(dx*dx+dy*dy)}
-function zoneName(r,z){let y=r.cy;if(y<z.head.y+z.head.h*1.15)return'HEAD';if(y>=z.legs.y)return'LEGS';return'TORSO'}
-function mergeTwo(a,b){let area=a.area+b.area;let minX=Math.min(a.bbox.x,b.bbox.x),minY=Math.min(a.bbox.y,b.bbox.y),maxX=Math.max(a.bbox.x+a.bbox.w,b.bbox.x+b.bbox.w),maxY=Math.max(a.bbox.y+a.bbox.h,b.bbox.y+b.bbox.h);let color=[0,1,2].map(i=>(a.color[i]*a.area+b.color[i]*b.area)/area|0);return{...a,area,bbox:{x:minX,y:minY,w:maxX-minX,h:maxY-minY},cx:(a.cx*a.area+b.cx*b.area)/area,cy:(a.cy*a.area+b.cy*b.area)/area,color,children:[...(a.children||[a.id]),...(b.children||[b.id])],reason:[...(a.reason||[]),`merged ${b.id}`]}}
-function mergeRegions(regs,b,z){
-  // v0.9: 統合しすぎ対策。大Region同士は基本統合しない。
-  // 小Regionだけを、近い・同色・同ゾーンの親へ吸収する。
-  let list=regs.map(r=>({...r,children:[r.id],zone:zoneName(r,z),reason:[...(r.reason||[])]}));
-  list.sort((a,b)=>b.area-a.area);
-  let parents=list.filter(r=>r.size!=='S');
-  let smalls=list.filter(r=>r.size==='S');
-  for(let s of smalls){
-    let best=null,bscore=0;
-    for(let p of parents){
-      let gd=gapBox(s.bbox,p.bbox), cd=dist(s.color,p.color), sameZone=s.zone===p.zone;
-      let score=0;
-      if(gd<12)score+=40; else if(gd<24)score+=18;
-      if(cd<38)score+=35; else if(cd<60)score+=15;
-      if(sameZone)score+=25;
-      if(p.area>s.area*2)score+=10;
-      if(score>bscore){bscore=score;best=p}
-    }
-    if(best&&bscore>=62){
-      let merged=mergeTwo(best,s);merged.reason.push(`absorbed S${s.id}`);
-      Object.assign(best,merged)
-    }else parents.push(s)
-  }
-  // 近接する中Region同士は、HEAD内の髪片などに限定して1回だけ統合
-  let out=[],used=new Set();parents.sort((a,b)=>b.area-a.area);
-  for(let i=0;i<parents.length;i++){
-    if(used.has(i))continue;let a=parents[i];
-    for(let j=i+1;j<parents.length;j++){
-      if(used.has(j))continue;let c=parents[j];
-      let gd=gapBox(a.bbox,c.bbox),cd=dist(a.color,c.color);
-      let headHair=a.zone==='HEAD'&&c.zone==='HEAD'&&gd<14&&cd<55&&(a.size==='M'||c.size==='M');
-      if(headHair){a=mergeTwo(a,c);a.reason.push(`head merge ${c.id}`);used.add(j)}
-    }
-    out.push(a);used.add(i)
-  }
-  out=out.filter(r=>r.area>90).sort((a,b)=>b.area-a.area).slice(0,36);
-  out.forEach((r,i)=>{r.id=i+1;let ar=r.area/(b.w*b.h);r.size=ar>.022?'L':ar>.008?'M':'S';r.primary='未分類候補';r.conf=0;r.reason.push(`merge children=${r.children.length} zone=${r.zone}`)});
-  return out
+  <section class="card">
+    <h2 style="font-size:15px;margin:0 0 8px">Profile Quality</h2>
+    <div id="profileTable"></div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <button id="savePng">まとめPNG保存</button>
+      <button id="saveJson">診断JSON保存</button>
+      <button id="clearBtn" class="danger">クリア</button>
+    </div>
+  </section>
+
+  <section class="card"><div id="log" class="log">待機中...</div></section>
+</main>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const canvases = ['cOriginal','cBg','cWeak','cMid','cStrong','cAnalysis','cContour','cOverlay'].reduce((a,id)=>(a[id]=$(id),a),{});
+let state = { img:null, imageData:null, result:null, fileName:'sample.png' };
+
+function log(msg){ $('log').textContent = msg; }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function dist(a,b){ const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2]; return Math.sqrt(dr*dr+dg*dg+db*db); }
+function lum(r,g,b){ return 0.2126*r + 0.7152*g + 0.0722*b; }
+function sat(r,g,b){ const mx=Math.max(r,g,b), mn=Math.min(r,g,b); return mx===0?0:(mx-mn)/mx; }
+function meanColor(samples){ let r=0,g=0,b=0,n=samples.length||1; for(const p of samples){r+=p[0];g+=p[1];b+=p[2];} return [r/n,g/n,b/n]; }
+function colorToCss(c,a=1){ return `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`; }
+function getPix(data,w,x,y){ const i=(y*w+x)*4; return [data[i],data[i+1],data[i+2],data[i+3]]; }
+function setCanvasSize(c,w,h){ c.width=w; c.height=h; }
+function drawImageData(c,imgData){ setCanvasSize(c,imgData.width,imgData.height); c.getContext('2d').putImageData(imgData,0,0); }
+function makeImageData(w,h,fill=[0,0,0,255]){ const d=new Uint8ClampedArray(w*h*4); for(let i=0;i<d.length;i+=4){d[i]=fill[0];d[i+1]=fill[1];d[i+2]=fill[2];d[i+3]=fill[3];} return new ImageData(d,w,h); }
+
+function loadImageFromUrl(url){ return new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=url+(url.includes('?')?'&':'?')+'t='+Date.now(); }); }
+function loadImageFromFile(file){ return new Promise((resolve,reject)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=fr.result; }; fr.onerror=reject; fr.readAsDataURL(file); }); }
+function imageToImageData(img,maxSize){ const scale=Math.min(1, maxSize/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)); const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale)); const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale)); const c=document.createElement('canvas'); c.width=w; c.height=h; const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h); return ctx.getImageData(0,0,w,h); }
+
+function borderSamples(imgData, step=4){ const {data,width:w,height:h}=imgData; const s=[]; for(let x=0;x<w;x+=step){s.push(getPix(data,w,x,0));s.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){s.push(getPix(data,w,0,y));s.push(getPix(data,w,w-1,y));} return s; }
+function diagnoseBackground(imgData){ const {data,width:w,height:h}=imgData; let alphaTransparent=0,total=w*h; for(let i=3;i<data.length;i+=4){ if(data[i]<245) alphaTransparent++; }
+  const samples=borderSamples(imgData, Math.max(2,Math.round(Math.max(w,h)/180))); const mean=meanColor(samples); let variance=0, whiteLike=0, highSat=0; for(const p of samples){ variance += dist(p,mean)**2; if(p[0]>235&&p[1]>235&&p[2]>235) whiteLike++; if(sat(p[0],p[1],p[2])>.25) highSat++; }
+  const std=Math.sqrt(variance/samples.length); const whiteRatio=whiteLike/samples.length; const highSatRatio=highSat/samples.length;
+  let type='solid'; let supported=true; let reason='四辺の背景色が近い';
+  if(alphaTransparent/total>.01){ type='alpha_png'; reason='透明ピクセルを検出'; }
+  else if(whiteRatio>.75 && std<34){ type='white_background'; reason='四辺が白背景に近い'; }
+  else if(std<18){ type='solid_background'; reason='四辺の色差が小さい'; }
+  else if(std<46 && highSatRatio<.25){ type='light_gradient'; reason='四辺にゆるい色差。薄グラデーション候補'; }
+  else { type='complex'; supported=false; reason='四辺の色差・彩度差が大きい。複雑背景の可能性'; }
+  return {type,supported,reason,borderMean:mean,borderStd:std,whiteRatio,alphaRatio:alphaTransparent/total,highSatRatio};
 }
 
-function classify(regs,b,z){let mid=b.x+b.w/2;for(let r of regs){let c=r.color,R=c[0],G=c[1],B=c[2],S=sat(c),L=lum(c),side=Math.abs(r.cx-mid)/(b.w/2);let inHead=r.cy<z.head.y+z.head.h*1.18,inTorso=r.cy>=z.torso.y&&r.cy<z.torso.y+z.torso.h,inLeg=r.cy>=z.legs.y;let skin=R>120&&G>72&&B>52&&R>G*.98&&G>B*.72&&S>.10;let green=G>=R*.80&&G>=B*.86&&G>45&&S>.14;let pale=G>=R*.80&&G>=B*.82&&L>118&&S<.32;let hair=(r.cy<z.torso.y+z.torso.h*.35&&S<.42&&L>60&&L<215&&r.bbox.h>b.h*.06);let gold=R>110&&G>75&&B<120&&S>.18&&L>75;let dark=L<65&&r.area>80;if(r.size==='S'&&r.area<220){r.primary=r.parent?'小Region/親Region吸収':'小ノイズ/装飾候補';r.conf=r.parent?35:20;r.reason.push(r.parent?'near parent region':'too small');continue}if(gold){r.primary='装飾候補';r.conf=70;r.reason.push('gold color + saturation')}else if(skin&&inHead){r.primary=side>.34?'耳候補':'顔候補';r.conf=side>.34?62:72;r.reason.push('skin color + head zone')}else if(skin){r.primary='肌/腕候補';r.conf=58;r.reason.push('skin color + body side')}else if(hair){r.primary='髪候補';r.conf=68;r.reason.push('low saturation/pale region near head')}else if(green&&inTorso){r.primary='胴服候補';r.conf=76;r.reason.push('green cluster + torso zone')}else if(green&&inLeg){r.primary='脚服候補';r.conf=74;r.reason.push('green cluster + leg zone')}else if(pale&&side>.16){r.primary='袖/布候補';r.conf=67;r.reason.push('pale low saturation + side area')}else if(inLeg&&r.cy>b.y+b.h*.80){r.primary='靴候補';r.conf=60;r.reason.push('lower leg/foot area')}else if(dark&&inTorso){r.primary='服影/模様候補';r.conf=54;r.reason.push('dark region inside torso')}else{r.primary='未分類候補';r.conf=15;r.reason.push('rule not matched')}}}
-function quality(fg,base,regs,z,w,h,profile){let notes=[],score=100;if(profile){if(profile.type==='transparent')notes.push(['ok','透過PNGとして解析。背景除去は安定。']);else if(profile.type==='simple')notes.push(['ok','単純背景として解析。']);else if(profile.type==='gradient')notes.push(['ok','薄いグラデーション背景として解析。']);}let area=fg.components.reduce((s,c)=>s+c.area,0),ratio=area/(w*h);if(ratio<.08||ratio>.62){score-=18;notes.push(['warn','前景面積が想定外。背景除去の調整が必要。'])}else notes.push(['ok','前景面積は許容範囲。']);let floor=fg.components.some(c=>c.bbox.y>fg.bbox.y+fg.bbox.h*.72&&c.bbox.w>fg.bbox.w*.6);if(floor){score-=18;notes.push(['warn','床影らしき横長領域が残っています。'])}else notes.push(['ok','大きな床影混入は抑制。']);let holes=holeScore(fg.mask,w,h,fg.bbox);if(holes>.18){score-=16;notes.push(['warn','人物内部の穴抜けが多いです。薄い髪/布が削れている可能性。'])}else notes.push(['ok','穴抜けは許容範囲。']);let manySmall=regs.filter(r=>r.size==='S').length;if(manySmall>28){score-=12;notes.push(['warn','小Regionが多すぎます。ノイズまたは模様過多。'])}else notes.push(['ok','Region数は制御範囲。']);let classified=regs.filter(r=>!r.primary.startsWith('未')&&!r.primary.startsWith('小')).length/Math.max(1,regs.length);if(classified<.45){score-=14;notes.push(['warn','分類できたRegionが少ないです。ルール不足。'])}else notes.push(['ok','候補分類率は改善。']);if(fg.bbox.x<=4||fg.bbox.x+fg.bbox.w>=w-5){score-=10;notes.push(['warn','人物が画像端に接触。切れた画像の可能性。'])}return{score:Math.max(0,Math.round(score)),notes}}
-function holeScore(m,w,h,b){let box=b.w*b.h,fg=0;for(let y=b.y;y<b.y+b.h;y++)for(let x=b.x;x<b.x+b.w;x++)if(m[idx(x,y,w)])fg++;return 1-fg/box}
+function buildBackgroundModel(imgData, kind){ const {data,width:w,height:h}=imgData; const out=makeImageData(w,h,[0,0,0,255]); const od=out.data; const top=[],bottom=[],left=[],right=[]; const step=Math.max(2,Math.round(Math.max(w,h)/160)); for(let x=0;x<w;x+=step){top.push(getPix(data,w,x,0));bottom.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){left.push(getPix(data,w,0,y));right.push(getPix(data,w,w-1,y));} const ct=meanColor(top), cb=meanColor(bottom), cl=meanColor(left), cr=meanColor(right); const solid=meanColor([...top,...bottom,...left,...right]);
+  for(let y=0;y<h;y++){ const ty=h<=1?0:y/(h-1); for(let x=0;x<w;x++){ const tx=w<=1?0:x/(w-1); let c; if(kind==='solid_background'||kind==='white_background'||kind==='alpha_png'){ c=solid; } else { const v=[ct[0]*(1-ty)+cb[0]*ty, ct[1]*(1-ty)+cb[1]*ty, ct[2]*(1-ty)+cb[2]*ty]; const hv=[cl[0]*(1-tx)+cr[0]*tx, cl[1]*(1-tx)+cr[1]*tx, cl[2]*(1-tx)+cr[2]*tx]; c=[(v[0]+hv[0])/2,(v[1]+hv[1])/2,(v[2]+hv[2])/2]; } const i=(y*w+x)*4; od[i]=c[0];od[i+1]=c[1];od[i+2]=c[2];od[i+3]=255; }} return out; }
 
-function drawUnsupported(profile){for(let id of ['cutout','masks','mask','skel','zones','cluster','regions','classed','summary']){let ct=ctx(id),w=C[id].width,h=C[id].height;ct.fillStyle='#fff';ct.fillRect(0,0,w,h);ct.fillStyle='#c1121f';ct.font='bold 18px sans-serif';ct.fillText('非対応入力',18,38);ct.fillStyle='#111827';ct.font='13px sans-serif';wrapText(ct,'複雑背景を検出しました。現在は白背景・単色背景・薄いグラデーション・透過PNGのみ対応です。背景を消してから再実行してください。',18,66,w-36,20)}drawQuality({score:0,notes:[['warn','複雑背景のため解析停止。'],['warn','背景除去済みPNG/白背景/単色背景にしてください。'],['warn','理由: '+profile.reasons.join(' / ')]]},null)}
-function wrapText(ct,text,x,y,maxW,lineH){let line='';for(let ch of text){let test=line+ch;if(ct.measureText(test).width>maxW){ct.fillText(line,x,y);line=ch;y+=lineH}else line=test}if(line)ct.fillText(line,x,y)}
-function ctx(id){let c=C[id],ct=c.getContext('2d');ct.clearRect(0,0,c.width,c.height);return ct}function drawBg(bg,w,h){let ct=ctx('bgmodel'),im=ct.createImageData(w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let p=idx(x,y,w),i=p*4,c=bgAt(bg,x,y,w,h);im.data[i]=c[0];im.data[i+1]=c[1];im.data[i+2]=c[2];im.data[i+3]=255}ct.putImageData(im,0,0);label(ct,'estimated background')}
-function drawCutout(m){let ct=ctx('cutout'),w=C.cutout.width,h=C.cutout.height,im=ct.createImageData(w,h),d=data.data;for(let p=0;p<w*h;p++){let i=p*4;if(m[p]){im.data[i]=d[i];im.data[i+1]=d[i+1];im.data[i+2]=d[i+2];im.data[i+3]=255}else{let x=p%w,y=p/w|0,v=((x>>4)+(y>>4))%2?224:246;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255}}ct.putImageData(im,0,0);label(ct,'final cutout after 3-stage removal')}
-function drawMasks(ms){let c=C.masks,ct=ctx('masks'),w=c.width,h=c.height,im=ct.createImageData(w,h);for(let p=0;p<w*h;p++){let i=p*4;im.data[i]=ms.strict[p]?0:ms.mid[p]?120:ms.soft[p]?210:255;im.data[i+1]=ms.strict[p]?0:ms.mid[p]?120:ms.soft[p]?210:255;im.data[i+2]=255;im.data[i+3]=255}ct.putImageData(im,0,0);label(ct,'black=Stage1 core / gray=Stage2 / pale=Stage3 recovery')}
-function drawMask(m,b){let ct=ctx('mask'),im=ct.createImageData(C.mask.width,C.mask.height);for(let p=0;p<m.length;p++){let i=p*4,v=m[p]?0:255;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255}ct.putImageData(im,0,0);box(ct,b,'red','foreground')}
-function drawQuality(q,b){let ct=ctx('quality'),w=C.quality.width,h=C.quality.height;ct.fillStyle='#fff';ct.fillRect(0,0,w,h);ct.drawImage(C.orig,0,0);if(b)box(ct,b,'#00aaff','bbox');ct.fillStyle='rgba(255,255,255,.9)';ct.fillRect(8,8,w-16,68+q.notes.length*22);ct.fillStyle=q.score>=65?'#008a3d':q.score>=45?'#b25b00':'#c1121f';ct.font='bold 26px sans-serif';ct.fillText('Score '+q.score,16,40);ct.font='bold 12px sans-serif';let y=66;for(let n of q.notes){ct.fillStyle=n[0]==='warn'?'#d62828':'#008a3d';ct.fillText((n[0]==='warn'?'⚠ ':'OK ')+n[1],16,y);y+=22}}
-function drawAxis(m,pts,b){let ct=ctx('skel'),w=C.skel.width,h=C.skel.height;ct.fillStyle='#05070b';ct.fillRect(0,0,w,h);ct.strokeStyle='#2fffd2';ct.lineWidth=1;for(let p=0;p<m.length;p++)if(m[p]){let x=p%w,y=p/w|0;if(!m[p-1]||!m[p+1]||!m[p-w]||!m[p+w])ct.fillRect(x,y,1,1)}ct.strokeStyle='#ffd43b';ct.lineWidth=2;ct.beginPath();pts.forEach((p,i)=>i?ct.lineTo(p.x,p.y):ct.moveTo(p.x,p.y));ct.stroke();ct.fillStyle='#ff355e';pts.forEach((p,i)=>{if(i%5===0){ct.beginPath();ct.arc(p.x,p.y,2.5,0,7);ct.fill()}});box(ct,b,'#666','structure axis')}
-function drawZones(z,b){let ct=ctx('zones');ct.drawImage(C.orig,0,0);box(ct,b,'#111','BBOX');box(ct,z.head,'#ff4d6d','HEAD');box(ct,z.torso,'#ffd166','TORSO');box(ct,z.legs,'#4dabf7','LEGS')}
-function drawCluster(k,m,w,h){let ct=ctx('cluster'),im=ct.createImageData(w,h);for(let p=0;p<w*h;p++){let i=p*4;if(m[p]&&k.labels[p]>=0){let c=k.centers[k.labels[p]];im.data[i]=c[0];im.data[i+1]=c[1];im.data[i+2]=c[2]}else im.data[i]=im.data[i+1]=im.data[i+2]=245;im.data[i+3]=255}ct.putImageData(im,0,0)}
-const COL={L:'#ff4db8',M:'#35d0ba',S:'#9aa4b2'};function drawRegions(regs){let ct=ctx('regions');ct.drawImage(C.orig,0,0);ct.font='bold 12px sans-serif';ct.textAlign='center';ct.textBaseline='middle';for(let r of regs.slice(0,45)){box(ct,r.bbox,COL[r.size]);ct.fillStyle='rgba(0,0,0,.68)';ct.beginPath();ct.arc(r.cx,r.cy,9,0,7);ct.fill();ct.fillStyle='#fff';ct.fillText(r.size+r.id,r.cx,r.cy)}}
-function drawMerged(regs){let ct=ctx('merged');ct.drawImage(C.orig,0,0);ct.font='bold 12px sans-serif';ct.textAlign='center';ct.textBaseline='middle';for(let r of regs.slice(0,36)){let col=r.children&&r.children.length>1?'#ffd166':COL[r.size];box(ct,r.bbox,col);ct.fillStyle='rgba(0,0,0,.72)';ct.beginPath();ct.arc(r.cx,r.cy,10,0,7);ct.fill();ct.fillStyle='#fff';ct.fillText(r.size+r.id,r.cx,r.cy);if(r.children&&r.children.length>1){ct.fillStyle=col;ct.font='bold 10px sans-serif';ct.fillText('x'+r.children.length,r.bbox.x+12,r.bbox.y+12);ct.font='bold 12px sans-serif'}}}
-function clsColor(s){if(s.includes('髪'))return'#ff4db8';if(s.includes('顔')||s.includes('耳')||s.includes('肌'))return'#ff9f80';if(s.includes('服'))return'#38d27d';if(s.includes('袖'))return'#76e0c1';if(s.includes('装飾'))return'#ffd166';if(s.includes('靴'))return'#ff7f50';return'#9aa4b2'}function drawClassed(regs){let ct=ctx('classed');ct.drawImage(C.orig,0,0);ct.font='bold 10px sans-serif';for(let r of regs.slice(0,45)){let c=clsColor(r.primary);box(ct,r.bbox,c);ct.fillStyle=c;ct.fillRect(r.bbox.x,r.bbox.y,86,14);ct.fillStyle='#081018';ct.fillText(r.primary.replace('候補','')+' '+r.conf,r.bbox.x+3,r.bbox.y+11)}}
-function makeSummary(regs,b,z,pal,q,rawCount=0){let c=C.summary;c.width=900;c.height=1260;let ct=ctx('summary');ct.fillStyle='#f7f9fc';ct.fillRect(0,0,c.width,c.height);ct.fillStyle='#10151f';ct.font='bold 24px sans-serif';ct.fillText('Non-AI解析まとめ v0.9',24,34);let arr=[['元画像',C.orig],['背景除去RGBA',C.cutout],['背景除去3段階',C.masks],['最終前景',C.mask],['品質スコア',C.quality],['頭胴脚',C.zones],['色クラスタ',C.cluster],['Region統合',C.merged],['候補分類',C.classed]];let x=24,y=58;for(let i=0;i<arr.length;i++){if(i===3){x=24;y=370}if(i===6){x=24;y=682}panel(ct,x,y,260,290,arr[i][0]);fit(ct,arr[i][1],x+10,y+36,240,244);x+=276}panel(ct,24,990,852,238,'結果ログ');ct.fillStyle=q.score>=65?'#008a3d':q.score>=45?'#b25b00':'#c1121f';ct.font='bold 22px sans-serif';ct.fillText('Score '+q.score+(rawCount?' / Region '+rawCount+'→'+regs.length:''),44,1026);ct.font='13px monospace';let yy=1050;for(let n of q.notes){ct.fillStyle=n[0]==='warn'?'#d62828':'#008a3d';ct.fillText((n[0]==='warn'?'WARN ':'OK   ')+n[1],44,yy);yy+=16}yy+=8;for(let r of regs.slice(0,9)){ct.fillStyle=clsColor(r.primary);ct.fillRect(44,yy-10,10,10);ct.fillStyle='#111';ct.fillText(`${r.size}${String(r.id).padStart(2,'0')} ${r.primary} conf=${r.conf} area=${r.area} bbox=${r.bbox.w}x${r.bbox.h} ${hex(r.color)} reason=${(r.reason||[]).join('/')}`,62,yy);yy+=16}}
-function panel(ct,x,y,w,h,t){ct.fillStyle='#fff';ct.strokeStyle='#cbd5e1';ct.beginPath();ct.roundRect(x,y,w,h,10);ct.fill();ct.stroke();ct.fillStyle='#111827';ct.font='bold 16px sans-serif';ct.fillText(t,x+12,y+24)}function fit(ct,c,x,y,w,h){let s=Math.min(w/c.width,h/c.height);ct.drawImage(c,x+(w-c.width*s)/2,y+(h-c.height*s)/2,c.width*s,c.height*s)}function box(ct,b,color,label=''){ct.save();ct.strokeStyle=color;ct.lineWidth=2;ct.strokeRect(b.x,b.y,b.w,b.h);if(label){ct.fillStyle=color;ct.font='bold 11px sans-serif';ct.fillText(label,b.x+3,b.y+12)}ct.restore()}function label(ct,t){ct.fillStyle='red';ct.font='bold 11px sans-serif';ct.fillText(t,4,13)}function hex(c){return'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('').toUpperCase()}
-function resultText(d){return `【v0.9 解析結果】\n品質Score: ${d.quality.score}\n入力種別: ${d.profile?d.profile.type:"unknown"}\n前景bbox: x=${d.fg.bbox.x}, y=${d.fg.bbox.y}, w=${d.fg.bbox.w}, h=${d.fg.bbox.h}\n色: ${d.palette.map(hex).join(', ')}\nRegion数: ${d.regs.length}\n\n品質チェック\n`+d.quality.notes.map(n=>`${n[0]==='warn'?'WARN':'OK'} ${n[1]}`).join('\n')+'\n\n上位Region\n'+d.regs.slice(0,20).map(r=>`${r.size}${String(r.id).padStart(2,'0')} ${r.primary} conf=${r.conf} area=${r.area} bbox=${r.bbox.w}x${r.bbox.h} center=(${Math.round(r.cx)},${Math.round(r.cy)}) ${hex(r.color)} reason=${(r.reason||[]).join('/')}`).join('\n')}
-if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r)}}
-</script></body></html>
+function rawMask(imgData,bgData,profile,tolBias=0){ const {data,width:w,height:h}=imgData; const bd=bgData.data; const strong=new Uint8Array(w*h), mid=new Uint8Array(w*h), weak=new Uint8Array(w*h); const base = {alpha_png:1,white_background:42,solid_background:36,light_gradient:30,simple_shadow:34}[profile] || 36; const bias = tolBias; for(let i=0,p=0;i<data.length;i+=4,p++){ const a=data[i+3]; const rgb=[data[i],data[i+1],data[i+2]]; const bg=[bd[i],bd[i+1],bd[i+2]]; const d=dist(rgb,bg); const s=sat(rgb[0],rgb[1],rgb[2]); const ldiff=Math.abs(lum(rgb[0],rgb[1],rgb[2])-lum(bg[0],bg[1],bg[2])); if(profile==='alpha_png'){ weak[p]=a>8?1:0; mid[p]=a>64?1:0; strong[p]=a>180?1:0; }
+      else { weak[p]=(d>base-bias-10 || (s>.18&&d>base-bias-18) || ldiff>base-bias+4)?1:0; mid[p]=(d>base-bias || (s>.22&&d>base-bias-8) || ldiff>base-bias+12)?1:0; strong[p]=(d>base-bias+18 || (s>.32&&d>base-bias+3) || ldiff>base-bias+30)?1:0; }} return {weak,mid,strong,w,h}; }
+
+function erode(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=1; for(let dy=-rad;dy<=rad&&ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h||!mask[yy*w+xx]){ok=0;break;} } out[y*w+x]=ok; } return out; }
+function dilate(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=0; for(let dy=-rad;dy<=rad&&!ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx>=0&&yy>=0&&xx<w&&yy<h&&mask[yy*w+xx]){ok=1;break;} } out[y*w+x]=ok; } return out; }
+function openMask(m,w,h){ return dilate(erode(m,w,h,1),w,h,1); }
+function closeMask(m,w,h){ return erode(dilate(m,w,h,1),w,h,1); }
+
+function components(mask,w,h){ const seen=new Uint8Array(mask.length), comps=[]; const qx=[],qy=[]; for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const idx=y*w+x; if(!mask[idx]||seen[idx]) continue; let minx=x,maxx=x,miny=y,maxy=y,area=0,sx=0,sy=0; qx.length=0;qy.length=0; qx.push(x);qy.push(y);seen[idx]=1; for(let qi=0;qi<qx.length;qi++){ const cx=qx[qi],cy=qy[qi],ci=cy*w+cx; area++;sx+=cx;sy+=cy; if(cx<minx)minx=cx;if(cx>maxx)maxx=cx;if(cy<miny)miny=cy;if(cy>maxy)maxy=cy; const ns=[[1,0],[-1,0],[0,1],[0,-1]]; for(const [dx,dy] of ns){ const nx=cx+dx,ny=cy+dy,ni=ny*w+nx; if(nx>=0&&ny>=0&&nx<w&&ny<h&&mask[ni]&&!seen[ni]){seen[ni]=1;qx.push(nx);qy.push(ny);} } } comps.push({area,minx,maxx,miny,maxy,cx:sx/area,cy:sy/area,w:maxx-minx+1,h:maxy-miny+1}); } return comps.sort((a,b)=>b.area-a.area); }
+function keepMainCharacter(mask,w,h){ const comps=components(mask,w,h); if(!comps.length) return {mask,comps,main:null}; const cx=w/2, cy=h/2; const scored=comps.map(c=>{ const centerDist=Math.hypot((c.cx-cx)/w,(c.cy-cy)/h); const bottomShadow=(c.miny>h*.68 && c.w>w*.28 && c.h<h*.16); return {...c,score:c.area*(bottomShadow?.05:1)*(1.3-centerDist)}; }).sort((a,b)=>b.score-a.score); const main=scored[0]; const out=new Uint8Array(mask.length); for(let y=main.miny;y<=main.maxy;y++)for(let x=main.minx;x<=main.maxx;x++){ const i=y*w+x; if(mask[i]) out[i]=1; } // Include nearby fragments inside expanded character bbox
+  const ex=clamp(Math.round(main.w*.18),6,60), ey=clamp(Math.round(main.h*.08),6,60); for(const c of scored.slice(1)){ const near=c.maxx>=main.minx-ex && c.minx<=main.maxx+ex && c.maxy>=main.miny-ey && c.miny<=main.maxy+ey; if(near && c.area>8){ for(let y=c.miny;y<=c.maxy;y++)for(let x=c.minx;x<=c.maxx;x++){ const i=y*w+x; if(mask[i]) out[i]=1; } } }
+  return {mask:out,comps:scored,main}; }
+function removeShadowLike(mask,imgData){ const {width:w,height:h,data}=imgData; const comps=components(mask,w,h); const out=mask.slice(); for(const c of comps){ const bottom=c.miny>h*.63, wide=c.w>w*.28, flat=c.h<h*.14; let avSat=0,avLum=0,n=0; for(let y=c.miny;y<=c.maxy;y+=2)for(let x=c.minx;x<=c.maxx;x+=2){ const i=(y*w+x)*4; if(mask[y*w+x]){avSat+=sat(data[i],data[i+1],data[i+2]);avLum+=lum(data[i],data[i+1],data[i+2]);n++;} } avSat/=n||1; avLum/=n||1; if(bottom&&wide&&flat&&avSat<.18){ for(let y=c.miny;y<=c.maxy;y++)for(let x=c.minx;x<=c.maxx;x++){ const i=y*w+x;if(mask[i])out[i]=0; } } } return out; }
+function refineMasks(raw,imgData){ const {w,h}=raw; const weak=closeMask(raw.weak,w,h); const mid=openMask(closeMask(raw.mid,w,h),w,h); const strong=openMask(raw.strong,w,h); let final=mid.slice(); // recover thin weak pixels near mid
+  const midDil=dilate(mid,w,h,2); for(let i=0;i<final.length;i++) if(weak[i]&&midDil[i]) final[i]=1; final=removeShadowLike(final,imgData); const kept=keepMainCharacter(final,w,h); return {weak,mid,strong,final:kept.mask,main:kept.main,components:kept.comps}; }
+function maskToImage(mask,w,h,color=[90,170,255]){ const out=makeImageData(w,h,[12,15,22,255]); const d=out.data; for(let i=0,p=0;p<mask.length;p++,i+=4){ if(mask[p]){d[i]=color[0];d[i+1]=color[1];d[i+2]=color[2];d[i+3]=255;} } return out; }
+function analysisImage(imgData,mask){ const out=new ImageData(new Uint8ClampedArray(imgData.data), imgData.width, imgData.height); for(let p=0,i=0;p<mask.length;p++,i+=4){ if(!mask[p]) out.data[i+3]=0; } return out; }
+function drawChecker(ctx,w,h,size=12){ ctx.fillStyle='#20242f';ctx.fillRect(0,0,w,h);ctx.fillStyle='#151923'; for(let y=0;y<h;y+=size)for(let x=0;x<w;x+=size){ if(((x/size)+(y/size))%2===0)ctx.fillRect(x,y,size,size); } }
+function drawAnalysis(c,imgData){ setCanvasSize(c,imgData.width,imgData.height); const ctx=c.getContext('2d'); drawChecker(ctx,c.width,c.height); ctx.putImageData(imgData,0,0); }
+function contourImage(imgData,mask,main){ const {width:w,height:h}=imgData; const out=new ImageData(new Uint8ClampedArray(imgData.data),w,h); const d=out.data; for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){ const p=y*w+x; if(mask[p] && (!mask[p-1]||!mask[p+1]||!mask[p-w]||!mask[p+w])){ const i=p*4; d[i]=255;d[i+1]=80;d[i+2]=80;d[i+3]=255; }} if(main){ // bbox green
+    for(let x=main.minx;x<=main.maxx;x++){ for(const y of [main.miny,main.maxy]){ const i=(y*w+x)*4; d[i]=80;d[i+1]=255;d[i+2]=120;d[i+3]=255; }}
+    for(let y=main.miny;y<=main.maxy;y++){ for(const x of [main.minx,main.maxx]){ const i=(y*w+x)*4; d[i]=80;d[i+1]=255;d[i+2]=120;d[i+3]=255; }} }
+  return out; }
+function overlayImage(imgData,mask,metrics){ const {width:w,height:h}=imgData; const out=new ImageData(new Uint8ClampedArray(imgData.data),w,h); const d=out.data; // red border leak pixels
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const p=y*w+x; if(mask[p]){ const edge=x<3||y<3||x>w-4||y>h-4; if(edge){ const i=p*4; d[i]=255;d[i+1]=0;d[i+2]=80;d[i+3]=255; } }}
+  // center mass cross
+  const cx=Math.round(metrics.cx), cy=Math.round(metrics.cy); for(let x=cx-10;x<=cx+10;x++){ if(x>=0&&x<w&&cy>=0&&cy<h){const i=(cy*w+x)*4; d[i]=255;d[i+1]=230;d[i+2]=70;d[i+3]=255;}} for(let y=cy-10;y<=cy+10;y++){ if(cx>=0&&cx<w&&y>=0&&y<h){const i=(y*w+cx)*4; d[i]=255;d[i+1]=230;d[i+2]=70;d[i+3]=255;}}
+  return out; }
+function maskMetrics(mask,w,h){ let area=0,sx=0,sy=0,border=0; for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const p=y*w+x; if(mask[p]){area++;sx+=x;sy+=y;if(x<3||y<3||x>w-4||y>h-4)border++;}} const ratio=area/(w*h); const cx=area?sx/area:w/2, cy=area?sy/area:h/2; const comps=components(mask,w,h); const main=comps[0]||null; const componentPenalty=Math.min(1,(comps.length-1)/30); const centerScore=1-clamp(Math.hypot((cx-w/2)/w,(cy-h*.52)/h)*3,0,1); const areaScore=ratio<.03?ratio/.03:ratio>.75?(1-(ratio-.75)/.25):1; const borderLeak=area?border/area:1; const leakScore=1-clamp(borderLeak*8,0,1); const compScore=1-componentPenalty; const coverage=main?clamp((main.maxy-main.miny)/h*1.4,0,1):0; return {area,ratio,cx,cy,comps,main,centerScore,areaScore,leakScore,compScore,coverage,borderLeak}; }
+function quality(mask,w,h,bgDiag){ const m=maskMetrics(mask,w,h); let score=100*(m.areaScore*.25 + m.centerScore*.22 + m.leakScore*.22 + m.compScore*.16 + m.coverage*.15); if(!bgDiag.supported) score*=.65; if(m.ratio>.85||m.ratio<.01) score*=.4; return {score:clamp(Math.round(score),0,100), metrics:m}; }
+function runProfile(imgData,profile,tolBias,bgDiag){ const bgKind=profile==='simple_shadow'?'light_gradient':profile; const bg=buildBackgroundModel(imgData,bgKind); const raw=rawMask(imgData,bg,profile,tolBias); const refined=refineMasks(raw,imgData); const q=quality(refined.final,imgData.width,imgData.height,bgDiag); return {profile,bg,raw,refined,quality:q.score,metrics:q.metrics}; }
+function runAnalysis(){ if(!state.imageData){ log('画像が未選択です。sample.pngで試すか、画像を選択してください。'); return; } const imgData=state.imageData; const tolBias=Number($('tol').value); const bgDiag=diagnoseBackground(imgData); const profiles = bgDiag.type==='alpha_png' ? ['alpha_png'] : ['white_background','solid_background','light_gradient','simple_shadow']; const results=profiles.map(p=>runProfile(imgData,p,tolBias,bgDiag)).sort((a,b)=>b.quality-a.quality); const best=results[0]; state.result={bgDiag,results,best,w:imgData.width,h:imgData.height,fileName:state.fileName};
+  renderResult(); }
+function renderResult(){ const {bgDiag,results,best,w,h}=state.result; drawImageData(canvases.cOriginal,state.imageData); drawImageData(canvases.cBg,best.bg); drawImageData(canvases.cWeak,maskToImage(best.refined.weak,w,h,[82,125,255])); drawImageData(canvases.cMid,maskToImage(best.refined.mid,w,h,[88,210,150])); drawImageData(canvases.cStrong,maskToImage(best.refined.strong,w,h,[255,190,80])); drawAnalysis(canvases.cAnalysis,analysisImage(state.imageData,best.refined.final)); drawImageData(canvases.cContour,contourImage(state.imageData,best.refined.final,best.metrics.main)); drawImageData(canvases.cOverlay,overlayImage(state.imageData,best.refined.final,best.metrics));
+  $('bgType').innerHTML = `${bgDiag.type} <span class="pill">${bgDiag.supported?'対応':'非対応警告'}</span>`; $('bestProfile').textContent=best.profile; const cls=best.quality>=80?'ok':best.quality>=60?'warn':'bad'; $('quality').innerHTML=`<span class="score ${cls}">${best.quality}/100</span>`; $('qualityBar').style.width=best.quality+'%'; $('qualityBar').style.background=best.quality>=80?'var(--ok)':best.quality>=60?'var(--warn)':'var(--bad)';
+  renderProfileTable(results); renderLog(); }
+function renderProfileTable(results){ let html='<table><thead><tr><th>Profile</th><th>Score</th><th>前景率</th><th>Comp</th><th>BorderLeak</th></tr></thead><tbody>'; for(const r of results){ const c=r.quality>=80?'ok':r.quality>=60?'warn':'bad'; html+=`<tr><td>${r.profile}</td><td class="score ${c}">${r.quality}</td><td>${(r.metrics.ratio*100).toFixed(1)}%</td><td>${r.metrics.comps.length}</td><td>${(r.metrics.borderLeak*100).toFixed(2)}%</td></tr>`; } html+='</tbody></table>'; $('profileTable').innerHTML=html; }
+function renderLog(){ const {bgDiag,best,w,h,fileName}=state.result; const m=best.metrics; const lines=[]; lines.push(`file: ${fileName}`); lines.push(`size: ${w} x ${h}`); lines.push(`background_type: ${bgDiag.type}`); lines.push(`supported: ${bgDiag.supported}`); lines.push(`reason: ${bgDiag.reason}`); lines.push(`border_std: ${bgDiag.borderStd.toFixed(2)}`); lines.push(`white_ratio: ${(bgDiag.whiteRatio*100).toFixed(1)}%`); lines.push(`alpha_ratio: ${(bgDiag.alphaRatio*100).toFixed(2)}%`); lines.push(''); lines.push(`best_profile: ${best.profile}`); lines.push(`quality_score: ${best.quality}/100`); lines.push(`foreground_area: ${m.area} px (${(m.ratio*100).toFixed(1)}%)`); lines.push(`component_count: ${m.comps.length}`); lines.push(`center_mass: (${m.cx.toFixed(1)}, ${m.cy.toFixed(1)})`); lines.push(`border_leak: ${(m.borderLeak*100).toFixed(2)}%`); if(m.main) lines.push(`main_bbox: x=${m.main.minx}, y=${m.main.miny}, w=${m.main.w}, h=${m.main.h}`);
+  lines.push(''); lines.push('判定:'); if(!bgDiag.supported) lines.push('・複雑背景の可能性が高いです。白背景/透過PNG化してから使う前提です。'); if(best.quality>=80) lines.push('・Preprocessorの結果は良好です。次のAnalysisへ渡せる可能性が高いです。'); else if(best.quality>=60) lines.push('・利用可能ですが、薄い髪/布/床影の混入確認が必要です。'); else lines.push('・品質が低いです。背景・影・画像端ノイズを確認してください。');
+  log(lines.join('\n')); }
+
+function saveCanvasImage(){ if(!state.result) return; const list=[['Original',canvases.cOriginal],['Background',canvases.cBg],['Weak',canvases.cWeak],['Middle',canvases.cMid],['Strong',canvases.cStrong],['Analysis',canvases.cAnalysis],['Contour',canvases.cContour],['Overlay',canvases.cOverlay]]; const cellW=360, labelH=28, pad=10; const cellH=Math.round(cellW*(state.result.h/state.result.w))+labelH; const out=document.createElement('canvas'); out.width=cellW*2+pad*3; out.height=cellH*4+pad*5+110; const ctx=out.getContext('2d'); ctx.fillStyle='#10131a';ctx.fillRect(0,0,out.width,out.height); ctx.fillStyle='#eef3ff';ctx.font='bold 18px -apple-system, sans-serif'; ctx.fillText('Sprite Studio Preprocessor Summary',pad,28); ctx.font='12px -apple-system, sans-serif'; ctx.fillStyle='#9ba8bd'; ctx.fillText(`profile=${state.result.best.profile} score=${state.result.best.quality}/100 type=${state.result.bgDiag.type}`,pad,50);
+  for(let i=0;i<list.length;i++){ const col=i%2,row=Math.floor(i/2); const x=pad+col*(cellW+pad), y=70+pad+row*(cellH+pad); ctx.fillStyle='#202633';ctx.fillRect(x,y,cellW,labelH); ctx.fillStyle='#eef3ff';ctx.font='bold 13px -apple-system, sans-serif';ctx.fillText(list[i][0],x+8,y+19); ctx.drawImage(list[i][1],x,y+labelH,cellW,cellH-labelH); }
+  downloadUrl(out.toDataURL('image/png'), 'preprocessor_summary.png'); }
+function saveJson(){ if(!state.result) return; const r=state.result; const json={version:'0.1',file:r.fileName,size:{w:r.w,h:r.h},background:r.bgDiag,best:{profile:r.best.profile,quality:r.best.quality,metrics:{foreground_ratio:r.best.metrics.ratio,component_count:r.best.metrics.comps.length,center:{x:r.best.metrics.cx,y:r.best.metrics.cy},border_leak:r.best.metrics.borderLeak,bbox:r.best.metrics.main}},profiles:r.results.map(x=>({profile:x.profile,quality:x.quality,foreground_ratio:x.metrics.ratio,component_count:x.metrics.comps.length,border_leak:x.metrics.borderLeak}))}; const blob=new Blob([JSON.stringify(json,null,2)],{type:'application/json'}); downloadUrl(URL.createObjectURL(blob),'preprocessor_diagnostic.json'); }
+function downloadUrl(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove(); if(url.startsWith('blob:')) URL.revokeObjectURL(url);},100); }
+function clearAll(){ state={img:null,imageData:null,result:null,fileName:'sample.png'}; for(const c of Object.values(canvases)){ setCanvasSize(c,1,1); c.getContext('2d').clearRect(0,0,1,1);} $('bgType').textContent='未解析';$('bestProfile').textContent='未解析';$('quality').textContent='-';$('qualityBar').style.width='0%';$('profileTable').innerHTML='';log('待機中...'); }
+
+$('maxSize').addEventListener('input',()=>{$('sizeText').textContent='最大 '+$('maxSize').value+'px';});
+$('tol').addEventListener('input',()=>{ const v=Number($('tol').value); $('tolText').textContent=v<10?'厳しめ':v>24?'ゆるめ':'標準'; });
+$('file').addEventListener('change', async e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; state.fileName=file.name; const img=await loadImageFromFile(file); state.img=img; state.imageData=imageToImageData(img,Number($('maxSize').value)); drawImageData(canvases.cOriginal,state.imageData); log('画像を読み込みました。解析するを押してください。'); });
+$('sampleBtn').addEventListener('click', async()=>{ const img=await loadImageFromUrl('sample.png'); state.fileName='sample.png'; state.img=img; state.imageData=imageToImageData(img,Number($('maxSize').value)); drawImageData(canvases.cOriginal,state.imageData); log('sample.pngを読み込みました。解析するを押してください。'); });
+$('runBtn').addEventListener('click',()=>{ try{ runAnalysis(); }catch(e){ console.error(e); log('エラー: '+(e&&e.stack?e.stack:e)); }});
+$('savePng').addEventListener('click',saveCanvasImage); $('saveJson').addEventListener('click',saveJson); $('clearBtn').addEventListener('click',clearAll);
+
+(async()=>{ try{ const img=await loadImageFromUrl('sample.png'); state.img=img; state.imageData=imageToImageData(img,Number($('maxSize').value)); drawImageData(canvases.cOriginal,state.imageData); log('sample.pngを自動読み込みしました。解析するを押してください。'); }catch(e){ log('sample.pngが読み込めません。画像を選択してください。'); }})();
+})();
+</script>
+</body>
+</html>
