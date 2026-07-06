@@ -2,400 +2,114 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Sprite Studio Preprocessor iPhone Test Viewer v0.4</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Sprite Studio Region Viewer v0.8</title>
 <style>
-  :root{--bg:#10131a;--panel:#171c25;--panel2:#202633;--text:#eef3ff;--muted:#9ba8bd;--line:#30384a;--accent:#7fb0ff;--ok:#57d68d;--warn:#ffd166;--bad:#ff6b6b;}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;} 
-  header{position:sticky;top:0;z-index:10;background:rgba(16,19,26,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:12px 14px;}
-  h1{font-size:18px;margin:0 0 4px;} .sub{font-size:12px;color:var(--muted)}
-  main{padding:14px;max-width:1120px;margin:auto;}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 12px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row>*{flex:1 1 auto}
-  button,.fileLabel{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;padding:11px 12px;font-weight:700;font-size:14px;text-align:center;display:inline-block;}
-  button.primary{background:#204773;border-color:#376da6}.danger{color:#ffb4b4}.mini{font-size:12px;padding:8px 9px;border-radius:10px;}
-  input[type=file]{display:none} select,input[type=range]{width:100%;}
-  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.panel{background:#0c0f15;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
-  .panel h2{font-size:13px;margin:0;padding:8px 10px;background:var(--panel2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;align-items:center}.panel h2 span{font-size:11px;color:var(--muted);font-weight:500}
-  canvas{width:100%;height:auto;display:block;image-rendering:auto;background:#0f1218;}
-  .log{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#d9e6ff;max-height:360px;overflow:auto;background:#0c0f15;border:1px solid var(--line);border-radius:12px;padding:10px;}
-  table{width:100%;border-collapse:collapse;font-size:12px} th,td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left} th{color:var(--muted);font-weight:700} .score{font-weight:900}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-  .pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:11px;color:var(--muted)}
-  .meter{height:8px;background:#0d1017;border-radius:999px;overflow:hidden;border:1px solid var(--line)} .bar{height:100%;background:var(--accent);width:0%}
-  @media (max-width:720px){.grid{grid-template-columns:1fr} main{padding:10px}.card{border-radius:12px;padding:10px} header{padding:10px 12px} h1{font-size:16px}}
+:root{--bg:#0f1520;--panel:#171f2d;--panel2:#202a3a;--text:#e8eef8;--muted:#9aa8bd;--line:#344155;--ok:#3bd17f;--warn:#ffcf5a;--bad:#ff6b6b;--accent:#58a6ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:14px}h1{font-size:22px;margin:0 0 8px}.sub{color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.5}.bar{display:grid;gap:8px;margin:10px 0 14px}.bar input,.bar button,.bar select{font-size:15px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px}button{cursor:pointer}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.card h2{font-size:14px;margin:0;padding:8px 10px;background:var(--panel2);display:flex;justify-content:space-between}.card canvas{width:100%;display:block;background:#0b1018;image-rendering:auto}.wide{grid-column:1/-1}.log{white-space:pre-wrap;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;padding:10px;background:#07101b;color:#d8e7ff;max-height:320px;overflow:auto}.pill{font-size:11px;color:var(--muted)}.row{display:flex;gap:8px;flex-wrap:wrap}.mini{font-size:12px;color:var(--muted)}.legend{display:flex;gap:7px;flex-wrap:wrap;padding:8px 10px;background:#101827}.tag{border-radius:999px;padding:4px 8px;font-size:11px;background:#263244}.footer{margin:14px 0;color:var(--muted);font-size:12px;line-height:1.5}@media(min-width:900px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wide{grid-column:1/-1}.bar{grid-template-columns:1fr auto auto auto}}
 </style>
 </head>
 <body>
-<header>
-  <h1>Sprite Studio Preprocessor iPhone Test Viewer v0.4</h1>
-  <div class="sub">AIなし / Canvasのみ / Original非破壊 / Lab/HSV / 4値マスク / GrabCut風反復 / Lab距離Alpha / 境界なじませ</div>
-</header>
-<main>
-  <section class="card">
-    <div class="row">
-      <label class="fileLabel">画像を選択<input id="file" type="file" accept="image/*"></label>
-      <button id="sampleBtn">sample.pngで試す</button>
-      <button id="runBtn" class="primary">解析する</button>
-    </div>
-    <div style="margin-top:10px" class="row">
-      <label>解析サイズ <span id="sizeText" class="pill">最大 768px</span><input id="maxSize" type="range" min="256" max="1024" step="128" value="768"></label>
-      <label>背景許容度 <span id="tolText" class="pill">標準</span><input id="tol" type="range" min="0" max="40" step="1" value="14"></label>
-    </div>
-    <div class="sub" style="margin-top:8px">対象：白背景・単色背景・薄グラデーション・透過PNG。複雑背景は警告のみ。</div>
-  </section>
-
-  <section class="card" id="statusCard">
-    <div class="row">
-      <div><b>入力種別：</b><span id="bgType">未解析</span></div>
-      <div><b>採用Profile：</b><span id="bestProfile">未解析</span></div>
-      <div><b>品質：</b><span id="quality">-</span></div>
-    </div>
-    <div style="margin-top:8px" class="meter"><div id="qualityBar" class="bar"></div></div>
-  </section>
-
-  <section class="grid">
-    <div class="panel"><h2>Original Image <span>非破壊</span></h2><canvas id="cOriginal"></canvas></div>
-    <div class="panel"><h2>Background Model <span>推定背景</span></h2><canvas id="cBg"></canvas></div>
-    <div class="panel"><h2>Soft Candidate <span>薄い髪・布の候補保持</span></h2><canvas id="cWeak"></canvas></div>
-    <div class="panel"><h2>Core+Soft Mask <span>通常前景 + 候補</span></h2><canvas id="cMid"></canvas></div>
-    <div class="panel"><h2>Core Mask <span>確実な本体</span></h2><canvas id="cStrong"></canvas></div>
-    <div class="panel"><h2>Analysis Image <span>背景透明化結果</span></h2><canvas id="cAnalysis"></canvas></div>
-    <div class="panel"><h2>Contour / Main Component <span>人物候補</span></h2><canvas id="cContour"></canvas></div>
-    <div class="panel"><h2>Diagnostic Overlay <span>漏れ・穴・重心</span></h2><canvas id="cOverlay"></canvas></div>
-  </section>
-
-  <section class="card">
-    <h2 style="font-size:15px;margin:0 0 8px">Profile Quality</h2>
-    <div id="profileTable"></div>
-  </section>
-
-  <section class="card">
-    <div class="row">
-      <button id="savePng">まとめPNG保存</button>
-      <button id="saveJson">診断JSON保存</button>
-      <button id="clearBtn" class="danger">クリア</button>
-    </div>
-  </section>
-
-  <section class="card"><div id="log" class="log">待機中...</div></section>
-</main>
+<h1>Sprite Studio Region Viewer v0.8</h1>
+<div class="sub">AIなし / Canvasのみ。v0.4背景除去 → 基準線 → Lab k-means → Region生成 → 統合 → 候補分類 → 簡易補正 → PNG/JSON出力。</div>
+<div class="bar">
+<input id="file" type="file" accept="image/*" />
+<select id="k"><option value="7">色数 k=7</option><option value="6">色数 k=6</option><option value="8">色数 k=8</option><option value="10">色数 k=10</option></select>
+<button id="run">解析</button>
+<button id="summary">まとめPNG</button>
+<button id="json">JSON保存</button>
+</div>
+<div class="grid">
+  <div class="card"><h2>0. Original <span id="size" class="pill"></span></h2><canvas id="cOriginal"></canvas></div>
+  <div class="card"><h2>1. Analysis Image <span id="score" class="pill"></span></h2><canvas id="cAnalysis"></canvas></div>
+  <div class="card"><h2>2. Core / Soft / Shadow</h2><canvas id="cMasks"></canvas></div>
+  <div class="card"><h2>3. Base Lines</h2><canvas id="cLines"></canvas></div>
+  <div class="card"><h2>4. Color Cluster</h2><canvas id="cCluster"></canvas></div>
+  <div class="card"><h2>5. Region Before Merge</h2><canvas id="cBefore"></canvas></div>
+  <div class="card"><h2>6. Region After Merge</h2><canvas id="cAfter"></canvas></div>
+  <div class="card"><h2>7. Candidate Preview</h2><canvas id="cCand"></canvas></div>
+  <div class="card"><h2>8. Part Preview</h2><canvas id="cPart"></canvas><div class="legend" id="partButtons"></div></div>
+  <div class="card wide"><h2>Result Log</h2><div id="log" class="log"></div></div>
+</div>
+<div class="footer">MVP目的：完全自動の正解ではなく、手動補正しやすい候補Regionを作る。v0.8は仕様を一気に入れた検証版です。</div>
 <script>
-(() => {
 'use strict';
-const $ = id => document.getElementById(id);
-const canvases = ['cOriginal','cBg','cWeak','cMid','cStrong','cAnalysis','cContour','cOverlay'].reduce((a,id)=>(a[id]=$(id),a),{});
-let state = { img:null, imageData:null, result:null, fileName:'sample.png' };
-
-function log(msg){ $('log').textContent = msg; }
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-function dist(a,b){ const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2]; return Math.sqrt(dr*dr+dg*dg+db*db); }
-function lum(r,g,b){ return 0.2126*r + 0.7152*g + 0.0722*b; }
-function sat(r,g,b){ const mx=Math.max(r,g,b), mn=Math.min(r,g,b); return mx===0?0:(mx-mn)/mx; }
-function meanColor(samples){ let r=0,g=0,b=0,n=samples.length||1; for(const p of samples){r+=p[0];g+=p[1];b+=p[2];} return [r/n,g/n,b/n]; }
-function medianColor(samples){
-  if(!samples.length) return [0,0,0];
-  const pick=k=>{ const a=samples.map(p=>p[k]).sort((x,y)=>x-y); return a[Math.floor(a.length/2)]; };
-  return [pick(0),pick(1),pick(2)];
+const qs=id=>document.getElementById(id);
+const canvases={original:qs('cOriginal'),analysis:qs('cAnalysis'),masks:qs('cMasks'),lines:qs('cLines'),cluster:qs('cCluster'),before:qs('cBefore'),after:qs('cAfter'),cand:qs('cCand'),part:qs('cPart')};
+let state={img:null,w:0,h:0,orig:null,result:null,selectedPart:'hair'};
+const LABELS={hair:'髪',skin:'肌/顔',ear:'耳',sheer:'上着/薄布',cloth:'衣装本体',leg:'脚',shoe:'靴',ornament:'装飾',shadow:'影',unknown:'未分類'};
+const COLORS={hair:[184,120,255],skin:[255,176,144],ear:[255,140,110],sheer:[110,230,190],cloth:[20,160,100],leg:[20,120,90],shoe:[160,110,70],ornament:[255,205,70],shadow:[120,120,160],unknown:[170,180,195]};
+function fitCanvas(c,w,h){c.width=w;c.height=h;}
+function drawImageData(c,imgData){fitCanvas(c,imgData.width,imgData.height);c.getContext('2d').putImageData(imgData,0,0);}
+function cloneData(d){return new Uint8ClampedArray(d);}function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;let mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,h=0;if(d!==0){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360}return [h,d/(mx||1),mx]}
+function rgb2xyz(r,g,b){r/=255;g/=255;b/=255;[r,g,b]=[r,g,b].map(v=>v>0.04045?Math.pow((v+0.055)/1.055,2.4):v/12.92);return [r*0.4124+g*0.3576+b*0.1805,r*0.2126+g*0.7152+b*0.0722,r*0.0193+g*0.1192+b*0.9505]}
+function rgb2lab(r,g,b){let [x,y,z]=rgb2xyz(r,g,b);x/=0.95047;y/=1.00000;z/=1.08883;let f=t=>t>0.008856?Math.cbrt(t):(7.787*t+16/116);let fx=f(x),fy=f(y),fz=f(z);return [116*fy-16,500*(fx-fy),200*(fy-fz)]}
+function labDist(a,b){let dl=a[0]-b[0],da=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dl*dl+da*da+db*db)}
+function median(arr){arr.sort((a,b)=>a-b);return arr[Math.floor(arr.length/2)]||0}
+function estimateBg(data,w,h,bw=12){let rs=[],gs=[],bs=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(x<bw||x>=w-bw||y<bw||y>=h-bw){let i=(y*w+x)*4;rs.push(data[i]);gs.push(data[i+1]);bs.push(data[i+2]);}}return [median(rs),median(gs),median(bs)]}
+function makeImageData(w,h,fill=[0,0,0,255]){let id=new ImageData(w,h);for(let i=0;i<w*h;i++){let j=i*4;id.data[j]=fill[0];id.data[j+1]=fill[1];id.data[j+2]=fill[2];id.data[j+3]=fill[3];}return id}
+function connected(mask,w,h){let seen=new Uint8Array(w*h), comps=[];let qx=new Int32Array(w*h),qy=new Int32Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let p=y*w+x;if(!mask[p]||seen[p])continue;let qs=0,qe=0;qx[qe]=x;qy[qe++]=y;seen[p]=1;let area=0,minx=x,maxx=x,miny=y,maxy=y,sx=0,sy=0,pixels=[];while(qs<qe){let cx=qx[qs],cy=qy[qs++],cp=cy*w+cx;area++;sx+=cx;sy+=cy;pixels.push(cp);if(cx<minx)minx=cx;if(cx>maxx)maxx=cx;if(cy<miny)miny=cy;if(cy>maxy)maxy=cy;let ns=[[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];for(const [nx,ny] of ns){if(nx<0||ny<0||nx>=w||ny>=h)continue;let np=ny*w+nx;if(mask[np]&&!seen[np]){seen[np]=1;qx[qe]=nx;qy[qe++]=ny;}}}
+comps.push({area,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx:sx/area,cy:sy/area,pixels});}}return comps}
+function removeSmall(mask,w,h,minArea=30,removeBorder=false){let out=new Uint8Array(mask), comps=connected(mask,w,h);for(const c of comps){let border=c.minx===0||c.miny===0||c.maxx===w-1||c.maxy===h-1;if(c.area<minArea||(removeBorder&&border&&c.area<2500)){for(const p of c.pixels)out[p]=0;}}return out}
+function dilate(mask,w,h,r=1){let out=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let hit=0;for(let dy=-r;dy<=r&&!hit;dy++)for(let dx=-r;dx<=r;dx++){let nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<w&&ny<h&&mask[ny*w+nx]){hit=1;break}}out[y*w+x]=hit;}return out}
+function erode(mask,w,h,r=1){let out=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let ok=1;for(let dy=-r;dy<=r&&ok;dy++)for(let dx=-r;dx<=r;dx++){let nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=w||ny>=h||!mask[ny*w+nx]){ok=0;break}}out[y*w+x]=ok;}return out}
+function closeMask(mask,w,h,r=1){return erode(dilate(mask,w,h,r),w,h,r)}
+function bboxOf(mask,w,h){let minx=w,miny=h,maxx=-1,maxy=-1,area=0,sx=0,sy=0;for(let p=0;p<w*h;p++){if(mask[p]){let x=p%w,y=(p/w)|0;area++;sx+=x;sy+=y;if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;}}if(!area)return null;return {minx,miny,maxx,maxy,w:maxx-minx+1,h:maxy-miny+1,area,cx:sx/area,cy:sy/area};}
+function preprocess(imgData){const {width:w,height:h,data}=imgData;const bg=estimateBg(data,w,h,12), bgLab=rgb2lab(...bg);let core=new Uint8Array(w*h),soft=new Uint8Array(w*h),shadow=new Uint8Array(w*h),alpha=new Uint8ClampedArray(w*h);let distArr=new Float32Array(w*h);let sureBg=new Uint8Array(w*h),probBg=new Uint8Array(w*h),probFg=new Uint8Array(w*h),sureFg=new Uint8Array(w*h);
+for(let y=0;y<h;y++)for(let x=0;x<w;x++){let p=y*w+x,i=p*4;let r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];let lab=rgb2lab(r,g,b),d=labDist(lab,bgLab);distArr[p]=d;let [hh,s,v]=rgb2hsv(r,g,b);let border=x<10||y<10||x>=w-10||y>=h-10;let central=x>w*.18&&x<w*.82&&y>h*.02&&y<h*.98; if(a<8){sureBg[p]=1;continue;} if(border || (d<8 && s*255<25)){sureBg[p]=1;} else if(d<16 && s*255<22){probBg[p]=1;} if(central || d>12){probFg[p]=1;} if(d>70 || (s*255>45 && v*255<245)){sureFg[p]=1;}}
+// lightweight GrabCut-like refinement by color centroids in Lab
+let fgLab=[0,0,0],bgLabMean=[0,0,0],fn=0,bn=0;function addLab(acc,lab){acc[0]+=lab[0];acc[1]+=lab[1];acc[2]+=lab[2];}
+for(let iter=0;iter<4;iter++){fgLab=[0,0,0];bgLabMean=[0,0,0];fn=0;bn=0;for(let p=0;p<w*h;p++){let i=p*4,lab=rgb2lab(data[i],data[i+1],data[i+2]);if(sureFg[p]|| (probFg[p]&&!probBg[p])){addLab(fgLab,lab);fn++;} if(sureBg[p]||probBg[p]){addLab(bgLabMean,lab);bn++;}}fgLab=fgLab.map(v=>v/(fn||1));bgLabMean=bgLabMean.map(v=>v/(bn||1));for(let p=0;p<w*h;p++){if(sureBg[p]||sureFg[p])continue;let i=p*4,lab=rgb2lab(data[i],data[i+1],data[i+2]);let df=labDist(lab,fgLab),db=labDist(lab,bgLabMean);if(df+3<db)probFg[p]=1;else if(db+3<df)probBg[p]=1;}}
+for(let p=0;p<w*h;p++){let i=p*4;let [hh,s,v]=rgb2hsv(data[i],data[i+1],data[i+2]);let d=distArr[p];let y=(p/w)|0;let isShadow=y>h*.76 && s*255<35 && d<38; if(isShadow){shadow[p]=1;}
+  if(sureFg[p] || (probFg[p]&&!probBg[p]) || d>34){core[p]=1;}
+  let softCond=(d>5 && d<45) || (probFg[p]&&d>10) || (s*255>12&&d>8); if(softCond&&!sureBg[p])soft[p]=1;
+  let aa=clamp((d-5)/28,0,1); alpha[p]=Math.round(aa*255);
 }
-function rgbToHsv(r,g,b){
-  r/=255; g/=255; b/=255;
-  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
-  let h=0;
-  if(d!==0){ if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0) h+=360; }
-  return [h, mx===0?0:d/mx, mx];
-}
-function srgbToLinear(v){ v/=255; return v<=0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }
-function rgbToLab(r,g,b){
-  const R=srgbToLinear(r), G=srgbToLinear(g), B=srgbToLinear(b);
-  let X=R*0.4124564 + G*0.3575761 + B*0.1804375;
-  let Y=R*0.2126729 + G*0.7151522 + B*0.0721750;
-  let Z=R*0.0193339 + G*0.1191920 + B*0.9503041;
-  X/=0.95047; Y/=1.00000; Z/=1.08883;
-  const f=t=> t>0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
-  const fx=f(X), fy=f(Y), fz=f(Z);
-  return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
-}
-function labDist(a,b){ const dL=a[0]-b[0], da=a[1]-b[1], db=a[2]-b[2]; return Math.sqrt(dL*dL+da*da+db*db); }
-function colorToCss(c,a=1){ return `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`; }
-function getPix(data,w,x,y){ const i=(y*w+x)*4; return [data[i],data[i+1],data[i+2],data[i+3]]; }
-function setCanvasSize(c,w,h){ c.width=w; c.height=h; }
-function drawImageData(c,imgData){ setCanvasSize(c,imgData.width,imgData.height); c.getContext('2d').putImageData(imgData,0,0); }
-function makeImageData(w,h,fill=[0,0,0,255]){ const d=new Uint8ClampedArray(w*h*4); for(let i=0;i<d.length;i+=4){d[i]=fill[0];d[i+1]=fill[1];d[i+2]=fill[2];d[i+3]=fill[3];} return new ImageData(d,w,h); }
-
-function loadImageFromUrl(url){ return new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=url+(url.includes('?')?'&':'?')+'t='+Date.now(); }); }
-function loadImageFromFile(file){ return new Promise((resolve,reject)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src=fr.result; }; fr.onerror=reject; fr.readAsDataURL(file); }); }
-function imageToImageData(img,maxSize){ const scale=Math.min(1, maxSize/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height)); const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale)); const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale)); const c=document.createElement('canvas'); c.width=w; c.height=h; const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h); return ctx.getImageData(0,0,w,h); }
-
-function borderSamples(imgData, step=4){ const {data,width:w,height:h}=imgData; const s=[]; for(let x=0;x<w;x+=step){s.push(getPix(data,w,x,0));s.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){s.push(getPix(data,w,0,y));s.push(getPix(data,w,w-1,y));} return s; }
-function diagnoseBackground(imgData){ const {data,width:w,height:h}=imgData; let alphaTransparent=0,total=w*h; for(let i=3;i<data.length;i+=4){ if(data[i]<245) alphaTransparent++; }
-  const samples=borderSamples(imgData, Math.max(2,Math.round(Math.max(w,h)/180))); const mean=medianColor(samples); let variance=0, whiteLike=0, highSat=0; for(const p of samples){ variance += dist(p,mean)**2; if(p[0]>235&&p[1]>235&&p[2]>235) whiteLike++; if(sat(p[0],p[1],p[2])>.25) highSat++; }
-  const std=Math.sqrt(variance/samples.length); const whiteRatio=whiteLike/samples.length; const highSatRatio=highSat/samples.length;
-  let type='solid'; let supported=true; let reason='四辺の背景色が近い';
-  if(alphaTransparent/total>.01){ type='alpha_png'; reason='透明ピクセルを検出'; }
-  else if(whiteRatio>.75 && std<34){ type='white_background'; reason='四辺が白背景に近い'; }
-  else if(std<18){ type='solid_background'; reason='四辺の色差が小さい'; }
-  else if(std<46 && highSatRatio<.25){ type='light_gradient'; reason='四辺にゆるい色差。薄グラデーション候補'; }
-  else { type='complex'; supported=false; reason='四辺の色差・彩度差が大きい。複雑背景の可能性'; }
-  return {type,supported,reason,borderMean:mean,borderStd:std,whiteRatio,alphaRatio:alphaTransparent/total,highSatRatio};
-}
-
-function buildBackgroundModel(imgData, kind){ const {data,width:w,height:h}=imgData; const out=makeImageData(w,h,[0,0,0,255]); const od=out.data; const top=[],bottom=[],left=[],right=[]; const step=Math.max(2,Math.round(Math.max(w,h)/160)); for(let x=0;x<w;x+=step){top.push(getPix(data,w,x,0));bottom.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){left.push(getPix(data,w,0,y));right.push(getPix(data,w,w-1,y));} const ct=medianColor(top), cb=medianColor(bottom), cl=medianColor(left), cr=medianColor(right); const solid=medianColor([...top,...bottom,...left,...right]);
-  for(let y=0;y<h;y++){ const ty=h<=1?0:y/(h-1); for(let x=0;x<w;x++){ const tx=w<=1?0:x/(w-1); let c; if(kind==='solid_background'||kind==='white_background'||kind==='alpha_png'){ c=solid; } else { const v=[ct[0]*(1-ty)+cb[0]*ty, ct[1]*(1-ty)+cb[1]*ty, ct[2]*(1-ty)+cb[2]*ty]; const hv=[cl[0]*(1-tx)+cr[0]*tx, cl[1]*(1-tx)+cr[1]*tx, cl[2]*(1-tx)+cr[2]*tx]; c=[(v[0]+hv[0])/2,(v[1]+hv[1])/2,(v[2]+hv[2])/2]; } const i=(y*w+x)*4; od[i]=c[0];od[i+1]=c[1];od[i+2]=c[2];od[i+3]=255; }} return out; }
-
-function edgeMap(imgData){ const {data,width:w,height:h}=imgData; const out=new Float32Array(w*h); const L=(x,y)=>{ const i=(y*w+x)*4; return lum(data[i],data[i+1],data[i+2]); }; for(let y=1;y<h-1;y++){ for(let x=1;x<w-1;x++){ const gx=-L(x-1,y-1)-2*L(x-1,y)-L(x-1,y+1)+L(x+1,y-1)+2*L(x+1,y)+L(x+1,y+1); const gy=-L(x-1,y-1)-2*L(x,y-1)-L(x+1,y-1)+L(x-1,y+1)+2*L(x,y+1)+L(x+1,y+1); out[y*w+x]=Math.min(255,Math.hypot(gx,gy)/4); }} return out; }
-function estimateModelStats(labels, features, wantFg){
-  // wantFg: true=foreground seeds, false=background seeds
-  let n=0, L=0,A=0,B=0,S=0,V=0;
-  for(let p=0;p<labels.length;p++){
-    const lab=features.lab[p], hsv=features.hsv[p];
-    const label=labels[p];
-    const use = wantFg ? (label===1 || label===3) : (label===0 || label===2);
-    if(!use) continue;
-    const weight = wantFg ? (label===1?3:1) : (label===0?3:1);
-    n+=weight; L+=lab[0]*weight; A+=lab[1]*weight; B+=lab[2]*weight; S+=hsv[1]*100*weight; V+=hsv[2]*100*weight;
-  }
-  n=n||1;
-  return [L/n,A/n,B/n,S/n,V/n];
-}
-function featureDistance(f, model){
-  const dL=f[0]-model[0], da=f[1]-model[1], db=f[2]-model[2], ds=(f[3]-model[3])*0.55, dv=(f[4]-model[4])*0.35;
-  return Math.sqrt(dL*dL+da*da+db*db+ds*ds+dv*dv);
-}
-function rawMask(imgData,bgData,profile,tolBias=0){
-  const {data,width:w,height:h}=imgData;
-  const bd=bgData.data;
-  const strong=new Uint8Array(w*h), mid=new Uint8Array(w*h), weak=new Uint8Array(w*h), labels=new Uint8Array(w*h);
-  const edge=edgeMap(imgData);
-  const labArr=new Array(w*h), bgLabArr=new Array(w*h), hsvArr=new Array(w*h);
-  const labD=new Float32Array(w*h), alphaHint=new Float32Array(w*h);
-  const borderW=10;
-  const tol=tolBias;
-  for(let i=0,p=0;i<data.length;i+=4,p++){
-    const r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];
-    const br=bd[i],bg=bd[i+1],bb=bd[i+2];
-    const lab=rgbToLab(r,g,b), blab=rgbToLab(br,bg,bb), hsv=rgbToHsv(r,g,b);
-    labArr[p]=lab; bgLabArr[p]=blab; hsvArr[p]=hsv;
-    const d=labDist(lab,blab); labD[p]=d;
-    alphaHint[p]=clamp((d-5)/28,0,1);
-    const x=p%w, y=Math.floor(p/w);
-    const s=hsv[1]*255, v=hsv[2]*255;
-    // 0=確定背景, 1=確定前景, 2=背景候補, 3=前景候補
-    let label=2;
-    const onBorder = x<borderW || y<borderW || x>=w-borderW || y>=h-borderW;
-    const center = Math.abs(x-w/2) < w*.43 && y>h*.03 && y<h*.985;
-    const centralLoose = Math.abs(x-w/2) < w*.49 && y>h*.02 && y<h*.99;
-    if(profile==='alpha_png'){
-      if(a<16) label=0; else if(a>220) label=1; else if(a>64) label=3; else label=2;
-    } else if(onBorder || (d < 8+tol*.08 && s < 25)){
-      label=0;
-    } else if(d < 16+tol*.12 && s < 18){
-      label=2;
-    } else if(d > 70-tol*.2 || (s > 45 && v < 235 && d > 18)){
-      label=1;
-    } else if(center || d > 12-tol*.15 || d > 35-tol*.2 || (edge[p]>12 && centralLoose)){
-      label=3;
-    } else {
-      label=2;
-    }
-    labels[p]=label;
-  }
-  // GrabCut風：確定/候補ラベルから前景/背景の特徴統計を作り、候補を数回再分類する。
-  const features={lab:labArr,hsv:hsvArr};
-  for(let iter=0; iter<5; iter++){
-    const fgModel=estimateModelStats(labels,features,true);
-    const bgModel=estimateModelStats(labels,features,false);
-    const next=labels.slice();
-    for(let p=0;p<labels.length;p++){
-      if(labels[p]===0 || labels[p]===1) continue;
-      const x=p%w, y=Math.floor(p/w);
-      const hsv=hsvArr[p]; const lab=labArr[p];
-      const f=[lab[0],lab[1],lab[2],hsv[1]*100,hsv[2]*100];
-      const df=featureDistance(f,fgModel), db=featureDistance(f,bgModel);
-      const centerBonus=(Math.abs(x-w/2)<w*.44 && y>h*.04 && y<h*.985) ? 8 : -3;
-      const edgeBonus=edge[p]>10 ? 4 : 0;
-      const alphaBonus=alphaHint[p]*10;
-      const score=(db-df) + centerBonus + edgeBonus + alphaBonus;
-      next[p] = score>2 ? 3 : 2;
-    }
-    labels.set(next);
-  }
-  // Convert 4-value labels to v0.3 compatible mask layers.
-  for(let p=0;p<labels.length;p++){
-    const x=p%w, y=Math.floor(p/w);
-    const hsv=hsvArr[p];
-    const s=hsv[1]*255, v=hsv[2]*255;
-    const d=labD[p];
-    const centerLoose = Math.abs(x-w/2) < w*.49 && y>h*.02 && y<h*.99;
-    const centerSafe = Math.abs(x-w/2) < w*.41 && y>h*.04 && y<h*.975;
-    const structured = edge[p] > 6;
-    const darkSubject = v < 105 && d > 12;
-    const label=labels[p];
-    weak[p] = (label===1 || label===3 || (centerLoose && d>7 && (structured || s>18 || darkSubject))) ? 1 : 0;
-    mid[p] = (label===1 || (label===3 && (d>12 || s>22 || structured || darkSubject))) ? 1 : 0;
-    strong[p] = (label===1 || (label===3 && centerSafe && (d>35 || s>45 || darkSubject) && edge[p]>4)) ? 1 : 0;
-  }
-  return {weak,mid,strong,edge,w,h,labD,alphaHint,labels};
-}
-
-function erode(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=1; for(let dy=-rad;dy<=rad&&ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h||!mask[yy*w+xx]){ok=0;break;} } out[y*w+x]=ok; } return out; }
-function dilate(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=0; for(let dy=-rad;dy<=rad&&!ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx>=0&&yy>=0&&xx<w&&yy<h&&mask[yy*w+xx]){ok=1;break;} } out[y*w+x]=ok; } return out; }
-function openMask(m,w,h){ return dilate(erode(m,w,h,1),w,h,1); }
-function closeMask(m,w,h){ return erode(dilate(m,w,h,1),w,h,1); }
-
-function components(mask,w,h){ const seen=new Uint8Array(mask.length), comps=[]; const qx=[],qy=[]; for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const idx=y*w+x; if(!mask[idx]||seen[idx]) continue; let minx=x,maxx=x,miny=y,maxy=y,area=0,sx=0,sy=0; qx.length=0;qy.length=0; qx.push(x);qy.push(y);seen[idx]=1; for(let qi=0;qi<qx.length;qi++){ const cx=qx[qi],cy=qy[qi],ci=cy*w+cx; area++;sx+=cx;sy+=cy; if(cx<minx)minx=cx;if(cx>maxx)maxx=cx;if(cy<miny)miny=cy;if(cy>maxy)maxy=cy; const ns=[[1,0],[-1,0],[0,1],[0,-1]]; for(const [dx,dy] of ns){ const nx=cx+dx,ny=cy+dy,ni=ny*w+nx; if(nx>=0&&ny>=0&&nx<w&&ny<h&&mask[ni]&&!seen[ni]){seen[ni]=1;qx.push(nx);qy.push(ny);} } } comps.push({area,minx,maxx,miny,maxy,cx:sx/area,cy:sy/area,w:maxx-minx+1,h:maxy-miny+1}); } return comps.sort((a,b)=>b.area-a.area); }
-function keepMainCharacter(mask,w,h){ const comps=components(mask,w,h); if(!comps.length) return {mask,comps,main:null}; const cx=w/2, cy=h/2; const scored=comps.map(c=>{ const centerDist=Math.hypot((c.cx-cx)/w,(c.cy-cy)/h); const bottomShadow=(c.miny>h*.68 && c.w>w*.28 && c.h<h*.16); return {...c,score:c.area*(bottomShadow?.05:1)*(1.3-centerDist)}; }).sort((a,b)=>b.score-a.score); const main=scored[0]; const out=new Uint8Array(mask.length); for(let y=main.miny;y<=main.maxy;y++)for(let x=main.minx;x<=main.maxx;x++){ const i=y*w+x; if(mask[i]) out[i]=1; } // Include nearby fragments inside expanded character bbox
-  const ex=clamp(Math.round(main.w*.18),6,60), ey=clamp(Math.round(main.h*.08),6,60); for(const c of scored.slice(1)){ const near=c.maxx>=main.minx-ex && c.minx<=main.maxx+ex && c.maxy>=main.miny-ey && c.miny<=main.maxy+ey; if(near && c.area>8){ for(let y=c.miny;y<=c.maxy;y++)for(let x=c.minx;x<=c.maxx;x++){ const i=y*w+x; if(mask[i]) out[i]=1; } } }
-  return {mask:out,comps:scored,main}; }
-function removeShadowLike(mask,imgData){ const {width:w,height:h,data}=imgData; const comps=components(mask,w,h); const out=mask.slice(); for(const c of comps){ const bottom=c.miny>h*.63, wide=c.w>w*.28, flat=c.h<h*.14; let avSat=0,avLum=0,n=0; for(let y=c.miny;y<=c.maxy;y+=2)for(let x=c.minx;x<=c.maxx;x+=2){ const i=(y*w+x)*4; if(mask[y*w+x]){avSat+=sat(data[i],data[i+1],data[i+2]);avLum+=lum(data[i],data[i+1],data[i+2]);n++;} } avSat/=n||1; avLum/=n||1; if(bottom&&wide&&flat&&avSat<.18){ for(let y=c.miny;y<=c.maxy;y++)for(let x=c.minx;x<=c.maxx;x++){ const i=y*w+x;if(mask[i])out[i]=0; } } } return out; }
-
-function maskUnion(a,b){ const out=new Uint8Array(a.length); for(let i=0;i<out.length;i++) out[i]=a[i]||b[i]?1:0; return out; }
-function maskSubtract(a,b){ const out=new Uint8Array(a.length); for(let i=0;i<out.length;i++) out[i]=a[i]&&!b[i]?1:0; return out; }
-function maskArea(m){ let n=0; for(let i=0;i<m.length;i++) if(m[i]) n++; return n; }
-function keepConnectedSoft(soft, core, w, h, radius=10){
-  const coreNear=dilate(core,w,h,radius);
-  const comps=components(soft,w,h);
-  const out=new Uint8Array(soft.length);
-  for(const c of comps){
-    let touches=0, total=0;
-    for(let y=c.miny;y<=c.maxy;y++){
-      for(let x=c.minx;x<=c.maxx;x++){
-        const p=y*w+x;
-        if(!soft[p]) continue;
-        total++;
-        if(coreNear[p]) touches++;
-      }
-    }
-    const touchRatio=touches/(total||1);
-    const tiny=c.area<12;
-    const farLeftRight=(c.maxx<w*.03 || c.minx>w*.97);
-    const farTop=(c.maxy<h*.035);
-    const likelyUseful = touchRatio>.08 || (touches>0 && c.area<280) || (touchRatio>.02 && c.area>280);
-    if(likelyUseful && !tiny && !farLeftRight && !farTop){
-      for(let y=c.miny;y<=c.maxy;y++) for(let x=c.minx;x<=c.maxx;x++){ const p=y*w+x; if(soft[p]) out[p]=1; }
-    }
-  }
-  return out;
-}
-function computeLayerMetrics(core, soft, final, w, h){
-  const coreArea=maskArea(core), softArea=maskArea(soft), finalArea=maskArea(final), total=w*h;
-  const coreRatio=coreArea/total, softRatio=softArea/total, finalRatio=finalArea/total;
-  let missingRisk=0;
-  if(softRatio<0.035) missingRisk += 30;
-  if(coreRatio<0.16) missingRisk += 25;
-  if(finalRatio<0.23) missingRisk += 20;
-  if(finalRatio>0.55) missingRisk += 10;
-  return {coreArea,softArea,finalArea,coreRatio,softRatio,finalRatio,missingRisk:clamp(Math.round(missingRisk),0,100)};
-}
-function refineMasks(raw,imgData){
-  const {w,h}=raw;
-  // coreは中間マスクを少し閉じて穴を減らす。strongは診断用に保持。
-  const weakBase=closeMask(raw.weak,w,h);
-  const weakExpanded=dilate(weakBase,w,h,2);
-  const mid=openMask(closeMask(raw.mid,w,h),w,h);
-  const strong=openMask(closeMask(raw.strong,w,h),w,h);
-  let core=mid.slice();
-
-  // v0.4: Softは「広めに拾う」→「coreに接続しているものだけ残す」。
-  // これで髪/薄布の欠けを戻しつつ、遠い背景グラデーションは捨てる。
-  let softCandidate=maskSubtract(weakExpanded, core);
-  let softConnected=keepConnectedSoft(softCandidate, core, w, h, 14);
-  softConnected=dilate(softConnected,w,h,1);
-  softConnected=keepConnectedSoft(softConnected, core, w, h, 10);
-
-  let final=maskUnion(core, softConnected);
-  final=removeShadowLike(final,imgData);
-  const kept=keepMainCharacter(final,w,h);
-
-  // keepMainCharacter後、Softも最終人物に接続する範囲へ再制限する。
-  const nearFinal=dilate(kept.mask,w,h,4);
-  const softKept=new Uint8Array(w*h);
-  for(let i=0;i<softConnected.length;i++) if(softConnected[i] && nearFinal[i] && !core[i]) softKept[i]=1;
-  let final2=maskUnion(core, softKept);
-  final2=removeShadowLike(final2,imgData);
-  const kept2=keepMainCharacter(final2,w,h);
-  const layers=computeLayerMetrics(core, softKept, kept2.mask, w, h);
-  return {weak:weakBase,mid,strong,core,soft:softKept,final:kept2.mask,main:kept2.main,components:kept2.comps,layers};
-}
-function maskToImage(mask,w,h,color=[90,170,255]){ const out=makeImageData(w,h,[12,15,22,255]); const d=out.data; for(let i=0,p=0;p<mask.length;p++,i+=4){ if(mask[p]){d[i]=color[0];d[i+1]=color[1];d[i+2]=color[2];d[i+3]=255;} } return out; }
-function smoothAlpha(alpha,w,h,passes=1){
-  let a=alpha.slice();
-  for(let pass=0;pass<passes;pass++){
-    const out=new Float32Array(a.length);
-    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
-      let sum=0,n=0;
-      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
-        const xx=x+dx, yy=y+dy;
-        if(xx>=0&&yy>=0&&xx<w&&yy<h){ sum+=a[yy*w+xx]; n++; }
-      }
-      out[y*w+x]=sum/n;
-    }
-    a=out;
-  }
-  return a;
-}
-function analysisImage(imgData,core,soft,labD){
-  const w=imgData.width,h=imgData.height;
-  const out=new ImageData(new Uint8ClampedArray(imgData.data), w, h);
-  const alpha=new Float32Array(w*h);
-  for(let p=0;p<alpha.length;p++){
-    if(core && core[p]) alpha[p]=1;
-    else if(soft && soft[p]){
-      const d=labD ? labD[p] : 24;
-      // 貼付仕様の alpha=(Lab距離-5)/28 を採用。Softは薄い候補なので上限を少し抑える。
-      alpha[p]=clamp((d-5)/28,0.18,0.86);
-    } else alpha[p]=0;
-  }
-  // 境界を3px程度なじませる近似。完全なDistance Transformではなく、iPhone用軽量Blur。
-  const smoothed=smoothAlpha(alpha,w,h,2);
-  for(let p=0,i=0;p<alpha.length;p++,i+=4){
-    const a=Math.max(alpha[p], smoothed[p]*0.92);
-    out.data[i+3]=Math.round(clamp(a,0,1)*255);
-  }
-  return out;
-}
-
-function drawChecker(ctx,w,h,size=12){ ctx.fillStyle='#20242f';ctx.fillRect(0,0,w,h);ctx.fillStyle='#151923'; for(let y=0;y<h;y+=size)for(let x=0;x<w;x+=size){ if(((x/size)+(y/size))%2===0)ctx.fillRect(x,y,size,size); } }
-function drawAnalysis(c,imgData){ setCanvasSize(c,imgData.width,imgData.height); const ctx=c.getContext('2d'); drawChecker(ctx,c.width,c.height); ctx.putImageData(imgData,0,0); }
-function contourImage(imgData,mask,main){ const {width:w,height:h}=imgData; const out=new ImageData(new Uint8ClampedArray(imgData.data),w,h); const d=out.data; for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){ const p=y*w+x; if(mask[p] && (!mask[p-1]||!mask[p+1]||!mask[p-w]||!mask[p+w])){ const i=p*4; d[i]=255;d[i+1]=80;d[i+2]=80;d[i+3]=255; }} if(main){ // bbox green
-    for(let x=main.minx;x<=main.maxx;x++){ for(const y of [main.miny,main.maxy]){ const i=(y*w+x)*4; d[i]=80;d[i+1]=255;d[i+2]=120;d[i+3]=255; }}
-    for(let y=main.miny;y<=main.maxy;y++){ for(const x of [main.minx,main.maxx]){ const i=(y*w+x)*4; d[i]=80;d[i+1]=255;d[i+2]=120;d[i+3]=255; }} }
-  return out; }
-function overlayImage(imgData,mask,metrics){ const {width:w,height:h}=imgData; const out=new ImageData(new Uint8ClampedArray(imgData.data),w,h); const d=out.data; // red border leak pixels
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const p=y*w+x; if(mask[p]){ const edge=x<3||y<3||x>w-4||y>h-4; if(edge){ const i=p*4; d[i]=255;d[i+1]=0;d[i+2]=80;d[i+3]=255; } }}
-  // center mass cross
-  const cx=Math.round(metrics.cx), cy=Math.round(metrics.cy); for(let x=cx-10;x<=cx+10;x++){ if(x>=0&&x<w&&cy>=0&&cy<h){const i=(cy*w+x)*4; d[i]=255;d[i+1]=230;d[i+2]=70;d[i+3]=255;}} for(let y=cy-10;y<=cy+10;y++){ if(cx>=0&&cx<w&&y>=0&&y<h){const i=(y*w+cx)*4; d[i]=255;d[i+1]=230;d[i+2]=70;d[i+3]=255;}}
-  return out; }
-function maskMetrics(mask,w,h){ let area=0,sx=0,sy=0,border=0; for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const p=y*w+x; if(mask[p]){area++;sx+=x;sy+=y;if(x<3||y<3||x>w-4||y>h-4)border++;}} const ratio=area/(w*h); const cx=area?sx/area:w/2, cy=area?sy/area:h/2; const comps=components(mask,w,h); const main=comps[0]||null; const componentPenalty=Math.min(1,(comps.length-1)/30); const centerScore=1-clamp(Math.hypot((cx-w/2)/w,(cy-h*.52)/h)*3,0,1); const areaScore=ratio<.03?ratio/.03:ratio>.75?(1-(ratio-.75)/.25):1; const borderLeak=area?border/area:1; const leakScore=1-clamp(borderLeak*8,0,1); const compScore=1-componentPenalty; const coverage=main?clamp((main.maxy-main.miny)/h*1.4,0,1):0; return {area,ratio,cx,cy,comps,main,centerScore,areaScore,leakScore,compScore,coverage,borderLeak}; }
-function quality(mask,w,h,bgDiag,profile){ const m=maskMetrics(mask,w,h); let score=100*(m.areaScore*.22 + m.centerScore*.24 + m.leakScore*.18 + m.compScore*.14 + m.coverage*.12); const idealLow=.16, idealHigh=.48; let ratioPenalty=0; if(m.ratio<idealLow) ratioPenalty=(idealLow-m.ratio)/idealLow; if(m.ratio>idealHigh) ratioPenalty=(m.ratio-idealHigh)/.35; score *= (1-clamp(ratioPenalty*.55,0,.75)); if(m.main){ if(m.main.w>w*.94) score*=.72; if(m.main.h>h*.98) score*=.80; }
-  if(bgDiag.type==='light_gradient' && profile==='solid_background') score*=.78; if(bgDiag.type==='white_background' && profile==='solid_background') score*=.9; if(!bgDiag.supported) score*=.65; if(m.ratio>.82||m.ratio<.01) score*=.35; return {score:clamp(Math.round(score),0,100), metrics:m}; }
-function runProfile(imgData,profile,tolBias,bgDiag){ const bgKind=profile==='simple_shadow'?'light_gradient':profile; const bg=buildBackgroundModel(imgData,bgKind); const raw=rawMask(imgData,bg,profile,tolBias); const refined=refineMasks(raw,imgData); const q=quality(refined.final,imgData.width,imgData.height,bgDiag,profile); return {profile,bg,raw,refined,quality:q.score,metrics:q.metrics}; }
-function runAnalysis(){ if(!state.imageData){ log('画像が未選択です。sample.pngで試すか、画像を選択してください。'); return; } const imgData=state.imageData; const tolBias=Number($('tol').value); const bgDiag=diagnoseBackground(imgData); const profiles = bgDiag.type==='alpha_png' ? ['alpha_png'] : ['white_background','solid_background','light_gradient','simple_shadow']; const results=profiles.map(p=>runProfile(imgData,p,tolBias,bgDiag)).sort((a,b)=>b.quality-a.quality); const best=results[0]; state.result={bgDiag,results,best,w:imgData.width,h:imgData.height,fileName:state.fileName};
-  renderResult(); }
-function renderResult(){ const {bgDiag,results,best,w,h}=state.result; drawImageData(canvases.cOriginal,state.imageData); drawImageData(canvases.cBg,best.bg); drawImageData(canvases.cWeak,maskToImage(best.refined.soft||best.refined.weak,w,h,[82,125,255])); drawImageData(canvases.cMid,maskToImage(best.refined.final,w,h,[88,210,150])); drawImageData(canvases.cStrong,maskToImage(best.refined.core||best.refined.strong,w,h,[255,190,80])); drawAnalysis(canvases.cAnalysis,analysisImage(state.imageData,best.refined.core||best.refined.final,best.refined.soft,best.raw.labD)); drawImageData(canvases.cContour,contourImage(state.imageData,best.refined.final,best.metrics.main)); drawImageData(canvases.cOverlay,overlayImage(state.imageData,best.refined.final,best.metrics));
-  $('bgType').innerHTML = `${bgDiag.type} <span class="pill">${bgDiag.supported?'対応':'非対応警告'}</span>`; $('bestProfile').textContent=best.profile; const cls=best.quality>=80?'ok':best.quality>=60?'warn':'bad'; $('quality').innerHTML=`<span class="score ${cls}">${best.quality}/100</span>`; $('qualityBar').style.width=best.quality+'%'; $('qualityBar').style.background=best.quality>=80?'var(--ok)':best.quality>=60?'var(--warn)':'var(--bad)';
-  renderProfileTable(results); renderLog(); }
-function renderProfileTable(results){ let html='<table><thead><tr><th>Profile</th><th>Score</th><th>前景率</th><th>Comp</th><th>BorderLeak</th></tr></thead><tbody>'; for(const r of results){ const c=r.quality>=80?'ok':r.quality>=60?'warn':'bad'; html+=`<tr><td>${r.profile}</td><td class="score ${c}">${r.quality}</td><td>${(r.metrics.ratio*100).toFixed(1)}%</td><td>${r.metrics.comps.length}</td><td>${(r.metrics.borderLeak*100).toFixed(2)}%</td></tr>`; } html+='</tbody></table>'; $('profileTable').innerHTML=html; }
-function renderLog(){ const {bgDiag,best,w,h,fileName}=state.result; const m=best.metrics; const lines=[]; lines.push(`file: ${fileName}`); lines.push(`size: ${w} x ${h}`); lines.push(`background_type: ${bgDiag.type}`); lines.push(`supported: ${bgDiag.supported}`); lines.push(`reason: ${bgDiag.reason}`); lines.push(`border_std: ${bgDiag.borderStd.toFixed(2)}`); lines.push(`white_ratio: ${(bgDiag.whiteRatio*100).toFixed(1)}%`); lines.push(`alpha_ratio: ${(bgDiag.alphaRatio*100).toFixed(2)}%`); lines.push(''); lines.push(`best_profile: ${best.profile}`);
-  lines.push('pipeline: Lab差分 + HSV補助 + 4値マスク + GrabCut風反復 + Lab距離Alpha'); lines.push(`quality_score: ${best.quality}/100`); lines.push(`foreground_area: ${m.area} px (${(m.ratio*100).toFixed(1)}%)`); if(best.refined.layers){ const L=best.refined.layers; lines.push(`core_area: ${L.coreArea} px (${(L.coreRatio*100).toFixed(1)}%)`); lines.push(`soft_area: ${L.softArea} px (${(L.softRatio*100).toFixed(1)}%)`); lines.push(`core_plus_soft: ${L.finalArea} px (${(L.finalRatio*100).toFixed(1)}%)`); lines.push(`missing_risk: ${L.missingRisk}/100`); } lines.push(`component_count: ${m.comps.length}`); lines.push(`center_mass: (${m.cx.toFixed(1)}, ${m.cy.toFixed(1)})`); lines.push(`border_leak: ${(m.borderLeak*100).toFixed(2)}%`); if(m.main) lines.push(`main_bbox: x=${m.main.minx}, y=${m.main.miny}, w=${m.main.w}, h=${m.main.h}`);
-  lines.push(''); lines.push('判定:'); if(!bgDiag.supported) lines.push('・複雑背景の可能性が高いです。白背景/透過PNG化してから使う前提です。'); if(best.refined.layers && best.refined.layers.missingRisk>45) lines.push('・欠けリスクが高めです。Soft Candidateを確認してください。'); if(best.quality>=80) lines.push('・Preprocessorの結果は良好です。次のAnalysisへ渡せる可能性が高いです。'); else if(best.quality>=60) lines.push('・利用可能ですが、薄い髪/布/床影の混入確認が必要です。'); else lines.push('・品質が低いです。背景・影・画像端ノイズを確認してください。');
-  log(lines.join('\n')); }
-
-function saveCanvasImage(){ if(!state.result) return; const list=[['Original',canvases.cOriginal],['Background',canvases.cBg],['Weak',canvases.cWeak],['Middle',canvases.cMid],['Strong',canvases.cStrong],['Analysis',canvases.cAnalysis],['Contour',canvases.cContour],['Overlay',canvases.cOverlay]]; const cellW=360, labelH=28, pad=10; const cellH=Math.round(cellW*(state.result.h/state.result.w))+labelH; const out=document.createElement('canvas'); out.width=cellW*2+pad*3; out.height=cellH*4+pad*5+110; const ctx=out.getContext('2d'); ctx.fillStyle='#10131a';ctx.fillRect(0,0,out.width,out.height); ctx.fillStyle='#eef3ff';ctx.font='bold 18px -apple-system, sans-serif'; ctx.fillText('Sprite Studio Preprocessor Summary',pad,28); ctx.font='12px -apple-system, sans-serif'; ctx.fillStyle='#9ba8bd'; ctx.fillText(`profile=${state.result.best.profile} score=${state.result.best.quality}/100 type=${state.result.bgDiag.type}`,pad,50);
-  for(let i=0;i<list.length;i++){ const col=i%2,row=Math.floor(i/2); const x=pad+col*(cellW+pad), y=70+pad+row*(cellH+pad); ctx.fillStyle='#202633';ctx.fillRect(x,y,cellW,labelH); ctx.fillStyle='#eef3ff';ctx.font='bold 13px -apple-system, sans-serif';ctx.fillText(list[i][0],x+8,y+19); ctx.drawImage(list[i][1],x,y+labelH,cellW,cellH-labelH); }
-  downloadUrl(out.toDataURL('image/png'), 'preprocessor_summary_v0_4.png'); }
-function saveJson(){ if(!state.result) return; const r=state.result; const json={version:'0.4',file:r.fileName,size:{w:r.w,h:r.h},background:r.bgDiag,best:{profile:r.best.profile,quality:r.best.quality,layers:r.best.refined.layers,metrics:{foreground_ratio:r.best.metrics.ratio,component_count:r.best.metrics.comps.length,center:{x:r.best.metrics.cx,y:r.best.metrics.cy},border_leak:r.best.metrics.borderLeak,bbox:r.best.metrics.main}},profiles:r.results.map(x=>({profile:x.profile,quality:x.quality,layers:x.refined.layers,foreground_ratio:x.metrics.ratio,component_count:x.metrics.comps.length,border_leak:x.metrics.borderLeak}))}; const blob=new Blob([JSON.stringify(json,null,2)],{type:'application/json'}); downloadUrl(URL.createObjectURL(blob),'preprocessor_diagnostic_v0_4.json'); }
-function downloadUrl(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove(); if(url.startsWith('blob:')) URL.revokeObjectURL(url);},100); }
-function clearAll(){ state={img:null,imageData:null,result:null,fileName:'sample.png'}; for(const c of Object.values(canvases)){ setCanvasSize(c,1,1); c.getContext('2d').clearRect(0,0,1,1);} $('bgType').textContent='未解析';$('bestProfile').textContent='未解析';$('quality').textContent='-';$('qualityBar').style.width='0%';$('profileTable').innerHTML='';log('待機中...'); }
-
-$('maxSize').addEventListener('input',()=>{$('sizeText').textContent='最大 '+$('maxSize').value+'px';});
-$('tol').addEventListener('input',()=>{ const v=Number($('tol').value); $('tolText').textContent=v<10?'厳しめ':v>24?'ゆるめ':'標準'; });
-$('file').addEventListener('change', async e=>{ const file=e.target.files&&e.target.files[0]; if(!file) return; state.fileName=file.name; const img=await loadImageFromFile(file); state.img=img; state.imageData=imageToImageData(img,Number($('maxSize').value)); drawImageData(canvases.cOriginal,state.imageData); log('画像を読み込みました。解析するを押してください。'); });
-$('sampleBtn').addEventListener('click', async()=>{ const img=await loadImageFromUrl('sample.png'); state.fileName='sample.png'; state.img=img; state.imageData=imageToImageData(img,Number($('maxSize').value)); drawImageData(canvases.cOriginal,state.imageData); log('sample.pngを読み込みました。解析するを押してください。'); });
-$('runBtn').addEventListener('click',()=>{ try{ runAnalysis(); }catch(e){ console.error(e); log('エラー: '+(e&&e.stack?e.stack:e)); }});
-$('savePng').addEventListener('click',saveCanvasImage); $('saveJson').addEventListener('click',saveJson); $('clearBtn').addEventListener('click',clearAll);
-
-(async()=>{ try{ const img=await loadImageFromUrl('sample.png'); state.img=img; state.imageData=imageToImageData(img,Number($('maxSize').value)); drawImageData(canvases.cOriginal,state.imageData); log('sample.pngを自動読み込みしました。解析するを押してください。'); }catch(e){ log('sample.pngが読み込めません。画像を選択してください。'); }})();
-})();
+core=removeSmall(closeMask(core,w,h,1),w,h,30,true);let coreDil=dilate(core,w,h,3);for(let p=0;p<w*h;p++){soft[p]=soft[p]&&coreDil[p]&&!shadow[p];}
+soft=dilate(removeSmall(soft,w,h,20,false),w,h,1);let finalMask=new Uint8Array(w*h);for(let p=0;p<w*h;p++)finalMask[p]=(core[p]||soft[p])&&!shadow[p];finalMask=removeSmall(finalMask,w,h,35,true);
+let bbox=bboxOf(finalMask,w,h);let out=makeImageData(w,h,[0,0,0,0]);let od=out.data;for(let p=0;p<w*h;p++){let i=p*4;if(finalMask[p]){od[i]=data[i];od[i+1]=data[i+1];od[i+2]=data[i+2];let a=core[p]?255:clamp(alpha[p],55,210);od[i+3]=a;}else{od[i+3]=0;}}
+return {bg,bgLab,core,soft,shadow,finalMask,distArr,alpha,analysis:out,bbox,score:scorePre(w,h,bbox,finalMask,core,soft,shadow)};}
+function scorePre(w,h,bbox,finalMask,core,soft,shadow){if(!bbox)return 0;let area=finalMask.reduce((a,b)=>a+b,0),ratio=area/(w*h);let s=100;if(ratio<.18||ratio>.48)s-=20;if(bbox.w>w*.88)s-=15;if(bbox.h<h*.65)s-=15;let border=0;for(let x=0;x<w;x++){border+=finalMask[x]+finalMask[(h-1)*w+x]}for(let y=0;y<h;y++){border+=finalMask[y*w]+finalMask[y*w+w-1]}if(border/(2*w+2*h)>.015)s-=12;return clamp(Math.round(s),0,100)}
+function baselines(mask,w,h){let bb=bboxOf(mask,w,h);if(!bb)return null;let top=bb.miny,bottom=bb.maxy,H=bb.h,cx=bb.cx;let widths=[];for(let y=top;y<=bottom;y++){let min=w,max=-1;for(let x=0;x<w;x++)if(mask[y*w+x]){if(x<min)min=x;if(x>max)max=x;}widths[y]=max>=min?max-min+1:0;}
+function yrel(r){return Math.round(top+H*r)}
+let head=yrel(.24),faceTop=yrel(.07),faceBot=yrel(.25),shoulder=yrel(.28),waist=yrel(.50),crotch=yrel(.60),ankle=yrel(.88);return {bbox:bb,cx,top,bottom,H,head,faceTop,faceBot,shoulder,waist,crotch,ankle,feet:yrel(.90),widths};}
+function kmeansLab(imgData,mask,k=7){const {width:w,height:h,data}=imgData;let pts=[],idxs=[];for(let p=0;p<w*h;p++)if(mask[p]){let i=p*4;if(data[i+3]>0){pts.push(rgb2lab(data[i],data[i+1],data[i+2]));idxs.push(p)}}if(!pts.length)return null;let centers=[];for(let i=0;i<k;i++)centers.push(pts[Math.floor((i+.5)*pts.length/k)%pts.length].slice());let labels=new Int16Array(w*h);labels.fill(-1);for(let it=0;it<12;it++){let sums=Array.from({length:k},()=>[0,0,0,0]);for(let n=0;n<pts.length;n++){let best=0,bd=1e9;for(let c=0;c<k;c++){let d=labDist(pts[n],centers[c]);if(d<bd){bd=d;best=c}}labels[idxs[n]]=best;sums[best][0]+=pts[n][0];sums[best][1]+=pts[n][1];sums[best][2]+=pts[n][2];sums[best][3]++;}for(let c=0;c<k;c++)if(sums[c][3])centers[c]=[sums[c][0]/sums[c][3],sums[c][1]/sums[c][3],sums[c][2]/sums[c][3]];}
+let rgbCenters=centers.map(labToApproxRgb);return {labels,centers,rgbCenters,k};}
+function labToApproxRgb(lab){ // simple search approximation for display only
+let best=[0,0,0],bd=1e9;for(let r=0;r<=255;r+=17)for(let g=0;g<=255;g+=17)for(let b=0;b<=255;b+=17){let d=labDist(lab,rgb2lab(r,g,b));if(d<bd){bd=d;best=[r,g,b]}}return best;}
+function makeRegions(imgData,mask,km,lines){let {width:w,height:h,data}=imgData;let regs=[];for(let c=0;c<km.k;c++){let cmask=new Uint8Array(w*h);for(let p=0;p<w*h;p++)if(mask[p]&&km.labels[p]===c)cmask[p]=1;let comps=connected(cmask,w,h);for(const comp of comps){if(comp.area<28)continue;let sum=[0,0,0,0],alpha=0;for(const p of comp.pixels){let i=p*4;sum[0]+=data[i];sum[1]+=data[i+1];sum[2]+=data[i+2];alpha+=data[i+3];}let mean=sum.map(v=>Math.round(v/comp.area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);regs.push({...comp,id:regs.length+1,cluster:c,mean,alphaMean:alpha/comp.area,h:hsv[0],s:hsv[1],v:hsv[2],mergedFrom:[regs.length+1]});}}
+return regs;}
+function mergeRegions(regs,lines,w,h){let list=regs.map(r=>({...r}));let changed=true;function near(a,b){return !(a.maxx+7<b.minx||b.maxx+7<a.minx||a.maxy+7<b.miny||b.maxy+7<a.miny)}function sim(a,b){let dh=Math.min(Math.abs(a.h-b.h),360-Math.abs(a.h-b.h));let ds=Math.abs(a.s-b.s),dv=Math.abs(a.v-b.v);return (dh<28&&ds<.18&&dv<.22)||(labDist(rgb2lab(...a.mean),rgb2lab(...b.mean))<20)}
+while(changed){changed=false;outer:for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){let a=list[i],b=list[j];let sameZone=zoneOf(a,lines)===zoneOf(b,lines);if((sameZone&&near(a,b)&&sim(a,b)) || (Math.min(a.area,b.area)<120&&near(a,b)&&sim(a,b))){let pixels=a.pixels.concat(b.pixels);let area=pixels.length,minx=Math.min(a.minx,b.minx),maxx=Math.max(a.maxx,b.maxx),miny=Math.min(a.miny,b.miny),maxy=Math.max(a.maxy,b.maxy);let cx=(a.cx*a.area+b.cx*b.area)/area,cy=(a.cy*a.area+b.cy*b.area)/area;let mean=[0,1,2].map(k=>Math.round((a.mean[k]*a.area+b.mean[k]*b.area)/area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);list[i]={...a,area,pixels,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx,cy,mean,h:hsv[0],s:hsv[1],v:hsv[2],mergedFrom:a.mergedFrom.concat(b.mergedFrom)};list.splice(j,1);changed=true;break outer;}}}
+list.forEach((r,i)=>r.mid=i+1);return list.filter(r=>r.area>50);}
+function zoneOf(r,lines){if(!lines)return 'unknown';let y=r.cy;if(y<lines.head)return 'head';if(y<lines.shoulder)return 'face';if(y<lines.waist)return 'torso';if(y<lines.ankle)return 'legs';return 'feet'}
+function classify(r,lines){let zone=zoneOf(r,lines),cx=lines?lines.cx:0;let label='unknown',conf=25,reason=[];let hue=r.h,s=r.s,v=r.v;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;let aspect=r.h/(r.w||1);function set(l,c,why){if(c>conf){label=l;conf=c;reason=[why];}}
+if(zone==='head'||zone==='face'){if((hue>245&&hue<330)||s<.25&&v>.35)set('hair',70,'head zone + lavender/gray');if(s>.12&&hue>0&&hue<45&&v>.55)set('skin',68,'head zone + skin hue');if(r.area<lines.bbox.area*.04&&relX>.18&&r.cy>lines.faceTop&&r.cy<lines.faceBot)set('ear',62,'face side small region');}
+if(zone==='torso'){if(hue>130&&hue<190&&s>.18&&v>.25)set('cloth',72,'torso + green');if((hue>115&&hue<175&&s<.35&&v>.45)||r.alphaMean<230)set('sheer',66,'torso side + pale/transparent');if(hue>35&&hue<60&&s>.25&&v>.35)set('ornament',70,'gold in torso');}
+if(zone==='legs'){if(hue>130&&hue<190&&s>.18)set('leg',74,'legs + green');if(hue>35&&hue<65&&s>.25)set('ornament',62,'gold lower');}
+if(zone==='feet'){if(r.area>80)set('shoe',70,'feet zone');}
+if(label==='unknown'&&((hue>245&&hue<330)||s<.22)&&r.cy<lines.waist)set('hair',55,'upper gray/lavender');
+return {label,conf,reason:reason.join(' / ')||'rule not matched',zone};}
+function renderAll(){let res=state.result;if(!res)return;const {imgData,pre,lines,km,regions,merged,candidates}=res;drawImageData(canvases.original,imgData);drawImageData(canvases.analysis,pre.analysis);drawMasks(canvases.masks,pre);drawLines(canvases.lines,imgData,lines);drawCluster(canvases.cluster,imgData,pre.finalMask,km);drawRegions(canvases.before,imgData,regions,lines,false);drawRegions(canvases.after,imgData,merged,lines,true);drawCandidates(canvases.cand,imgData,candidates);drawPart(canvases.part,imgData,candidates,state.selectedPart);makePartButtons();qs('size').textContent=`${imgData.width}×${imgData.height}`;qs('score').textContent=`score ${pre.score}`;logResult();}
+function drawMasks(c,pre){let w=state.w,h=state.h,id=makeImageData(w,h,[10,15,24,255]);for(let p=0;p<w*h;p++){let i=p*4;if(pre.shadow[p]){id.data[i]=120;id.data[i+1]=120;id.data[i+2]=160;}if(pre.soft[p]){id.data[i]=80;id.data[i+1]=140;id.data[i+2]=255;}if(pre.core[p]){id.data[i]=255;id.data[i+1]=190;id.data[i+2]=70;}}drawImageData(c,id)}
+function drawLines(c,img,lines){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=2;ctx.font='12px sans-serif';if(!lines)return;let arr=[['HEAD',lines.head,'#ff4f68'],['FACE',lines.faceBot,'#ff9f43'],['SHOULDER',lines.shoulder,'#ffd166'],['WAIST',lines.waist,'#00e5a8'],['CROTCH',lines.crotch,'#51a7ff'],['ANKLE',lines.ankle,'#9b5cff']];for(const [name,y,col] of arr){ctx.strokeStyle=col;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();ctx.fillText(name,4,y-3)}ctx.strokeStyle='#ff4f68';ctx.beginPath();ctx.moveTo(lines.cx,0);ctx.lineTo(lines.cx,c.height);ctx.stroke();}
+function drawCluster(c,img,mask,km){let w=img.width,h=img.height,id=makeImageData(w,h,[0,0,0,0]);for(let p=0;p<w*h;p++){let i=p*4;if(mask[p]){let cc=km.rgbCenters[km.labels[p]]||[200,200,200];id.data[i]=cc[0];id.data[i+1]=cc[1];id.data[i+2]=cc[2];id.data[i+3]=255;}}drawImageData(c,id)}
+function drawRegions(c,img,regs,lines,merged){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=1;ctx.font='10px sans-serif';for(const r of regs){let col=palette(r.id||r.mid);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillText((merged?'M':'R')+(r.mid||r.id),r.cx,r.cy);} }
+function drawCandidates(c,img,cands){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=2;ctx.font='10px sans-serif';for(const r of cands){let col='rgb('+COLORS[r.label].join(',')+')';ctx.strokeStyle=col;ctx.fillStyle=col;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillText(`${LABELS[r.label]} ${r.conf}`,r.minx,Math.max(10,r.miny-2));}}
+function drawPart(c,img,cands,label){let w=img.width,h=img.height,id=makeImageData(w,h,[0,0,0,0]),src=img.data;let pick=cands.filter(r=>r.label===label);let mask=new Uint8Array(w*h);for(const r of pick)for(const p of r.pixels)mask[p]=1;for(let p=0;p<w*h;p++){if(mask[p]){let i=p*4;id.data[i]=src[i];id.data[i+1]=src[i+1];id.data[i+2]=src[i+2];id.data[i+3]=src[i+3];}}drawImageData(c,id)}
+function makePartButtons(){let div=qs('partButtons');div.innerHTML='';for(const key of Object.keys(LABELS)){let b=document.createElement('button');b.className='tag';b.textContent=LABELS[key];b.style.border='1px solid rgb('+COLORS[key].join(',')+')';b.onclick=()=>{state.selectedPart=key;renderAll()};div.appendChild(b)}}
+function palette(i){let cols=['#ff4f68','#ffd166','#06d6a0','#4dabf7','#9b5cff','#ff8fab','#f78c6b','#c3f73a','#72efdd','#f4a261'];return cols[i%cols.length]}
+function logResult(){let {pre,lines,regions,merged,candidates}=state.result;let counts={};for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let txt=`Score ${pre.score}\nRegion ${regions.length} → ${merged.length}\nBackground RGB ${pre.bg.join(', ')}\nFinal area ratio ${(pre.bbox?pre.bbox.area/(state.w*state.h):0).toFixed(3)}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,80))txt+=`M${r.mid} ${LABELS[r.label]} conf=${r.conf} zone=${r.zone} area=${r.area} bbox=${r.w}x${r.h} color=#${r.mean.map(x=>x.toString(16).padStart(2,'0')).join('')} reason=${r.reason}\n`;qs('log').textContent=txt;}
+async function analyze(){let imgData=state.orig;if(!imgData)return;state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);let lines=baselines(pre.finalMask,state.w,state.h);let km=kmeansLab(pre.analysis,pre.finalMask,parseInt(qs('k').value,10));let regions=makeRegions(pre.analysis,pre.finalMask,km,lines);let merged=mergeRegions(regions,lines,state.w,state.h);let candidates=merged.map(r=>({...r,...classify(r,lines)})).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions,merged,candidates};renderAll();}
+function loadImage(src){return new Promise((resolve,reject)=>{let im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src;});}
+function imageToData(im,maxH=640){let scale=Math.min(1,maxH/im.height,480/im.width);let w=Math.round(im.width*scale),h=Math.round(im.height*scale);let c=document.createElement('canvas');c.width=w;c.height=h;let ctx=c.getContext('2d');ctx.drawImage(im,0,0,w,h);return ctx.getImageData(0,0,w,h)}
+async function loadSample(){let im=await loadImage('sample.png');state.orig=imageToData(im);analyze();}
+qs('file').addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;let url=URL.createObjectURL(f);let im=await loadImage(url);state.orig=imageToData(im);URL.revokeObjectURL(url);analyze();});qs('run').onclick=analyze;
+qs('json').onclick=()=>{if(!state.result)return;let {pre,regions,merged,candidates}=state.result;let obj={version:'0.8',size:{w:state.w,h:state.h},preprocessor:{score:pre.score,bg:pre.bg,bbox:pre.bbox},region:{before:regions.length,after:merged.length},parts:candidates.map(r=>({id:r.mid,label:r.label,label_ja:LABELS[r.label],confidence:r.conf,zone:r.zone,bbox:[r.minx,r.miny,r.w,r.h],area:r.area,mean_color:r.mean,reason:r.reason,merged_from:r.mergedFrom}))};downloadBlob(JSON.stringify(obj,null,2),'sprite_region_metadata_v0_8.json','application/json');};
+qs('summary').onclick=()=>{let cards=[canvases.original,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.part];let W=900,H=1200,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='24px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.8 Summary',20,34);let x=20,y=60,cellW=270,cellH=330;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0;x=20+col*(cellW+20);y=60+row*(cellH+28);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,24);ctx.fillStyle='#e8eef8';ctx.font='13px sans-serif';ctx.fillText(['Original','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Part'][i],x+8,y+17);ctx.drawImage(cc,x,y+28,cellW,Math.min(cellH-30,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_8.png','image/png'));};
+function downloadBlob(data,name,type){let blob=data instanceof Blob?data:new Blob([data],{type});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+loadSample().catch(e=>{qs('log').textContent='sample load error: '+e.message});
 </script>
 </body>
 </html>
