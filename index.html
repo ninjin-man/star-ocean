@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Sprite Studio Preprocessor iPhone Test Viewer v0.3</title>
+<title>Sprite Studio Preprocessor iPhone Test Viewer v0.4</title>
 <style>
   :root{--bg:#10131a;--panel:#171c25;--panel2:#202633;--text:#eef3ff;--muted:#9ba8bd;--line:#30384a;--accent:#7fb0ff;--ok:#57d68d;--warn:#ffd166;--bad:#ff6b6b;}
   *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;} 
@@ -27,8 +27,8 @@
 </head>
 <body>
 <header>
-  <h1>Sprite Studio Preprocessor iPhone Test Viewer v0.3</h1>
-  <div class="sub">AIなし / Canvasのみ / Original非破壊 / Core-Soft-Reject 3層 / Soft接続保護 / 欠けリスク診断</div>
+  <h1>Sprite Studio Preprocessor iPhone Test Viewer v0.4</h1>
+  <div class="sub">AIなし / Canvasのみ / Original非破壊 / Lab/HSV / 4値マスク / GrabCut風反復 / Lab距離Alpha / 境界なじませ</div>
 </header>
 <main>
   <section class="card">
@@ -92,6 +92,30 @@ function dist(a,b){ const dr=a[0]-b[0], dg=a[1]-b[1], db=a[2]-b[2]; return Math.
 function lum(r,g,b){ return 0.2126*r + 0.7152*g + 0.0722*b; }
 function sat(r,g,b){ const mx=Math.max(r,g,b), mn=Math.min(r,g,b); return mx===0?0:(mx-mn)/mx; }
 function meanColor(samples){ let r=0,g=0,b=0,n=samples.length||1; for(const p of samples){r+=p[0];g+=p[1];b+=p[2];} return [r/n,g/n,b/n]; }
+function medianColor(samples){
+  if(!samples.length) return [0,0,0];
+  const pick=k=>{ const a=samples.map(p=>p[k]).sort((x,y)=>x-y); return a[Math.floor(a.length/2)]; };
+  return [pick(0),pick(1),pick(2)];
+}
+function rgbToHsv(r,g,b){
+  r/=255; g/=255; b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), d=mx-mn;
+  let h=0;
+  if(d!==0){ if(mx===r) h=((g-b)/d)%6; else if(mx===g) h=(b-r)/d+2; else h=(r-g)/d+4; h*=60; if(h<0) h+=360; }
+  return [h, mx===0?0:d/mx, mx];
+}
+function srgbToLinear(v){ v/=255; return v<=0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }
+function rgbToLab(r,g,b){
+  const R=srgbToLinear(r), G=srgbToLinear(g), B=srgbToLinear(b);
+  let X=R*0.4124564 + G*0.3575761 + B*0.1804375;
+  let Y=R*0.2126729 + G*0.7151522 + B*0.0721750;
+  let Z=R*0.0193339 + G*0.1191920 + B*0.9503041;
+  X/=0.95047; Y/=1.00000; Z/=1.08883;
+  const f=t=> t>0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+  const fx=f(X), fy=f(Y), fz=f(Z);
+  return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
+}
+function labDist(a,b){ const dL=a[0]-b[0], da=a[1]-b[1], db=a[2]-b[2]; return Math.sqrt(dL*dL+da*da+db*db); }
 function colorToCss(c,a=1){ return `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${a})`; }
 function getPix(data,w,x,y){ const i=(y*w+x)*4; return [data[i],data[i+1],data[i+2],data[i+3]]; }
 function setCanvasSize(c,w,h){ c.width=w; c.height=h; }
@@ -104,7 +128,7 @@ function imageToImageData(img,maxSize){ const scale=Math.min(1, maxSize/Math.max
 
 function borderSamples(imgData, step=4){ const {data,width:w,height:h}=imgData; const s=[]; for(let x=0;x<w;x+=step){s.push(getPix(data,w,x,0));s.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){s.push(getPix(data,w,0,y));s.push(getPix(data,w,w-1,y));} return s; }
 function diagnoseBackground(imgData){ const {data,width:w,height:h}=imgData; let alphaTransparent=0,total=w*h; for(let i=3;i<data.length;i+=4){ if(data[i]<245) alphaTransparent++; }
-  const samples=borderSamples(imgData, Math.max(2,Math.round(Math.max(w,h)/180))); const mean=meanColor(samples); let variance=0, whiteLike=0, highSat=0; for(const p of samples){ variance += dist(p,mean)**2; if(p[0]>235&&p[1]>235&&p[2]>235) whiteLike++; if(sat(p[0],p[1],p[2])>.25) highSat++; }
+  const samples=borderSamples(imgData, Math.max(2,Math.round(Math.max(w,h)/180))); const mean=medianColor(samples); let variance=0, whiteLike=0, highSat=0; for(const p of samples){ variance += dist(p,mean)**2; if(p[0]>235&&p[1]>235&&p[2]>235) whiteLike++; if(sat(p[0],p[1],p[2])>.25) highSat++; }
   const std=Math.sqrt(variance/samples.length); const whiteRatio=whiteLike/samples.length; const highSatRatio=highSat/samples.length;
   let type='solid'; let supported=true; let reason='四辺の背景色が近い';
   if(alphaTransparent/total>.01){ type='alpha_png'; reason='透明ピクセルを検出'; }
@@ -115,72 +139,102 @@ function diagnoseBackground(imgData){ const {data,width:w,height:h}=imgData; let
   return {type,supported,reason,borderMean:mean,borderStd:std,whiteRatio,alphaRatio:alphaTransparent/total,highSatRatio};
 }
 
-function buildBackgroundModel(imgData, kind){ const {data,width:w,height:h}=imgData; const out=makeImageData(w,h,[0,0,0,255]); const od=out.data; const top=[],bottom=[],left=[],right=[]; const step=Math.max(2,Math.round(Math.max(w,h)/160)); for(let x=0;x<w;x+=step){top.push(getPix(data,w,x,0));bottom.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){left.push(getPix(data,w,0,y));right.push(getPix(data,w,w-1,y));} const ct=meanColor(top), cb=meanColor(bottom), cl=meanColor(left), cr=meanColor(right); const solid=meanColor([...top,...bottom,...left,...right]);
+function buildBackgroundModel(imgData, kind){ const {data,width:w,height:h}=imgData; const out=makeImageData(w,h,[0,0,0,255]); const od=out.data; const top=[],bottom=[],left=[],right=[]; const step=Math.max(2,Math.round(Math.max(w,h)/160)); for(let x=0;x<w;x+=step){top.push(getPix(data,w,x,0));bottom.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){left.push(getPix(data,w,0,y));right.push(getPix(data,w,w-1,y));} const ct=medianColor(top), cb=medianColor(bottom), cl=medianColor(left), cr=medianColor(right); const solid=medianColor([...top,...bottom,...left,...right]);
   for(let y=0;y<h;y++){ const ty=h<=1?0:y/(h-1); for(let x=0;x<w;x++){ const tx=w<=1?0:x/(w-1); let c; if(kind==='solid_background'||kind==='white_background'||kind==='alpha_png'){ c=solid; } else { const v=[ct[0]*(1-ty)+cb[0]*ty, ct[1]*(1-ty)+cb[1]*ty, ct[2]*(1-ty)+cb[2]*ty]; const hv=[cl[0]*(1-tx)+cr[0]*tx, cl[1]*(1-tx)+cr[1]*tx, cl[2]*(1-tx)+cr[2]*tx]; c=[(v[0]+hv[0])/2,(v[1]+hv[1])/2,(v[2]+hv[2])/2]; } const i=(y*w+x)*4; od[i]=c[0];od[i+1]=c[1];od[i+2]=c[2];od[i+3]=255; }} return out; }
 
 function edgeMap(imgData){ const {data,width:w,height:h}=imgData; const out=new Float32Array(w*h); const L=(x,y)=>{ const i=(y*w+x)*4; return lum(data[i],data[i+1],data[i+2]); }; for(let y=1;y<h-1;y++){ for(let x=1;x<w-1;x++){ const gx=-L(x-1,y-1)-2*L(x-1,y)-L(x-1,y+1)+L(x+1,y-1)+2*L(x+1,y)+L(x+1,y+1); const gy=-L(x-1,y-1)-2*L(x,y-1)-L(x+1,y-1)+L(x-1,y+1)+2*L(x,y+1)+L(x+1,y+1); out[y*w+x]=Math.min(255,Math.hypot(gx,gy)/4); }} return out; }
+function estimateModelStats(labels, features, wantFg){
+  // wantFg: true=foreground seeds, false=background seeds
+  let n=0, L=0,A=0,B=0,S=0,V=0;
+  for(let p=0;p<labels.length;p++){
+    const lab=features.lab[p], hsv=features.hsv[p];
+    const label=labels[p];
+    const use = wantFg ? (label===1 || label===3) : (label===0 || label===2);
+    if(!use) continue;
+    const weight = wantFg ? (label===1?3:1) : (label===0?3:1);
+    n+=weight; L+=lab[0]*weight; A+=lab[1]*weight; B+=lab[2]*weight; S+=hsv[1]*100*weight; V+=hsv[2]*100*weight;
+  }
+  n=n||1;
+  return [L/n,A/n,B/n,S/n,V/n];
+}
+function featureDistance(f, model){
+  const dL=f[0]-model[0], da=f[1]-model[1], db=f[2]-model[2], ds=(f[3]-model[3])*0.55, dv=(f[4]-model[4])*0.35;
+  return Math.sqrt(dL*dL+da*da+db*db+ds*ds+dv*dv);
+}
 function rawMask(imgData,bgData,profile,tolBias=0){
   const {data,width:w,height:h}=imgData;
   const bd=bgData.data;
-  const strong=new Uint8Array(w*h), mid=new Uint8Array(w*h), weak=new Uint8Array(w*h);
+  const strong=new Uint8Array(w*h), mid=new Uint8Array(w*h), weak=new Uint8Array(w*h), labels=new Uint8Array(w*h);
   const edge=edgeMap(imgData);
-  const base = {alpha_png:1,white_background:43,solid_background:42,light_gradient:31,simple_shadow:35}[profile] || 36;
-  const bias = tolBias;
+  const labArr=new Array(w*h), bgLabArr=new Array(w*h), hsvArr=new Array(w*h);
+  const labD=new Float32Array(w*h), alphaHint=new Float32Array(w*h);
+  const borderW=10;
+  const tol=tolBias;
   for(let i=0,p=0;i<data.length;i+=4,p++){
-    const a=data[i+3];
-    const r=data[i],g=data[i+1],b=data[i+2];
-    const rgb=[r,g,b];
-    const bg=[bd[i],bd[i+1],bd[i+2]];
-    const d=dist(rgb,bg);
-    const s=sat(r,g,b);
-    const l=lum(r,g,b);
-    const bl=lum(bg[0],bg[1],bg[2]);
-    const ldiff=Math.abs(l-bl);
-    const e=edge[p];
+    const r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];
+    const br=bd[i],bg=bd[i+1],bb=bd[i+2];
+    const lab=rgbToLab(r,g,b), blab=rgbToLab(br,bg,bb), hsv=rgbToHsv(r,g,b);
+    labArr[p]=lab; bgLabArr[p]=blab; hsvArr[p]=hsv;
+    const d=labDist(lab,blab); labD[p]=d;
+    alphaHint[p]=clamp((d-5)/28,0,1);
     const x=p%w, y=Math.floor(p/w);
+    const s=hsv[1]*255, v=hsv[2]*255;
+    // 0=確定背景, 1=確定前景, 2=背景候補, 3=前景候補
+    let label=2;
+    const onBorder = x<borderW || y<borderW || x>=w-borderW || y>=h-borderW;
+    const center = Math.abs(x-w/2) < w*.43 && y>h*.03 && y<h*.985;
+    const centralLoose = Math.abs(x-w/2) < w*.49 && y>h*.02 && y<h*.99;
     if(profile==='alpha_png'){
-      weak[p]=a>8?1:0;
-      mid[p]=a>56?1:0;
-      strong[p]=a>176?1:0;
-      continue;
+      if(a<16) label=0; else if(a>220) label=1; else if(a>64) label=3; else label=2;
+    } else if(onBorder || (d < 8+tol*.08 && s < 25)){
+      label=0;
+    } else if(d < 16+tol*.12 && s < 18){
+      label=2;
+    } else if(d > 70-tol*.2 || (s > 45 && v < 235 && d > 18)){
+      label=1;
+    } else if(center || d > 12-tol*.15 || d > 35-tol*.2 || (edge[p]>12 && centralLoose)){
+      label=3;
+    } else {
+      label=2;
     }
-    // v0.3: 欠け対策。背景近似色でも、人物本体に接続する可能性がある淡色領域はSoftに残す。
-    const centerPrior = Math.abs(x-w/2) < w*.46 && y > h*.03 && y < h*.985;
-    const safeCenter = Math.abs(x-w/2) < w*.39 && y > h*.05 && y < h*.97;
-    const graySmooth = s < .075 && e < 7 && d < base + 4;
-    const satHit = s > .14;
-    const vividHit = s > .22;
-    const edgeHit = e > 12;
-    const hairEdge = e > 7 && d > 8;
-    const strongEdge = e > 26;
-    const darkSubject = l < 96 && bl > 118 && d > 18;
-    const colorHit = d > base - bias;
-    const softColorHit = d > base - bias - 24;
-    const faintButStructured = centerPrior && d > 8 && (ldiff > 9 || e > 6 || s > .10);
-    const paleClothOrHair = centerPrior && d > 12 && s > .055 && ldiff > 5;
-
-    weak[p] = (
-      (softColorHit && centerPrior && !graySmooth) ||
-      (hairEdge && centerPrior) ||
-      darkSubject ||
-      faintButStructured ||
-      paleClothOrHair
-    ) ? 1 : 0;
-
-    mid[p] = (
-      (colorHit && (satHit || edgeHit || darkSubject) && centerPrior) ||
-      (d > base + 14 && strongEdge) ||
-      (satHit && d > 16 && safeCenter) ||
-      (darkSubject && d > 22)
-    ) ? 1 : 0;
-
-    strong[p] = (
-      (d > base + 18 && (vividHit || strongEdge || darkSubject) && safeCenter) ||
-      (s > .34 && d > 18 && safeCenter) ||
-      (darkSubject && d > 30)
-    ) ? 1 : 0;
+    labels[p]=label;
   }
-  return {weak,mid,strong,edge,w,h};
+  // GrabCut風：確定/候補ラベルから前景/背景の特徴統計を作り、候補を数回再分類する。
+  const features={lab:labArr,hsv:hsvArr};
+  for(let iter=0; iter<5; iter++){
+    const fgModel=estimateModelStats(labels,features,true);
+    const bgModel=estimateModelStats(labels,features,false);
+    const next=labels.slice();
+    for(let p=0;p<labels.length;p++){
+      if(labels[p]===0 || labels[p]===1) continue;
+      const x=p%w, y=Math.floor(p/w);
+      const hsv=hsvArr[p]; const lab=labArr[p];
+      const f=[lab[0],lab[1],lab[2],hsv[1]*100,hsv[2]*100];
+      const df=featureDistance(f,fgModel), db=featureDistance(f,bgModel);
+      const centerBonus=(Math.abs(x-w/2)<w*.44 && y>h*.04 && y<h*.985) ? 8 : -3;
+      const edgeBonus=edge[p]>10 ? 4 : 0;
+      const alphaBonus=alphaHint[p]*10;
+      const score=(db-df) + centerBonus + edgeBonus + alphaBonus;
+      next[p] = score>2 ? 3 : 2;
+    }
+    labels.set(next);
+  }
+  // Convert 4-value labels to v0.3 compatible mask layers.
+  for(let p=0;p<labels.length;p++){
+    const x=p%w, y=Math.floor(p/w);
+    const hsv=hsvArr[p];
+    const s=hsv[1]*255, v=hsv[2]*255;
+    const d=labD[p];
+    const centerLoose = Math.abs(x-w/2) < w*.49 && y>h*.02 && y<h*.99;
+    const centerSafe = Math.abs(x-w/2) < w*.41 && y>h*.04 && y<h*.975;
+    const structured = edge[p] > 6;
+    const darkSubject = v < 105 && d > 12;
+    const label=labels[p];
+    weak[p] = (label===1 || label===3 || (centerLoose && d>7 && (structured || s>18 || darkSubject))) ? 1 : 0;
+    mid[p] = (label===1 || (label===3 && (d>12 || s>22 || structured || darkSubject))) ? 1 : 0;
+    strong[p] = (label===1 || (label===3 && centerSafe && (d>35 || s>45 || darkSubject) && edge[p]>4)) ? 1 : 0;
+  }
+  return {weak,mid,strong,edge,w,h,labD,alphaHint,labels};
 }
 
 function erode(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=1; for(let dy=-rad;dy<=rad&&ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h||!mask[yy*w+xx]){ok=0;break;} } out[y*w+x]=ok; } return out; }
@@ -241,7 +295,7 @@ function refineMasks(raw,imgData){
   const strong=openMask(closeMask(raw.strong,w,h),w,h);
   let core=mid.slice();
 
-  // v0.3: Softは「広めに拾う」→「coreに接続しているものだけ残す」。
+  // v0.4: Softは「広めに拾う」→「coreに接続しているものだけ残す」。
   // これで髪/薄布の欠けを戻しつつ、遠い背景グラデーションは捨てる。
   let softCandidate=maskSubtract(weakExpanded, core);
   let softConnected=keepConnectedSoft(softCandidate, core, w, h, 14);
@@ -263,7 +317,43 @@ function refineMasks(raw,imgData){
   return {weak:weakBase,mid,strong,core,soft:softKept,final:kept2.mask,main:kept2.main,components:kept2.comps,layers};
 }
 function maskToImage(mask,w,h,color=[90,170,255]){ const out=makeImageData(w,h,[12,15,22,255]); const d=out.data; for(let i=0,p=0;p<mask.length;p++,i+=4){ if(mask[p]){d[i]=color[0];d[i+1]=color[1];d[i+2]=color[2];d[i+3]=255;} } return out; }
-function analysisImage(imgData,core,soft){ const out=new ImageData(new Uint8ClampedArray(imgData.data), imgData.width, imgData.height); for(let p=0,i=0;p<(core?core.length:0);p++,i+=4){ if(core&&core[p]) out.data[i+3]=255; else if(soft&&soft[p]) out.data[i+3]=165; else out.data[i+3]=0; } return out; }
+function smoothAlpha(alpha,w,h,passes=1){
+  let a=alpha.slice();
+  for(let pass=0;pass<passes;pass++){
+    const out=new Float32Array(a.length);
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      let sum=0,n=0;
+      for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+        const xx=x+dx, yy=y+dy;
+        if(xx>=0&&yy>=0&&xx<w&&yy<h){ sum+=a[yy*w+xx]; n++; }
+      }
+      out[y*w+x]=sum/n;
+    }
+    a=out;
+  }
+  return a;
+}
+function analysisImage(imgData,core,soft,labD){
+  const w=imgData.width,h=imgData.height;
+  const out=new ImageData(new Uint8ClampedArray(imgData.data), w, h);
+  const alpha=new Float32Array(w*h);
+  for(let p=0;p<alpha.length;p++){
+    if(core && core[p]) alpha[p]=1;
+    else if(soft && soft[p]){
+      const d=labD ? labD[p] : 24;
+      // 貼付仕様の alpha=(Lab距離-5)/28 を採用。Softは薄い候補なので上限を少し抑える。
+      alpha[p]=clamp((d-5)/28,0.18,0.86);
+    } else alpha[p]=0;
+  }
+  // 境界を3px程度なじませる近似。完全なDistance Transformではなく、iPhone用軽量Blur。
+  const smoothed=smoothAlpha(alpha,w,h,2);
+  for(let p=0,i=0;p<alpha.length;p++,i+=4){
+    const a=Math.max(alpha[p], smoothed[p]*0.92);
+    out.data[i+3]=Math.round(clamp(a,0,1)*255);
+  }
+  return out;
+}
+
 function drawChecker(ctx,w,h,size=12){ ctx.fillStyle='#20242f';ctx.fillRect(0,0,w,h);ctx.fillStyle='#151923'; for(let y=0;y<h;y+=size)for(let x=0;x<w;x+=size){ if(((x/size)+(y/size))%2===0)ctx.fillRect(x,y,size,size); } }
 function drawAnalysis(c,imgData){ setCanvasSize(c,imgData.width,imgData.height); const ctx=c.getContext('2d'); drawChecker(ctx,c.width,c.height); ctx.putImageData(imgData,0,0); }
 function contourImage(imgData,mask,main){ const {width:w,height:h}=imgData; const out=new ImageData(new Uint8ClampedArray(imgData.data),w,h); const d=out.data; for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){ const p=y*w+x; if(mask[p] && (!mask[p-1]||!mask[p+1]||!mask[p-w]||!mask[p+w])){ const i=p*4; d[i]=255;d[i+1]=80;d[i+2]=80;d[i+3]=255; }} if(main){ // bbox green
@@ -281,18 +371,19 @@ function quality(mask,w,h,bgDiag,profile){ const m=maskMetrics(mask,w,h); let sc
 function runProfile(imgData,profile,tolBias,bgDiag){ const bgKind=profile==='simple_shadow'?'light_gradient':profile; const bg=buildBackgroundModel(imgData,bgKind); const raw=rawMask(imgData,bg,profile,tolBias); const refined=refineMasks(raw,imgData); const q=quality(refined.final,imgData.width,imgData.height,bgDiag,profile); return {profile,bg,raw,refined,quality:q.score,metrics:q.metrics}; }
 function runAnalysis(){ if(!state.imageData){ log('画像が未選択です。sample.pngで試すか、画像を選択してください。'); return; } const imgData=state.imageData; const tolBias=Number($('tol').value); const bgDiag=diagnoseBackground(imgData); const profiles = bgDiag.type==='alpha_png' ? ['alpha_png'] : ['white_background','solid_background','light_gradient','simple_shadow']; const results=profiles.map(p=>runProfile(imgData,p,tolBias,bgDiag)).sort((a,b)=>b.quality-a.quality); const best=results[0]; state.result={bgDiag,results,best,w:imgData.width,h:imgData.height,fileName:state.fileName};
   renderResult(); }
-function renderResult(){ const {bgDiag,results,best,w,h}=state.result; drawImageData(canvases.cOriginal,state.imageData); drawImageData(canvases.cBg,best.bg); drawImageData(canvases.cWeak,maskToImage(best.refined.soft||best.refined.weak,w,h,[82,125,255])); drawImageData(canvases.cMid,maskToImage(best.refined.final,w,h,[88,210,150])); drawImageData(canvases.cStrong,maskToImage(best.refined.core||best.refined.strong,w,h,[255,190,80])); drawAnalysis(canvases.cAnalysis,analysisImage(state.imageData,best.refined.core||best.refined.final,best.refined.soft)); drawImageData(canvases.cContour,contourImage(state.imageData,best.refined.final,best.metrics.main)); drawImageData(canvases.cOverlay,overlayImage(state.imageData,best.refined.final,best.metrics));
+function renderResult(){ const {bgDiag,results,best,w,h}=state.result; drawImageData(canvases.cOriginal,state.imageData); drawImageData(canvases.cBg,best.bg); drawImageData(canvases.cWeak,maskToImage(best.refined.soft||best.refined.weak,w,h,[82,125,255])); drawImageData(canvases.cMid,maskToImage(best.refined.final,w,h,[88,210,150])); drawImageData(canvases.cStrong,maskToImage(best.refined.core||best.refined.strong,w,h,[255,190,80])); drawAnalysis(canvases.cAnalysis,analysisImage(state.imageData,best.refined.core||best.refined.final,best.refined.soft,best.raw.labD)); drawImageData(canvases.cContour,contourImage(state.imageData,best.refined.final,best.metrics.main)); drawImageData(canvases.cOverlay,overlayImage(state.imageData,best.refined.final,best.metrics));
   $('bgType').innerHTML = `${bgDiag.type} <span class="pill">${bgDiag.supported?'対応':'非対応警告'}</span>`; $('bestProfile').textContent=best.profile; const cls=best.quality>=80?'ok':best.quality>=60?'warn':'bad'; $('quality').innerHTML=`<span class="score ${cls}">${best.quality}/100</span>`; $('qualityBar').style.width=best.quality+'%'; $('qualityBar').style.background=best.quality>=80?'var(--ok)':best.quality>=60?'var(--warn)':'var(--bad)';
   renderProfileTable(results); renderLog(); }
 function renderProfileTable(results){ let html='<table><thead><tr><th>Profile</th><th>Score</th><th>前景率</th><th>Comp</th><th>BorderLeak</th></tr></thead><tbody>'; for(const r of results){ const c=r.quality>=80?'ok':r.quality>=60?'warn':'bad'; html+=`<tr><td>${r.profile}</td><td class="score ${c}">${r.quality}</td><td>${(r.metrics.ratio*100).toFixed(1)}%</td><td>${r.metrics.comps.length}</td><td>${(r.metrics.borderLeak*100).toFixed(2)}%</td></tr>`; } html+='</tbody></table>'; $('profileTable').innerHTML=html; }
-function renderLog(){ const {bgDiag,best,w,h,fileName}=state.result; const m=best.metrics; const lines=[]; lines.push(`file: ${fileName}`); lines.push(`size: ${w} x ${h}`); lines.push(`background_type: ${bgDiag.type}`); lines.push(`supported: ${bgDiag.supported}`); lines.push(`reason: ${bgDiag.reason}`); lines.push(`border_std: ${bgDiag.borderStd.toFixed(2)}`); lines.push(`white_ratio: ${(bgDiag.whiteRatio*100).toFixed(1)}%`); lines.push(`alpha_ratio: ${(bgDiag.alphaRatio*100).toFixed(2)}%`); lines.push(''); lines.push(`best_profile: ${best.profile}`); lines.push(`quality_score: ${best.quality}/100`); lines.push(`foreground_area: ${m.area} px (${(m.ratio*100).toFixed(1)}%)`); if(best.refined.layers){ const L=best.refined.layers; lines.push(`core_area: ${L.coreArea} px (${(L.coreRatio*100).toFixed(1)}%)`); lines.push(`soft_area: ${L.softArea} px (${(L.softRatio*100).toFixed(1)}%)`); lines.push(`core_plus_soft: ${L.finalArea} px (${(L.finalRatio*100).toFixed(1)}%)`); lines.push(`missing_risk: ${L.missingRisk}/100`); } lines.push(`component_count: ${m.comps.length}`); lines.push(`center_mass: (${m.cx.toFixed(1)}, ${m.cy.toFixed(1)})`); lines.push(`border_leak: ${(m.borderLeak*100).toFixed(2)}%`); if(m.main) lines.push(`main_bbox: x=${m.main.minx}, y=${m.main.miny}, w=${m.main.w}, h=${m.main.h}`);
+function renderLog(){ const {bgDiag,best,w,h,fileName}=state.result; const m=best.metrics; const lines=[]; lines.push(`file: ${fileName}`); lines.push(`size: ${w} x ${h}`); lines.push(`background_type: ${bgDiag.type}`); lines.push(`supported: ${bgDiag.supported}`); lines.push(`reason: ${bgDiag.reason}`); lines.push(`border_std: ${bgDiag.borderStd.toFixed(2)}`); lines.push(`white_ratio: ${(bgDiag.whiteRatio*100).toFixed(1)}%`); lines.push(`alpha_ratio: ${(bgDiag.alphaRatio*100).toFixed(2)}%`); lines.push(''); lines.push(`best_profile: ${best.profile}`);
+  lines.push('pipeline: Lab差分 + HSV補助 + 4値マスク + GrabCut風反復 + Lab距離Alpha'); lines.push(`quality_score: ${best.quality}/100`); lines.push(`foreground_area: ${m.area} px (${(m.ratio*100).toFixed(1)}%)`); if(best.refined.layers){ const L=best.refined.layers; lines.push(`core_area: ${L.coreArea} px (${(L.coreRatio*100).toFixed(1)}%)`); lines.push(`soft_area: ${L.softArea} px (${(L.softRatio*100).toFixed(1)}%)`); lines.push(`core_plus_soft: ${L.finalArea} px (${(L.finalRatio*100).toFixed(1)}%)`); lines.push(`missing_risk: ${L.missingRisk}/100`); } lines.push(`component_count: ${m.comps.length}`); lines.push(`center_mass: (${m.cx.toFixed(1)}, ${m.cy.toFixed(1)})`); lines.push(`border_leak: ${(m.borderLeak*100).toFixed(2)}%`); if(m.main) lines.push(`main_bbox: x=${m.main.minx}, y=${m.main.miny}, w=${m.main.w}, h=${m.main.h}`);
   lines.push(''); lines.push('判定:'); if(!bgDiag.supported) lines.push('・複雑背景の可能性が高いです。白背景/透過PNG化してから使う前提です。'); if(best.refined.layers && best.refined.layers.missingRisk>45) lines.push('・欠けリスクが高めです。Soft Candidateを確認してください。'); if(best.quality>=80) lines.push('・Preprocessorの結果は良好です。次のAnalysisへ渡せる可能性が高いです。'); else if(best.quality>=60) lines.push('・利用可能ですが、薄い髪/布/床影の混入確認が必要です。'); else lines.push('・品質が低いです。背景・影・画像端ノイズを確認してください。');
   log(lines.join('\n')); }
 
 function saveCanvasImage(){ if(!state.result) return; const list=[['Original',canvases.cOriginal],['Background',canvases.cBg],['Weak',canvases.cWeak],['Middle',canvases.cMid],['Strong',canvases.cStrong],['Analysis',canvases.cAnalysis],['Contour',canvases.cContour],['Overlay',canvases.cOverlay]]; const cellW=360, labelH=28, pad=10; const cellH=Math.round(cellW*(state.result.h/state.result.w))+labelH; const out=document.createElement('canvas'); out.width=cellW*2+pad*3; out.height=cellH*4+pad*5+110; const ctx=out.getContext('2d'); ctx.fillStyle='#10131a';ctx.fillRect(0,0,out.width,out.height); ctx.fillStyle='#eef3ff';ctx.font='bold 18px -apple-system, sans-serif'; ctx.fillText('Sprite Studio Preprocessor Summary',pad,28); ctx.font='12px -apple-system, sans-serif'; ctx.fillStyle='#9ba8bd'; ctx.fillText(`profile=${state.result.best.profile} score=${state.result.best.quality}/100 type=${state.result.bgDiag.type}`,pad,50);
   for(let i=0;i<list.length;i++){ const col=i%2,row=Math.floor(i/2); const x=pad+col*(cellW+pad), y=70+pad+row*(cellH+pad); ctx.fillStyle='#202633';ctx.fillRect(x,y,cellW,labelH); ctx.fillStyle='#eef3ff';ctx.font='bold 13px -apple-system, sans-serif';ctx.fillText(list[i][0],x+8,y+19); ctx.drawImage(list[i][1],x,y+labelH,cellW,cellH-labelH); }
-  downloadUrl(out.toDataURL('image/png'), 'preprocessor_summary_v0_3.png'); }
-function saveJson(){ if(!state.result) return; const r=state.result; const json={version:'0.3',file:r.fileName,size:{w:r.w,h:r.h},background:r.bgDiag,best:{profile:r.best.profile,quality:r.best.quality,layers:r.best.refined.layers,metrics:{foreground_ratio:r.best.metrics.ratio,component_count:r.best.metrics.comps.length,center:{x:r.best.metrics.cx,y:r.best.metrics.cy},border_leak:r.best.metrics.borderLeak,bbox:r.best.metrics.main}},profiles:r.results.map(x=>({profile:x.profile,quality:x.quality,layers:x.refined.layers,foreground_ratio:x.metrics.ratio,component_count:x.metrics.comps.length,border_leak:x.metrics.borderLeak}))}; const blob=new Blob([JSON.stringify(json,null,2)],{type:'application/json'}); downloadUrl(URL.createObjectURL(blob),'preprocessor_diagnostic_v0_3.json'); }
+  downloadUrl(out.toDataURL('image/png'), 'preprocessor_summary_v0_4.png'); }
+function saveJson(){ if(!state.result) return; const r=state.result; const json={version:'0.4',file:r.fileName,size:{w:r.w,h:r.h},background:r.bgDiag,best:{profile:r.best.profile,quality:r.best.quality,layers:r.best.refined.layers,metrics:{foreground_ratio:r.best.metrics.ratio,component_count:r.best.metrics.comps.length,center:{x:r.best.metrics.cx,y:r.best.metrics.cy},border_leak:r.best.metrics.borderLeak,bbox:r.best.metrics.main}},profiles:r.results.map(x=>({profile:x.profile,quality:x.quality,layers:x.refined.layers,foreground_ratio:x.metrics.ratio,component_count:x.metrics.comps.length,border_leak:x.metrics.borderLeak}))}; const blob=new Blob([JSON.stringify(json,null,2)],{type:'application/json'}); downloadUrl(URL.createObjectURL(blob),'preprocessor_diagnostic_v0_4.json'); }
 function downloadUrl(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove(); if(url.startsWith('blob:')) URL.revokeObjectURL(url);},100); }
 function clearAll(){ state={img:null,imageData:null,result:null,fileName:'sample.png'}; for(const c of Object.values(canvases)){ setCanvasSize(c,1,1); c.getContext('2d').clearRect(0,0,1,1);} $('bgType').textContent='未解析';$('bestProfile').textContent='未解析';$('quality').textContent='-';$('qualityBar').style.width='0%';$('profileTable').innerHTML='';log('待機中...'); }
 
