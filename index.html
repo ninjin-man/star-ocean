@@ -3,22 +3,30 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Sprite Studio Region Viewer v0.8.1</title>
+<title>Sprite Studio Region Viewer v0.8.3</title>
 <style>
 :root{--bg:#0f1520;--panel:#171f2d;--panel2:#202a3a;--text:#e8eef8;--muted:#9aa8bd;--line:#344155;--ok:#3bd17f;--warn:#ffcf5a;--bad:#ff6b6b;--accent:#58a6ff}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:14px}h1{font-size:22px;margin:0 0 8px}.sub{color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.5}.bar{display:grid;gap:8px;margin:10px 0 14px}.bar input,.bar button,.bar select{font-size:15px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px}button{cursor:pointer}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.card h2{font-size:14px;margin:0;padding:8px 10px;background:var(--panel2);display:flex;justify-content:space-between}.card canvas{width:100%;display:block;background:#0b1018;image-rendering:auto}.wide{grid-column:1/-1}.log{white-space:pre-wrap;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;padding:10px;background:#07101b;color:#d8e7ff;max-height:320px;overflow:auto}.pill{font-size:11px;color:var(--muted)}.row{display:flex;gap:8px;flex-wrap:wrap}.mini{font-size:12px;color:var(--muted)}.legend{display:flex;gap:7px;flex-wrap:wrap;padding:8px 10px;background:#101827}.tag{border-radius:999px;padding:4px 8px;font-size:11px;background:#263244}.footer{margin:14px 0;color:var(--muted);font-size:12px;line-height:1.5}@media(min-width:900px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wide{grid-column:1/-1}.bar{grid-template-columns:1fr auto auto auto}}
 </style>
 </head>
 <body>
-<h1>Sprite Studio Region Viewer v0.8.1</h1>
+<h1>Sprite Studio Region Viewer v0.8.3</h1>
 <div class="sub">AIなし / Canvasのみ。v0.4背景除去 → 基準線 → Lab k-means → Region生成 → 統合 → 候補分類 → 簡易補正 → PNG/JSON出力。</div>
 <div class="bar">
 <input id="file" type="file" accept="image/*" />
 <select id="k"><option value="7">色数 k=7</option><option value="6">色数 k=6</option><option value="8">色数 k=8</option><option value="10">色数 k=10</option></select>
+<select id="mergeMode"><option value="balanced">統合:標準</option><option value="strict">統合:厳しめ</option><option value="loose">統合:緩め</option></select>
 <button id="run">解析</button>
 <button id="summary">まとめPNG</button>
 <button id="json">JSON保存</button>
 </div>
+<div class="card wide" style="margin:8px 0 12px"><h2>基準線 微調整</h2><div class="legend">
+<label class="tag">肩 <input id="adjShoulder" type="range" min="-40" max="40" value="0"></label>
+<label class="tag">腰 <input id="adjWaist" type="range" min="-50" max="50" value="0"></label>
+<label class="tag">股 <input id="adjCrotch" type="range" min="-50" max="50" value="0"></label>
+<label class="tag">足首 <input id="adjAnkle" type="range" min="-50" max="50" value="0"></label>
+<span class="mini">部位判定がズレた時は、ここで先に線を直します。</span>
+</div></div>
 <div class="grid">
   <div class="card"><h2>0. Original <span id="size" class="pill"></span></h2><canvas id="cOriginal"></canvas></div>
   <div class="card"><h2>1. Analysis Image <span id="score" class="pill"></span></h2><canvas id="cAnalysis"></canvas></div>
@@ -31,12 +39,12 @@
   <div class="card"><h2>8. Part Preview</h2><canvas id="cPart"></canvas><div class="legend" id="partButtons"></div></div>
   <div class="card wide"><h2>Result Log</h2><div id="log" class="log"></div></div>
 </div>
-<div class="footer">MVP目的：完全自動の正解ではなく、手動補正しやすい候補Regionを作る。v0.8は仕様を一気に入れた検証版です。</div>
+<div class="footer">MVP目的：完全自動の正解ではなく、手動補正しやすい候補Regionを作る。v0.8.3は基準線調整とRegion統合モードを追加した検証版です。</div>
 <script>
 'use strict';
 const qs=id=>document.getElementById(id);
 const canvases={original:qs('cOriginal'),analysis:qs('cAnalysis'),masks:qs('cMasks'),lines:qs('cLines'),cluster:qs('cCluster'),before:qs('cBefore'),after:qs('cAfter'),cand:qs('cCand'),part:qs('cPart')};
-let state={img:null,w:0,h:0,orig:null,result:null,selectedPart:'hair'};
+let state={img:null,w:0,h:0,orig:null,result:null,selectedPart:'hair',lineAdjust:{shoulder:0,waist:0,crotch:0,ankle:0}};
 const LABELS={hair:'髪',skin:'肌/顔',ear:'耳',sheer:'上着/薄布',cloth:'衣装本体',leg:'脚',shoe:'靴',ornament:'装飾',shadow:'影',unknown:'未分類'};
 const COLORS={hair:[184,120,255],skin:[255,176,144],ear:[255,140,110],sheer:[110,230,190],cloth:[20,160,100],leg:[20,120,90],shoe:[160,110,70],ornament:[255,205,70],shadow:[120,120,160],unknown:[170,180,195]};
 function fitCanvas(c,w,h){c.width=w;c.height=h;}
@@ -99,23 +107,70 @@ function scorePre(w,h,bbox,finalMask,core,soft,shadow){if(!bbox)return 0;let are
 function baselines(mask,w,h){let bb=bboxOf(mask,w,h);if(!bb)return null;let top=bb.miny,bottom=bb.maxy,H=bb.h,cx=bb.cx;let widths=[];for(let y=top;y<=bottom;y++){let min=w,max=-1;for(let x=0;x<w;x++)if(mask[y*w+x]){if(x<min)min=x;if(x>max)max=x;}widths[y]=max>=min?max-min+1:0;}
 function yrel(r){return Math.round(top+H*r)}
 let head=yrel(.24),faceTop=yrel(.07),faceBot=yrel(.25),shoulder=yrel(.28),waist=yrel(.50),crotch=yrel(.60),ankle=yrel(.88);return {bbox:bb,cx,top,bottom,H,head,faceTop,faceBot,shoulder,waist,crotch,ankle,feet:yrel(.90),widths};}
+function applyLineAdjust(lines){if(!lines)return lines;let a=state.lineAdjust||{};let out={...lines};out.shoulder=clamp(out.shoulder+(a.shoulder||0),out.faceBot+4,out.waist-4);out.waist=clamp(out.waist+(a.waist||0),out.shoulder+4,out.crotch-4);out.crotch=clamp(out.crotch+(a.crotch||0),out.waist+4,out.ankle-4);out.ankle=clamp(out.ankle+(a.ankle||0),out.crotch+4,out.bottom);out.feet=clamp(out.ankle+Math.round(out.H*.03),out.ankle,out.bottom);return out;}
 function kmeansLab(imgData,mask,k=7){const {width:w,height:h,data}=imgData;let pts=[],idxs=[];for(let p=0;p<w*h;p++)if(mask[p]){let i=p*4;if(data[i+3]>0){pts.push(rgb2lab(data[i],data[i+1],data[i+2]));idxs.push(p)}}if(!pts.length)return null;let centers=[];for(let i=0;i<k;i++)centers.push(pts[Math.floor((i+.5)*pts.length/k)%pts.length].slice());let labels=new Int16Array(w*h);labels.fill(-1);for(let it=0;it<12;it++){let sums=Array.from({length:k},()=>[0,0,0,0]);for(let n=0;n<pts.length;n++){let best=0,bd=1e9;for(let c=0;c<k;c++){let d=labDist(pts[n],centers[c]);if(d<bd){bd=d;best=c}}labels[idxs[n]]=best;sums[best][0]+=pts[n][0];sums[best][1]+=pts[n][1];sums[best][2]+=pts[n][2];sums[best][3]++;}for(let c=0;c<k;c++)if(sums[c][3])centers[c]=[sums[c][0]/sums[c][3],sums[c][1]/sums[c][3],sums[c][2]/sums[c][3]];}
 let rgbCenters=centers.map(labToApproxRgb);return {labels,centers,rgbCenters,k};}
 function labToApproxRgb(lab){ // simple search approximation for display only
 let best=[0,0,0],bd=1e9;for(let r=0;r<=255;r+=17)for(let g=0;g<=255;g+=17)for(let b=0;b<=255;b+=17){let d=labDist(lab,rgb2lab(r,g,b));if(d<bd){bd=d;best=[r,g,b]}}return best;}
 function makeRegions(imgData,mask,km,lines){let {width:w,height:h,data}=imgData;let regs=[];for(let c=0;c<km.k;c++){let cmask=new Uint8Array(w*h);for(let p=0;p<w*h;p++)if(mask[p]&&km.labels[p]===c)cmask[p]=1;let comps=connected(cmask,w,h);for(const comp of comps){if(comp.area<28)continue;let sum=[0,0,0,0],alpha=0;for(const p of comp.pixels){let i=p*4;sum[0]+=data[i];sum[1]+=data[i+1];sum[2]+=data[i+2];alpha+=data[i+3];}let mean=sum.map(v=>Math.round(v/comp.area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);regs.push({...comp,id:regs.length+1,cluster:c,mean,alphaMean:alpha/comp.area,hue:hsv[0],sat:hsv[1],val:hsv[2],mergedFrom:[regs.length+1]});}}
 return regs;}
-function mergeRegions(regs,lines,w,h){let list=regs.map(r=>({...r}));let changed=true;function near(a,b){return !(a.maxx+7<b.minx||b.maxx+7<a.minx||a.maxy+7<b.miny||b.maxy+7<a.miny)}function sim(a,b){let dh=Math.min(Math.abs(a.hue-b.hue),360-Math.abs(a.hue-b.hue));let ds=Math.abs(a.sat-b.sat),dv=Math.abs(a.val-b.val);return (dh<28&&ds<.18&&dv<.22)||(labDist(rgb2lab(...a.mean),rgb2lab(...b.mean))<20)}
-while(changed){changed=false;outer:for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){let a=list[i],b=list[j];let sameZone=zoneOf(a,lines)===zoneOf(b,lines);if((sameZone&&near(a,b)&&sim(a,b)) || (Math.min(a.area,b.area)<120&&near(a,b)&&sim(a,b))){let pixels=a.pixels.concat(b.pixels);let area=pixels.length,minx=Math.min(a.minx,b.minx),maxx=Math.max(a.maxx,b.maxx),miny=Math.min(a.miny,b.miny),maxy=Math.max(a.maxy,b.maxy);let cx=(a.cx*a.area+b.cx*b.area)/area,cy=(a.cy*a.area+b.cy*b.area)/area;let mean=[0,1,2].map(k=>Math.round((a.mean[k]*a.area+b.mean[k]*b.area)/area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);list[i]={...a,area,pixels,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx,cy,mean,hue:hsv[0],sat:hsv[1],val:hsv[2],mergedFrom:a.mergedFrom.concat(b.mergedFrom)};list.splice(j,1);changed=true;break outer;}}}
-list.forEach((r,i)=>r.mid=i+1);return list.filter(r=>r.area>50);}
 function zoneOf(r,lines){if(!lines)return 'unknown';let y=r.cy;if(y<lines.head)return 'head';if(y<lines.shoulder)return 'face';if(y<lines.waist)return 'torso';if(y<lines.ankle)return 'legs';return 'feet'}
-function classify(r,lines){let zone=zoneOf(r,lines),cx=lines?lines.cx:0;let label='unknown',conf=25,reason=[];let hue=r.hue,s=r.sat,v=r.val;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;let aspect=r.h/(r.w||1);function set(l,c,why){if(c>conf){label=l;conf=c;reason=[why];}}
-if(zone==='head'||zone==='face'){if((hue>245&&hue<330)||s<.25&&v>.35)set('hair',70,'head zone + lavender/gray');if(s>.12&&hue>0&&hue<45&&v>.55)set('skin',68,'head zone + skin hue');if(r.area<lines.bbox.area*.04&&relX>.18&&r.cy>lines.faceTop&&r.cy<lines.faceBot)set('ear',62,'face side small region');}
-if(zone==='torso'){if(hue>130&&hue<190&&s>.18&&v>.25)set('cloth',72,'torso + green');if((hue>115&&hue<175&&s<.35&&v>.45)||r.alphaMean<230)set('sheer',66,'torso side + pale/transparent');if(hue>35&&hue<60&&s>.25&&v>.35)set('ornament',70,'gold in torso');}
-if(zone==='legs'){if(hue>130&&hue<190&&s>.18)set('leg',74,'legs + green');if(hue>35&&hue<65&&s>.25)set('ornament',62,'gold lower');}
-if(zone==='feet'){if(r.area>80)set('shoe',70,'feet zone');}
-if(label==='unknown'&&((hue>245&&hue<330)||s<.22)&&r.cy<lines.waist)set('hair',55,'upper gray/lavender');
-return {label,conf,reason:reason.join(' / ')||'rule not matched',zone};}
+function regionHint(r,lines){
+  let zone=zoneOf(r,lines),cx=lines?lines.cx:0;let hue=r.hue,s=r.sat,v=r.val;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;
+  let R=r.mean[0],G=r.mean[1],B=r.mean[2];
+  let lavender=((hue>245&&hue<340)||(s<.24&&B>=G-3&&R>=G-8&&v>.30));
+  let paleMint=((hue>85&&hue<180&&v>.45&&s<.45)||(s<.18&&G>=R-4&&G>=B-4&&v>.55));
+  let darkGreen=(hue>120&&hue<190&&s>.12&&v>.12)||(v<.20&&relX<.32);
+  let skin=(hue<48&&s>.08&&s<.55&&v>.38&&R>=G&&G>=B-15);
+  let gold=(hue>32&&hue<68&&s>.20&&v>.30);
+  if(zone==='feet')return 'shoe';
+  if(gold)return 'ornament';
+  if((zone==='head'||zone==='face')&&skin&&relX<.34)return 'skin';
+  if((zone==='head'||zone==='face'||(zone==='torso'&&r.cy<lines.waist&&relX>.16))&&lavender&&!paleMint)return 'hair';
+  if((zone==='torso'||zone==='legs')&&paleMint&&relX>.18)return 'sheer';
+  if((zone==='torso'||zone==='legs')&&darkGreen)return zone==='legs'?'leg':'cloth';
+  return 'unknown';
+}
+function mergeRegions(regs,lines,w,h){
+  let list=regs.map(r=>({...r,hint:regionHint(r,lines)}));let changed=true;let mode=(qs('mergeMode')&&qs('mergeMode').value)||'balanced';
+  function near(a,b,gap=6){gap=mode==='strict'?3:(mode==='loose'?10:gap);return !(a.maxx+gap<b.minx||b.maxx+gap<a.minx||a.maxy+gap<b.miny||b.maxy+gap<a.miny)}
+  function colorSim(a,b){let dh=Math.min(Math.abs(a.hue-b.hue),360-Math.abs(a.hue-b.hue));let ds=Math.abs(a.sat-b.sat),dv=Math.abs(a.val-b.val);let hueLimit=mode==='strict'?16:(mode==='loose'?32:24);let dsLimit=mode==='strict'?.10:(mode==='loose'?.22:.16);let dvLimit=mode==='strict'?.14:(mode==='loose'?.28:.20);let labLimit=mode==='strict'?12:(mode==='loose'?24:18);return (dh<hueLimit&&ds<dsLimit&&dv<dvLimit)||(labDist(rgb2lab(...a.mean),rgb2lab(...b.mean))<labLimit)}
+  function canMerge(a,b){
+    if(!near(a,b,6)||!colorSim(a,b))return false;
+    let za=zoneOf(a,lines),zb=zoneOf(b,lines);
+    let ha=a.hint,hb=b.hint;
+    // 部位境界を守る：髪・薄布・衣装・脚・靴は原則混ぜない
+    if(ha!==hb && ha!=='unknown' && hb!=='unknown')return false;
+    // 頭部と胴体外側の大領域を混ぜない。髪が袖を吸収するのを防ぐ。
+    if((za==='head'||za==='face') && (zb==='torso'||zb==='legs') && Math.min(a.area,b.area)>160)return false;
+    if((zb==='head'||zb==='face') && (za==='torso'||za==='legs') && Math.min(a.area,b.area)>160)return false;
+    // 小さい未分類は近い同系部位へ吸収してよい
+    let smallLimit=mode==='strict'?60:(mode==='loose'?160:110);if(Math.min(a.area,b.area)<smallLimit)return true;
+    if(ha===hb && za===zb)return true;
+    if(ha===hb && (ha==='hair'||ha==='sheer') && Math.abs(a.cy-b.cy)<130)return true;
+    return false;
+  }
+  while(changed){changed=false;outer:for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){let a=list[i],b=list[j];if(canMerge(a,b)){let pixels=a.pixels.concat(b.pixels);let area=pixels.length,minx=Math.min(a.minx,b.minx),maxx=Math.max(a.maxx,b.maxx),miny=Math.min(a.miny,b.miny),maxy=Math.max(a.maxy,b.maxy);let cx=(a.cx*a.area+b.cx*b.area)/area,cy=(a.cy*a.area+b.cy*b.area)/area;let mean=[0,1,2].map(k=>Math.round((a.mean[k]*a.area+b.mean[k]*b.area)/area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);let tmp={...a,area,pixels,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx,cy,mean,hue:hsv[0],sat:hsv[1],val:hsv[2],mergedFrom:a.mergedFrom.concat(b.mergedFrom)};tmp.hint=regionHint(tmp,lines);list[i]=tmp;list.splice(j,1);changed=true;break outer;}}}
+  list.forEach((r,i)=>r.mid=i+1);return list.filter(r=>r.area>50);
+}
+function classify(r,lines){
+  let zone=zoneOf(r,lines),cx=lines?lines.cx:0;let label='unknown',conf=25,reason=[];let hue=r.hue,s=r.sat,v=r.val;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;let aspect=r.h/(r.w||1);let R=r.mean[0],G=r.mean[1],B=r.mean[2];
+  let hint=regionHint(r,lines);function set(l,c,why){if(c>conf){label=l;conf=c;reason=[why];}}
+  if(hint==='hair')set('hair',zone==='head'||zone==='face'?76:62,'lavender/gray + head-connected zone');
+  if(hint==='skin')set('skin',70,'skin hue + face/head zone');
+  if(hint==='sheer')set('sheer',72,'pale mint + torso side cloth zone');
+  if(hint==='cloth')set('cloth',76,'dark green + torso center');
+  if(hint==='leg')set('leg',74,'dark green + lower body');
+  if(hint==='shoe')set('shoe',70,'feet zone');
+  if(hint==='ornament')set('ornament',70,'gold/high saturation');
+  // 耳は小さい肌色領域として別判定。ただし顔の左右外側のみ。
+  if((zone==='head'||zone==='face')&&r.area<lines.bbox.area*.035&&relX>.17&&r.cy>lines.faceTop&&r.cy<lines.faceBot&&R>G-10&&R>B-5)set('ear',64,'small side skin region');
+  // 胴体中央の暗色未分類は衣装本体として拾う
+  if(label==='unknown'&&zone==='torso'&&relX<.22&&v<.25&&r.area>180)set('cloth',68,'dark center torso fallback');
+  // 下半身中央の暗緑未分類は脚として拾う
+  if(label==='unknown'&&zone==='legs'&&relX<.30&&v<.35&&r.area>180)set('leg',66,'dark lower body fallback');
+  return {label,conf,reason:reason.join(' / ')||'rule not matched',zone};
+}
 function renderAll(){let res=state.result;if(!res)return;const {imgData,pre,lines,km,regions,merged,candidates}=res;drawImageData(canvases.original,imgData);drawImageData(canvases.analysis,pre.analysis);drawMasks(canvases.masks,pre);drawLines(canvases.lines,imgData,lines);drawCluster(canvases.cluster,imgData,pre.finalMask,km);drawRegions(canvases.before,imgData,regions,lines,false);drawRegions(canvases.after,imgData,merged,lines,true);drawCandidates(canvases.cand,imgData,candidates);drawPart(canvases.part,imgData,candidates,state.selectedPart);makePartButtons();qs('size').textContent=`${imgData.width}×${imgData.height}`;qs('score').textContent=`score ${pre.score}`;logResult();}
 function drawMasks(c,pre){let w=state.w,h=state.h,id=makeImageData(w,h,[10,15,24,255]);for(let p=0;p<w*h;p++){let i=p*4;if(pre.shadow[p]){id.data[i]=120;id.data[i+1]=120;id.data[i+2]=160;}if(pre.soft[p]){id.data[i]=80;id.data[i+1]=140;id.data[i+2]=255;}if(pre.core[p]){id.data[i]=255;id.data[i+1]=190;id.data[i+2]=70;}}drawImageData(c,id)}
 function drawLines(c,img,lines){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=2;ctx.font='12px sans-serif';if(!lines)return;let arr=[['HEAD',lines.head,'#ff4f68'],['FACE',lines.faceBot,'#ff9f43'],['SHOULDER',lines.shoulder,'#ffd166'],['WAIST',lines.waist,'#00e5a8'],['CROTCH',lines.crotch,'#51a7ff'],['ANKLE',lines.ankle,'#9b5cff']];for(const [name,y,col] of arr){ctx.strokeStyle=col;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();ctx.fillText(name,4,y-3)}ctx.strokeStyle='#ff4f68';ctx.beginPath();ctx.moveTo(lines.cx,0);ctx.lineTo(lines.cx,c.height);ctx.stroke();}
@@ -125,14 +180,14 @@ function drawCandidates(c,img,cands){drawImageData(c,img);let ctx=c.getContext('
 function drawPart(c,img,cands,label){let w=img.width,h=img.height,id=makeImageData(w,h,[0,0,0,0]),src=img.data;let pick=cands.filter(r=>r.label===label);let mask=new Uint8Array(w*h);for(const r of pick)for(const p of r.pixels)mask[p]=1;for(let p=0;p<w*h;p++){if(mask[p]){let i=p*4;id.data[i]=src[i];id.data[i+1]=src[i+1];id.data[i+2]=src[i+2];id.data[i+3]=src[i+3];}}drawImageData(c,id)}
 function makePartButtons(){let div=qs('partButtons');div.innerHTML='';for(const key of Object.keys(LABELS)){let b=document.createElement('button');b.className='tag';b.textContent=LABELS[key];b.style.border='1px solid rgb('+COLORS[key].join(',')+')';b.onclick=()=>{state.selectedPart=key;renderAll()};div.appendChild(b)}}
 function palette(i){let cols=['#ff4f68','#ffd166','#06d6a0','#4dabf7','#9b5cff','#ff8fab','#f78c6b','#c3f73a','#72efdd','#f4a261'];return cols[i%cols.length]}
-function logResult(){let {pre,lines,regions,merged,candidates}=state.result;let counts={};for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let txt=`Score ${pre.score}\nRegion ${regions.length} → ${merged.length}\nBackground RGB ${pre.bg.join(', ')}\nFinal area ratio ${(pre.bbox?pre.bbox.area/(state.w*state.h):0).toFixed(3)}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,80))txt+=`M${r.mid} ${LABELS[r.label]} conf=${r.conf} zone=${r.zone} area=${r.area} bbox=${r.w}x${r.h} color=#${r.mean.map(x=>x.toString(16).padStart(2,'0')).join('')} reason=${r.reason}\n`;qs('log').textContent=txt;}
-async function analyze(){try{let imgData=state.orig;if(!imgData){qs('log').textContent='画像が未読み込みです。';return;}state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);let lines=baselines(pre.finalMask,state.w,state.h);let km=kmeansLab(pre.analysis,pre.finalMask,parseInt(qs('k').value,10));if(!km){qs('log').textContent='解析失敗: 前景マスクが空です。背景除去設定を見直してください。';return;}let regions=makeRegions(pre.analysis,pre.finalMask,km,lines);let merged=mergeRegions(regions,lines,state.w,state.h);let candidates=merged.map(r=>({...r,...classify(r,lines)})).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions,merged,candidates};renderAll();}catch(err){console.error(err);qs('log').textContent='解析エラー: '+(err&&err.message?err.message:err);}}
+function logResult(){let {pre,lines,regions,merged,candidates}=state.result;let counts={};for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let txt=`Score ${pre.score}\nRegion ${regions.length} → ${merged.length} / merge=${(qs('mergeMode')&&qs('mergeMode').value)||'balanced'}\nLines shoulder=${lines?lines.shoulder:'-'} waist=${lines?lines.waist:'-'} crotch=${lines?lines.crotch:'-'} ankle=${lines?lines.ankle:'-'}\nBackground RGB ${pre.bg.join(', ')}\nFinal area ratio ${(pre.bbox?pre.bbox.area/(state.w*state.h):0).toFixed(3)}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,80))txt+=`M${r.mid} ${LABELS[r.label]} conf=${r.conf} zone=${r.zone} area=${r.area} bbox=${r.w}x${r.h} color=#${r.mean.map(x=>x.toString(16).padStart(2,'0')).join('')} reason=${r.reason}\n`;qs('log').textContent=txt;}
+async function analyze(){try{let imgData=state.orig;if(!imgData){qs('log').textContent='画像が未読み込みです。';return;}state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);let lines=applyLineAdjust(baselines(pre.finalMask,state.w,state.h));let km=kmeansLab(pre.analysis,pre.finalMask,parseInt(qs('k').value,10));if(!km){qs('log').textContent='解析失敗: 前景マスクが空です。背景除去設定を見直してください。';return;}let regions=makeRegions(pre.analysis,pre.finalMask,km,lines);let merged=mergeRegions(regions,lines,state.w,state.h);let candidates=merged.map(r=>({...r,...classify(r,lines)})).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions,merged,candidates};renderAll();}catch(err){console.error(err);qs('log').textContent='解析エラー: '+(err&&err.message?err.message:err);}}
 function loadImage(src){return new Promise((resolve,reject)=>{let im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src;});}
 function imageToData(im,maxH=640){let scale=Math.min(1,maxH/im.height,480/im.width);let w=Math.round(im.width*scale),h=Math.round(im.height*scale);let c=document.createElement('canvas');c.width=w;c.height=h;let ctx=c.getContext('2d');ctx.drawImage(im,0,0,w,h);return ctx.getImageData(0,0,w,h)}
 async function loadSample(){let im=await loadImage('sample.png');state.orig=imageToData(im);analyze();}
-qs('file').addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;let url=URL.createObjectURL(f);let im=await loadImage(url);state.orig=imageToData(im);URL.revokeObjectURL(url);analyze();});qs('run').onclick=analyze;
-qs('json').onclick=()=>{if(!state.result)return;let {pre,regions,merged,candidates}=state.result;let obj={version:'0.8',size:{w:state.w,h:state.h},preprocessor:{score:pre.score,bg:pre.bg,bbox:pre.bbox},region:{before:regions.length,after:merged.length},parts:candidates.map(r=>({id:r.mid,label:r.label,label_ja:LABELS[r.label],confidence:r.conf,zone:r.zone,bbox:[r.minx,r.miny,r.w,r.h],area:r.area,mean_color:r.mean,reason:r.reason,merged_from:r.mergedFrom}))};downloadBlob(JSON.stringify(obj,null,2),'sprite_region_metadata_v0_8.json','application/json');};
-qs('summary').onclick=()=>{let cards=[canvases.original,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.part];let W=900,H=1200,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='24px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.8.1 Summary',20,34);let x=20,y=60,cellW=270,cellH=330;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0;x=20+col*(cellW+20);y=60+row*(cellH+28);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,24);ctx.fillStyle='#e8eef8';ctx.font='13px sans-serif';ctx.fillText(['Original','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Part'][i],x+8,y+17);ctx.drawImage(cc,x,y+28,cellW,Math.min(cellH-30,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_8.png','image/png'));};
+qs('file').addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;let url=URL.createObjectURL(f);let im=await loadImage(url);state.orig=imageToData(im);URL.revokeObjectURL(url);analyze();});qs('run').onclick=analyze;['adjShoulder','adjWaist','adjCrotch','adjAnkle'].forEach(id=>{let el=qs(id);if(el)el.oninput=()=>{state.lineAdjust={shoulder:+qs('adjShoulder').value,waist:+qs('adjWaist').value,crotch:+qs('adjCrotch').value,ankle:+qs('adjAnkle').value};analyze();};});if(qs('mergeMode'))qs('mergeMode').onchange=analyze;
+qs('json').onclick=()=>{if(!state.result)return;let {pre,regions,merged,candidates}=state.result;let obj={version:'0.8.3',size:{w:state.w,h:state.h},preprocessor:{score:pre.score,bg:pre.bg,bbox:pre.bbox},region:{before:regions.length,after:merged.length},parts:candidates.map(r=>({id:r.mid,label:r.label,label_ja:LABELS[r.label],confidence:r.conf,zone:r.zone,bbox:[r.minx,r.miny,r.w,r.h],area:r.area,mean_color:r.mean,reason:r.reason,merged_from:r.mergedFrom}))};downloadBlob(JSON.stringify(obj,null,2),'sprite_region_metadata_v0_8_3.json','application/json');};
+qs('summary').onclick=()=>{let cards=[canvases.original,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.part];let W=900,H=1200,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='24px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.8.3 Summary',20,34);let x=20,y=60,cellW=270,cellH=330;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0;x=20+col*(cellW+20);y=60+row*(cellH+28);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,24);ctx.fillStyle='#e8eef8';ctx.font='13px sans-serif';ctx.fillText(['Original','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Part'][i],x+8,y+17);ctx.drawImage(cc,x,y+28,cellW,Math.min(cellH-30,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_8_3.png','image/png'));};
 function downloadBlob(data,name,type){let blob=data instanceof Blob?data:new Blob([data],{type});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 loadSample().catch(e=>{qs('log').textContent='sample load error: '+e.message});
 </script>
