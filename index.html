@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Sprite Studio Preprocessor iPhone Test Viewer v0.1</title>
+<title>Sprite Studio Preprocessor iPhone Test Viewer v0.2</title>
 <style>
   :root{--bg:#10131a;--panel:#171c25;--panel2:#202633;--text:#eef3ff;--muted:#9ba8bd;--line:#30384a;--accent:#7fb0ff;--ok:#57d68d;--warn:#ffd166;--bad:#ff6b6b;}
   *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;} 
@@ -27,8 +27,8 @@
 </head>
 <body>
 <header>
-  <h1>Sprite Studio Preprocessor iPhone Test Viewer v0.1</h1>
-  <div class="sub">AIなし / Canvasのみ / Original非破壊 / 複数Profile試行 / Quality Evaluation</div>
+  <h1>Sprite Studio Preprocessor iPhone Test Viewer v0.2</h1>
+  <div class="sub">AIなし / Canvasのみ / Original非破壊 / Trimap(Core-Soft-Reject) / Edge-aware matte</div>
 </header>
 <main>
   <section class="card">
@@ -56,9 +56,9 @@
   <section class="grid">
     <div class="panel"><h2>Original Image <span>非破壊</span></h2><canvas id="cOriginal"></canvas></div>
     <div class="panel"><h2>Background Model <span>推定背景</span></h2><canvas id="cBg"></canvas></div>
-    <div class="panel"><h2>Mask Weak <span>薄い髪・布の回収</span></h2><canvas id="cWeak"></canvas></div>
-    <div class="panel"><h2>Mask Middle <span>通常前景</span></h2><canvas id="cMid"></canvas></div>
-    <div class="panel"><h2>Mask Strong <span>確実な本体</span></h2><canvas id="cStrong"></canvas></div>
+    <div class="panel"><h2>Soft Candidate <span>薄い髪・布の候補保持</span></h2><canvas id="cWeak"></canvas></div>
+    <div class="panel"><h2>Core+Soft Mask <span>通常前景 + 候補</span></h2><canvas id="cMid"></canvas></div>
+    <div class="panel"><h2>Core Mask <span>確実な本体</span></h2><canvas id="cStrong"></canvas></div>
     <div class="panel"><h2>Analysis Image <span>背景透明化結果</span></h2><canvas id="cAnalysis"></canvas></div>
     <div class="panel"><h2>Contour / Main Component <span>人物候補</span></h2><canvas id="cContour"></canvas></div>
     <div class="panel"><h2>Diagnostic Overlay <span>漏れ・穴・重心</span></h2><canvas id="cOverlay"></canvas></div>
@@ -118,8 +118,26 @@ function diagnoseBackground(imgData){ const {data,width:w,height:h}=imgData; let
 function buildBackgroundModel(imgData, kind){ const {data,width:w,height:h}=imgData; const out=makeImageData(w,h,[0,0,0,255]); const od=out.data; const top=[],bottom=[],left=[],right=[]; const step=Math.max(2,Math.round(Math.max(w,h)/160)); for(let x=0;x<w;x+=step){top.push(getPix(data,w,x,0));bottom.push(getPix(data,w,x,h-1));} for(let y=0;y<h;y+=step){left.push(getPix(data,w,0,y));right.push(getPix(data,w,w-1,y));} const ct=meanColor(top), cb=meanColor(bottom), cl=meanColor(left), cr=meanColor(right); const solid=meanColor([...top,...bottom,...left,...right]);
   for(let y=0;y<h;y++){ const ty=h<=1?0:y/(h-1); for(let x=0;x<w;x++){ const tx=w<=1?0:x/(w-1); let c; if(kind==='solid_background'||kind==='white_background'||kind==='alpha_png'){ c=solid; } else { const v=[ct[0]*(1-ty)+cb[0]*ty, ct[1]*(1-ty)+cb[1]*ty, ct[2]*(1-ty)+cb[2]*ty]; const hv=[cl[0]*(1-tx)+cr[0]*tx, cl[1]*(1-tx)+cr[1]*tx, cl[2]*(1-tx)+cr[2]*tx]; c=[(v[0]+hv[0])/2,(v[1]+hv[1])/2,(v[2]+hv[2])/2]; } const i=(y*w+x)*4; od[i]=c[0];od[i+1]=c[1];od[i+2]=c[2];od[i+3]=255; }} return out; }
 
-function rawMask(imgData,bgData,profile,tolBias=0){ const {data,width:w,height:h}=imgData; const bd=bgData.data; const strong=new Uint8Array(w*h), mid=new Uint8Array(w*h), weak=new Uint8Array(w*h); const base = {alpha_png:1,white_background:42,solid_background:36,light_gradient:30,simple_shadow:34}[profile] || 36; const bias = tolBias; for(let i=0,p=0;i<data.length;i+=4,p++){ const a=data[i+3]; const rgb=[data[i],data[i+1],data[i+2]]; const bg=[bd[i],bd[i+1],bd[i+2]]; const d=dist(rgb,bg); const s=sat(rgb[0],rgb[1],rgb[2]); const ldiff=Math.abs(lum(rgb[0],rgb[1],rgb[2])-lum(bg[0],bg[1],bg[2])); if(profile==='alpha_png'){ weak[p]=a>8?1:0; mid[p]=a>64?1:0; strong[p]=a>180?1:0; }
-      else { weak[p]=(d>base-bias-10 || (s>.18&&d>base-bias-18) || ldiff>base-bias+4)?1:0; mid[p]=(d>base-bias || (s>.22&&d>base-bias-8) || ldiff>base-bias+12)?1:0; strong[p]=(d>base-bias+18 || (s>.32&&d>base-bias+3) || ldiff>base-bias+30)?1:0; }} return {weak,mid,strong,w,h}; }
+function edgeMap(imgData){ const {data,width:w,height:h}=imgData; const out=new Float32Array(w*h); const L=(x,y)=>{ const i=(y*w+x)*4; return lum(data[i],data[i+1],data[i+2]); }; for(let y=1;y<h-1;y++){ for(let x=1;x<w-1;x++){ const gx=-L(x-1,y-1)-2*L(x-1,y)-L(x-1,y+1)+L(x+1,y-1)+2*L(x+1,y)+L(x+1,y+1); const gy=-L(x-1,y-1)-2*L(x,y-1)-L(x+1,y-1)+L(x-1,y+1)+2*L(x,y+1)+L(x+1,y+1); out[y*w+x]=Math.min(255,Math.hypot(gx,gy)/4); }} return out; }
+function rawMask(imgData,bgData,profile,tolBias=0){ const {data,width:w,height:h}=imgData; const bd=bgData.data; const strong=new Uint8Array(w*h), mid=new Uint8Array(w*h), weak=new Uint8Array(w*h); const edge=edgeMap(imgData); const base = {alpha_png:1,white_background:44,solid_background:42,light_gradient:34,simple_shadow:38}[profile] || 38; const bias = tolBias; for(let i=0,p=0;i<data.length;i+=4,p++){ const a=data[i+3]; const r=data[i],g=data[i+1],b=data[i+2]; const rgb=[r,g,b]; const bg=[bd[i],bd[i+1],bd[i+2]]; const d=dist(rgb,bg); const s=sat(r,g,b); const l=lum(r,g,b); const bl=lum(bg[0],bg[1],bg[2]); const ldiff=Math.abs(l-bl); const e=edge[p]; if(profile==='alpha_png'){ weak[p]=a>8?1:0; mid[p]=a>64?1:0; strong[p]=a>180?1:0; continue; }
+      // v0.2: AI系背景除去の考え方を、非AIの近似で再現する。
+      // 1枚の二値マスクではなく、Core(確実) / Soft(候補) / Reject(背景) のtrimapとして扱う。
+      // 背景グラデーションは「色差だけ」では前景にしない。彩度・エッジ・暗部・中心性を組み合わせる。
+      const graySmooth = s < .11 && e < 10;
+      const satHit = s > .16;
+      const edgeHit = e > 15;
+      const strongEdge = e > 28;
+      const darkSubject = l < 92 && bl > 120 && d > 22;
+      const centerPrior = Math.abs((p%w)-w/2) < w*.42 && Math.floor(p/w) > h*.05 && Math.floor(p/w) < h*.96;
+      const colorHit = d > base - bias;
+      const softColorHit = d > base - bias - 16;
+      // Weakは、薄髪/透け布を消さないため広め。ただし低彩度で滑らかな背景グラデーションは除外。
+      weak[p] = ((softColorHit && !graySmooth && centerPrior) || (edgeHit && d>10 && centerPrior) || darkSubject) ? 1 : 0;
+      // Middleは後段の通常前景。色差単独ではなく、彩度/エッジ/暗部のどれかが必要。
+      mid[p] = ((colorHit && (satHit || edgeHit || darkSubject) && centerPrior) || (d>base+18 && strongEdge) || (satHit && d>18 && centerPrior)) ? 1 : 0;
+      // Strongは確実な本体。服/髪の濃部/輪郭を核にする。
+      strong[p] = ((d>base+14 && (s>.22 || strongEdge || darkSubject) && centerPrior) || (s>.34 && d>18 && centerPrior) || (darkSubject && d>28)) ? 1 : 0;
+  } return {weak,mid,strong,edge,w,h}; }
 
 function erode(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=1; for(let dy=-rad;dy<=rad&&ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=w||yy>=h||!mask[yy*w+xx]){ok=0;break;} } out[y*w+x]=ok; } return out; }
 function dilate(mask,w,h,rad=1){ const out=new Uint8Array(mask.length); for(let y=0;y<h;y++)for(let x=0;x<w;x++){ let ok=0; for(let dy=-rad;dy<=rad&&!ok;dy++)for(let dx=-rad;dx<=rad;dx++){ const xx=x+dx, yy=y+dy; if(xx>=0&&yy>=0&&xx<w&&yy<h&&mask[yy*w+xx]){ok=1;break;} } out[y*w+x]=ok; } return out; }
@@ -131,10 +149,18 @@ function keepMainCharacter(mask,w,h){ const comps=components(mask,w,h); if(!comp
   const ex=clamp(Math.round(main.w*.18),6,60), ey=clamp(Math.round(main.h*.08),6,60); for(const c of scored.slice(1)){ const near=c.maxx>=main.minx-ex && c.minx<=main.maxx+ex && c.maxy>=main.miny-ey && c.miny<=main.maxy+ey; if(near && c.area>8){ for(let y=c.miny;y<=c.maxy;y++)for(let x=c.minx;x<=c.maxx;x++){ const i=y*w+x; if(mask[i]) out[i]=1; } } }
   return {mask:out,comps:scored,main}; }
 function removeShadowLike(mask,imgData){ const {width:w,height:h,data}=imgData; const comps=components(mask,w,h); const out=mask.slice(); for(const c of comps){ const bottom=c.miny>h*.63, wide=c.w>w*.28, flat=c.h<h*.14; let avSat=0,avLum=0,n=0; for(let y=c.miny;y<=c.maxy;y+=2)for(let x=c.minx;x<=c.maxx;x+=2){ const i=(y*w+x)*4; if(mask[y*w+x]){avSat+=sat(data[i],data[i+1],data[i+2]);avLum+=lum(data[i],data[i+1],data[i+2]);n++;} } avSat/=n||1; avLum/=n||1; if(bottom&&wide&&flat&&avSat<.18){ for(let y=c.miny;y<=c.maxy;y++)for(let x=c.minx;x<=c.maxx;x++){ const i=y*w+x;if(mask[i])out[i]=0; } } } return out; }
-function refineMasks(raw,imgData){ const {w,h}=raw; const weak=closeMask(raw.weak,w,h); const mid=openMask(closeMask(raw.mid,w,h),w,h); const strong=openMask(raw.strong,w,h); let final=mid.slice(); // recover thin weak pixels near mid
-  const midDil=dilate(mid,w,h,2); for(let i=0;i<final.length;i++) if(weak[i]&&midDil[i]) final[i]=1; final=removeShadowLike(final,imgData); const kept=keepMainCharacter(final,w,h); return {weak,mid,strong,final:kept.mask,main:kept.main,components:kept.comps}; }
+function refineMasks(raw,imgData){ const {w,h}=raw; const weak=closeMask(raw.weak,w,h); const mid=openMask(closeMask(raw.mid,w,h),w,h); const strong=openMask(closeMask(raw.strong,w,h),w,h); let core=mid.slice();
+  // Coreはstrongだけでは穴が空くのでmidを基準にする。SoftはCore周辺だけに制限し、背景グラデーションの大面積混入を防ぐ。
+  let coreDil=dilate(core,w,h,3); let soft=new Uint8Array(w*h); for(let i=0;i<soft.length;i++) if(weak[i] && coreDil[i] && !core[i]) soft[i]=1;
+  let final=core.slice(); for(let i=0;i<final.length;i++) if(soft[i]) final[i]=1;
+  final=removeShadowLike(final,imgData); const kept=keepMainCharacter(final,w,h);
+  // keepMainCharacter後にsoftも人物bbox近辺へ制限
+  let finalDil=dilate(kept.mask,w,h,2); let softKept=new Uint8Array(w*h); for(let i=0;i<soft.length;i++) if(soft[i] && finalDil[i]) softKept[i]=1;
+  let final2=kept.mask.slice(); for(let i=0;i<final2.length;i++) if(softKept[i]) final2[i]=1;
+  final2=removeShadowLike(final2,imgData); const kept2=keepMainCharacter(final2,w,h);
+  return {weak,mid,strong,soft:softKept,final:kept2.mask,main:kept2.main,components:kept2.comps}; }
 function maskToImage(mask,w,h,color=[90,170,255]){ const out=makeImageData(w,h,[12,15,22,255]); const d=out.data; for(let i=0,p=0;p<mask.length;p++,i+=4){ if(mask[p]){d[i]=color[0];d[i+1]=color[1];d[i+2]=color[2];d[i+3]=255;} } return out; }
-function analysisImage(imgData,mask){ const out=new ImageData(new Uint8ClampedArray(imgData.data), imgData.width, imgData.height); for(let p=0,i=0;p<mask.length;p++,i+=4){ if(!mask[p]) out.data[i+3]=0; } return out; }
+function analysisImage(imgData,mask,soft){ const out=new ImageData(new Uint8ClampedArray(imgData.data), imgData.width, imgData.height); for(let p=0,i=0;p<mask.length;p++,i+=4){ if(mask[p]) out.data[i+3]=255; else if(soft&&soft[p]) out.data[i+3]=135; else out.data[i+3]=0; } return out; }
 function drawChecker(ctx,w,h,size=12){ ctx.fillStyle='#20242f';ctx.fillRect(0,0,w,h);ctx.fillStyle='#151923'; for(let y=0;y<h;y+=size)for(let x=0;x<w;x+=size){ if(((x/size)+(y/size))%2===0)ctx.fillRect(x,y,size,size); } }
 function drawAnalysis(c,imgData){ setCanvasSize(c,imgData.width,imgData.height); const ctx=c.getContext('2d'); drawChecker(ctx,c.width,c.height); ctx.putImageData(imgData,0,0); }
 function contourImage(imgData,mask,main){ const {width:w,height:h}=imgData; const out=new ImageData(new Uint8ClampedArray(imgData.data),w,h); const d=out.data; for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){ const p=y*w+x; if(mask[p] && (!mask[p-1]||!mask[p+1]||!mask[p-w]||!mask[p+w])){ const i=p*4; d[i]=255;d[i+1]=80;d[i+2]=80;d[i+3]=255; }} if(main){ // bbox green
@@ -147,11 +173,12 @@ function overlayImage(imgData,mask,metrics){ const {width:w,height:h}=imgData; c
   const cx=Math.round(metrics.cx), cy=Math.round(metrics.cy); for(let x=cx-10;x<=cx+10;x++){ if(x>=0&&x<w&&cy>=0&&cy<h){const i=(cy*w+x)*4; d[i]=255;d[i+1]=230;d[i+2]=70;d[i+3]=255;}} for(let y=cy-10;y<=cy+10;y++){ if(cx>=0&&cx<w&&y>=0&&y<h){const i=(y*w+cx)*4; d[i]=255;d[i+1]=230;d[i+2]=70;d[i+3]=255;}}
   return out; }
 function maskMetrics(mask,w,h){ let area=0,sx=0,sy=0,border=0; for(let y=0;y<h;y++)for(let x=0;x<w;x++){ const p=y*w+x; if(mask[p]){area++;sx+=x;sy+=y;if(x<3||y<3||x>w-4||y>h-4)border++;}} const ratio=area/(w*h); const cx=area?sx/area:w/2, cy=area?sy/area:h/2; const comps=components(mask,w,h); const main=comps[0]||null; const componentPenalty=Math.min(1,(comps.length-1)/30); const centerScore=1-clamp(Math.hypot((cx-w/2)/w,(cy-h*.52)/h)*3,0,1); const areaScore=ratio<.03?ratio/.03:ratio>.75?(1-(ratio-.75)/.25):1; const borderLeak=area?border/area:1; const leakScore=1-clamp(borderLeak*8,0,1); const compScore=1-componentPenalty; const coverage=main?clamp((main.maxy-main.miny)/h*1.4,0,1):0; return {area,ratio,cx,cy,comps,main,centerScore,areaScore,leakScore,compScore,coverage,borderLeak}; }
-function quality(mask,w,h,bgDiag){ const m=maskMetrics(mask,w,h); let score=100*(m.areaScore*.25 + m.centerScore*.22 + m.leakScore*.22 + m.compScore*.16 + m.coverage*.15); if(!bgDiag.supported) score*=.65; if(m.ratio>.85||m.ratio<.01) score*=.4; return {score:clamp(Math.round(score),0,100), metrics:m}; }
-function runProfile(imgData,profile,tolBias,bgDiag){ const bgKind=profile==='simple_shadow'?'light_gradient':profile; const bg=buildBackgroundModel(imgData,bgKind); const raw=rawMask(imgData,bg,profile,tolBias); const refined=refineMasks(raw,imgData); const q=quality(refined.final,imgData.width,imgData.height,bgDiag); return {profile,bg,raw,refined,quality:q.score,metrics:q.metrics}; }
+function quality(mask,w,h,bgDiag,profile){ const m=maskMetrics(mask,w,h); let score=100*(m.areaScore*.22 + m.centerScore*.24 + m.leakScore*.18 + m.compScore*.14 + m.coverage*.12); const idealLow=.16, idealHigh=.48; let ratioPenalty=0; if(m.ratio<idealLow) ratioPenalty=(idealLow-m.ratio)/idealLow; if(m.ratio>idealHigh) ratioPenalty=(m.ratio-idealHigh)/.35; score *= (1-clamp(ratioPenalty*.55,0,.75)); if(m.main){ if(m.main.w>w*.94) score*=.72; if(m.main.h>h*.98) score*=.80; }
+  if(bgDiag.type==='light_gradient' && profile==='solid_background') score*=.78; if(bgDiag.type==='white_background' && profile==='solid_background') score*=.9; if(!bgDiag.supported) score*=.65; if(m.ratio>.82||m.ratio<.01) score*=.35; return {score:clamp(Math.round(score),0,100), metrics:m}; }
+function runProfile(imgData,profile,tolBias,bgDiag){ const bgKind=profile==='simple_shadow'?'light_gradient':profile; const bg=buildBackgroundModel(imgData,bgKind); const raw=rawMask(imgData,bg,profile,tolBias); const refined=refineMasks(raw,imgData); const q=quality(refined.final,imgData.width,imgData.height,bgDiag,profile); return {profile,bg,raw,refined,quality:q.score,metrics:q.metrics}; }
 function runAnalysis(){ if(!state.imageData){ log('画像が未選択です。sample.pngで試すか、画像を選択してください。'); return; } const imgData=state.imageData; const tolBias=Number($('tol').value); const bgDiag=diagnoseBackground(imgData); const profiles = bgDiag.type==='alpha_png' ? ['alpha_png'] : ['white_background','solid_background','light_gradient','simple_shadow']; const results=profiles.map(p=>runProfile(imgData,p,tolBias,bgDiag)).sort((a,b)=>b.quality-a.quality); const best=results[0]; state.result={bgDiag,results,best,w:imgData.width,h:imgData.height,fileName:state.fileName};
   renderResult(); }
-function renderResult(){ const {bgDiag,results,best,w,h}=state.result; drawImageData(canvases.cOriginal,state.imageData); drawImageData(canvases.cBg,best.bg); drawImageData(canvases.cWeak,maskToImage(best.refined.weak,w,h,[82,125,255])); drawImageData(canvases.cMid,maskToImage(best.refined.mid,w,h,[88,210,150])); drawImageData(canvases.cStrong,maskToImage(best.refined.strong,w,h,[255,190,80])); drawAnalysis(canvases.cAnalysis,analysisImage(state.imageData,best.refined.final)); drawImageData(canvases.cContour,contourImage(state.imageData,best.refined.final,best.metrics.main)); drawImageData(canvases.cOverlay,overlayImage(state.imageData,best.refined.final,best.metrics));
+function renderResult(){ const {bgDiag,results,best,w,h}=state.result; drawImageData(canvases.cOriginal,state.imageData); drawImageData(canvases.cBg,best.bg); drawImageData(canvases.cWeak,maskToImage(best.refined.soft||best.refined.weak,w,h,[82,125,255])); drawImageData(canvases.cMid,maskToImage(best.refined.final,w,h,[88,210,150])); drawImageData(canvases.cStrong,maskToImage(best.refined.strong,w,h,[255,190,80])); drawAnalysis(canvases.cAnalysis,analysisImage(state.imageData,best.refined.final,best.refined.soft)); drawImageData(canvases.cContour,contourImage(state.imageData,best.refined.final,best.metrics.main)); drawImageData(canvases.cOverlay,overlayImage(state.imageData,best.refined.final,best.metrics));
   $('bgType').innerHTML = `${bgDiag.type} <span class="pill">${bgDiag.supported?'対応':'非対応警告'}</span>`; $('bestProfile').textContent=best.profile; const cls=best.quality>=80?'ok':best.quality>=60?'warn':'bad'; $('quality').innerHTML=`<span class="score ${cls}">${best.quality}/100</span>`; $('qualityBar').style.width=best.quality+'%'; $('qualityBar').style.background=best.quality>=80?'var(--ok)':best.quality>=60?'var(--warn)':'var(--bad)';
   renderProfileTable(results); renderLog(); }
 function renderProfileTable(results){ let html='<table><thead><tr><th>Profile</th><th>Score</th><th>前景率</th><th>Comp</th><th>BorderLeak</th></tr></thead><tbody>'; for(const r of results){ const c=r.quality>=80?'ok':r.quality>=60?'warn':'bad'; html+=`<tr><td>${r.profile}</td><td class="score ${c}">${r.quality}</td><td>${(r.metrics.ratio*100).toFixed(1)}%</td><td>${r.metrics.comps.length}</td><td>${(r.metrics.borderLeak*100).toFixed(2)}%</td></tr>`; } html+='</tbody></table>'; $('profileTable').innerHTML=html; }
@@ -161,8 +188,8 @@ function renderLog(){ const {bgDiag,best,w,h,fileName}=state.result; const m=bes
 
 function saveCanvasImage(){ if(!state.result) return; const list=[['Original',canvases.cOriginal],['Background',canvases.cBg],['Weak',canvases.cWeak],['Middle',canvases.cMid],['Strong',canvases.cStrong],['Analysis',canvases.cAnalysis],['Contour',canvases.cContour],['Overlay',canvases.cOverlay]]; const cellW=360, labelH=28, pad=10; const cellH=Math.round(cellW*(state.result.h/state.result.w))+labelH; const out=document.createElement('canvas'); out.width=cellW*2+pad*3; out.height=cellH*4+pad*5+110; const ctx=out.getContext('2d'); ctx.fillStyle='#10131a';ctx.fillRect(0,0,out.width,out.height); ctx.fillStyle='#eef3ff';ctx.font='bold 18px -apple-system, sans-serif'; ctx.fillText('Sprite Studio Preprocessor Summary',pad,28); ctx.font='12px -apple-system, sans-serif'; ctx.fillStyle='#9ba8bd'; ctx.fillText(`profile=${state.result.best.profile} score=${state.result.best.quality}/100 type=${state.result.bgDiag.type}`,pad,50);
   for(let i=0;i<list.length;i++){ const col=i%2,row=Math.floor(i/2); const x=pad+col*(cellW+pad), y=70+pad+row*(cellH+pad); ctx.fillStyle='#202633';ctx.fillRect(x,y,cellW,labelH); ctx.fillStyle='#eef3ff';ctx.font='bold 13px -apple-system, sans-serif';ctx.fillText(list[i][0],x+8,y+19); ctx.drawImage(list[i][1],x,y+labelH,cellW,cellH-labelH); }
-  downloadUrl(out.toDataURL('image/png'), 'preprocessor_summary.png'); }
-function saveJson(){ if(!state.result) return; const r=state.result; const json={version:'0.1',file:r.fileName,size:{w:r.w,h:r.h},background:r.bgDiag,best:{profile:r.best.profile,quality:r.best.quality,metrics:{foreground_ratio:r.best.metrics.ratio,component_count:r.best.metrics.comps.length,center:{x:r.best.metrics.cx,y:r.best.metrics.cy},border_leak:r.best.metrics.borderLeak,bbox:r.best.metrics.main}},profiles:r.results.map(x=>({profile:x.profile,quality:x.quality,foreground_ratio:x.metrics.ratio,component_count:x.metrics.comps.length,border_leak:x.metrics.borderLeak}))}; const blob=new Blob([JSON.stringify(json,null,2)],{type:'application/json'}); downloadUrl(URL.createObjectURL(blob),'preprocessor_diagnostic.json'); }
+  downloadUrl(out.toDataURL('image/png'), 'preprocessor_summary_v0_2.png'); }
+function saveJson(){ if(!state.result) return; const r=state.result; const json={version:'0.2',file:r.fileName,size:{w:r.w,h:r.h},background:r.bgDiag,best:{profile:r.best.profile,quality:r.best.quality,metrics:{foreground_ratio:r.best.metrics.ratio,component_count:r.best.metrics.comps.length,center:{x:r.best.metrics.cx,y:r.best.metrics.cy},border_leak:r.best.metrics.borderLeak,bbox:r.best.metrics.main}},profiles:r.results.map(x=>({profile:x.profile,quality:x.quality,foreground_ratio:x.metrics.ratio,component_count:x.metrics.comps.length,border_leak:x.metrics.borderLeak}))}; const blob=new Blob([JSON.stringify(json,null,2)],{type:'application/json'}); downloadUrl(URL.createObjectURL(blob),'preprocessor_diagnostic_v0_2.json'); }
 function downloadUrl(url,name){ const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove(); if(url.startsWith('blob:')) URL.revokeObjectURL(url);},100); }
 function clearAll(){ state={img:null,imageData:null,result:null,fileName:'sample.png'}; for(const c of Object.values(canvases)){ setCanvasSize(c,1,1); c.getContext('2d').clearRect(0,0,1,1);} $('bgType').textContent='未解析';$('bestProfile').textContent='未解析';$('quality').textContent='-';$('qualityBar').style.width='0%';$('profileTable').innerHTML='';log('待機中...'); }
 
