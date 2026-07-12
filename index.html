@@ -1,651 +1,71 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Sprite Studio Region Viewer v0.9.2.3</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Sprite Studio v1.30 Production Pixel Editor</title>
 <style>
-:root{--bg:#0f1520;--panel:#171f2d;--panel2:#202a3a;--text:#e8eef8;--muted:#9aa8bd;--line:#344155;--ok:#3bd17f;--warn:#ffcf5a;--bad:#ff6b6b;--accent:#58a6ff}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:14px}h1{font-size:22px;margin:0 0 8px}.sub{color:var(--muted);font-size:13px;margin-bottom:12px;line-height:1.5}.bar{display:grid;gap:8px;margin:10px 0 14px}.bar input,.bar button,.bar select{font-size:15px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px}button{cursor:pointer}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}.card h2{font-size:14px;margin:0;padding:8px 10px;background:var(--panel2);display:flex;justify-content:space-between}.card canvas{width:100%;display:block;background:#0b1018;image-rendering:auto}.wide{grid-column:1/-1}.log{white-space:pre-wrap;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;padding:10px;background:#07101b;color:#d8e7ff;max-height:320px;overflow:auto}.pill{font-size:11px;color:var(--muted)}.row{display:flex;gap:8px;flex-wrap:wrap}.mini{font-size:12px;color:var(--muted)}.legend{display:flex;gap:7px;flex-wrap:wrap;padding:8px 10px;background:#101827}.tag{border-radius:999px;padding:4px 8px;font-size:11px;background:#263244}.footer{margin:14px 0;color:var(--muted);font-size:12px;line-height:1.5}@media(min-width:900px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wide{grid-column:1/-1}.bar{grid-template-columns:1fr auto auto auto}}
-
-.reviewPanel{position:fixed;inset:0;background:rgba(4,8,14,.88);z-index:20;display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:12px}.reviewBox{width:min(760px,100%);background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.45);padding:12px}.reviewHead{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}.reviewTitle{font-weight:700;font-size:17px}.reviewMeta{font-size:12px;color:var(--muted);line-height:1.45}.reviewCanvasWrap{background:#07101b;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:10px 0}.reviewCanvasWrap canvas{width:100%;display:block;touch-action:none}.reviewActions{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.reviewActions button{font-size:16px;border-radius:12px;border:1px solid var(--line);padding:12px;background:var(--panel2);color:var(--text)}.reviewActions .ok{border-color:#3bd17f}.reviewActions .bad{border-color:#ff6b6b}.reviewActions .circle{border-color:#58a6ff}.reviewActions .skip{border-color:#9aa8bd}.hidden{display:none!important}
+:root{--bg:#0b111a;--panel:#111a25;--panel2:#172230;--line:#304052;--text:#e9eef5;--muted:#91a0b2;--accent:#2f8cff;--ok:#22c55e;--gold:#d8a62e;--danger:#ef4444}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#091018,#0c1420);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}button,input,select{font:inherit}button{border:1px solid var(--line);background:#1b2838;color:var(--text);border-radius:8px;padding:9px 11px;font-weight:700}button.active,button.primary{background:#145fae;border-color:#4da3ff}button.good{background:#176c39;border-color:#34d26c}button.danger{background:#61252c;border-color:#e45865}button:disabled{opacity:.42}.app{padding:10px;max-width:1800px;margin:auto}.topbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.title{font-size:18px;font-weight:900;margin-right:auto}.version{font-size:12px;color:var(--gold)}.layout{display:grid;grid-template-columns:330px minmax(480px,1fr) 350px;gap:10px}.panel{background:rgba(17,26,37,.98);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 4px 18px #0005}.panel h2{font-size:14px;margin:0;padding:10px 12px;background:#162231;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}.body{padding:10px}.stack{display:flex;flex-direction:column;gap:10px}.row{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.row>*{min-width:0}.grow{flex:1}.mini{font-size:11px;color:var(--muted)}.sourceBox{height:285px;background:#0a1018;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}.sourceBox img{max-width:100%;max-height:100%;object-fit:contain}.thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.thumb{background:#0a1018;border:1px solid var(--line);border-radius:7px;padding:5px;text-align:center}.thumb canvas{width:100%;image-rendering:pixelated;aspect-ratio:1;background-image:linear-gradient(45deg,#182433 25%,transparent 25%),linear-gradient(-45deg,#182433 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#182433 75%),linear-gradient(-45deg,transparent 75%,#182433 75%);background-size:12px 12px;background-position:0 0,0 6px,6px -6px,-6px 0}.workspace{display:grid;grid-template-columns:92px 1fr;gap:10px}.tools{display:flex;flex-direction:column;gap:6px}.tools button{padding:8px 5px;font-size:12px}.canvasWrap{background:#090f16;border:1px solid var(--line);border-radius:8px;overflow:auto;display:flex;align-items:flex-start;justify-content:center;min-height:540px;padding:24px;touch-action:none}.canvasStack{position:relative;width:512px;height:512px;flex:none;background-color:#111a25;background-image:linear-gradient(45deg,#1c2a3a 25%,transparent 25%),linear-gradient(-45deg,#1c2a3a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#1c2a3a 75%),linear-gradient(-45deg,transparent 75%,#1c2a3a 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0;box-shadow:0 0 0 1px #40536a}.canvasStack canvas{position:absolute;left:0;top:0;width:512px;height:512px;image-rendering:pixelated}.gridCanvas{pointer-events:none}.editorCanvas{touch-action:none}.palette{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}.swatch{aspect-ratio:1;border-radius:5px;border:2px solid #52647a;padding:0}.swatch.active{outline:2px solid white;outline-offset:1px}.layers{display:flex;flex-direction:column;gap:5px;max-height:330px;overflow:auto}.layer{display:grid;grid-template-columns:35px 1fr 36px 36px;gap:5px;align-items:center;background:#0d1621;border:1px solid #263648;border-radius:7px;padding:5px}.layer.active{border-color:#4da3ff;background:#102238}.layer button{padding:5px}.layerName{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.outputGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.outputGrid canvas{width:100%;image-rendering:pixelated;background:#091018;border:1px solid var(--line);border-radius:7px}.frames{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.frames canvas{width:100%;image-rendering:pixelated;background:#091018;border:1px solid var(--line);border-radius:5px}.workflow{grid-column:1/-1}.steps{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}.step{background:#0c1520;border:1px solid var(--line);border-radius:8px;padding:7px;text-align:center;font-size:11px}.step.done{border-color:#2f9c5b}.status{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;white-space:pre-wrap;max-height:140px;overflow:auto;background:#07101a;padding:8px;border-radius:7px;border:1px solid #243548}.hidden{display:none}.sep{height:1px;background:var(--line);margin:4px 0}.label{font-size:12px;color:#b8c4d1}.range{width:100%}
+@media(max-width:1100px){.layout{grid-template-columns:1fr}.workspace{grid-template-columns:72px 1fr}.canvasWrap{min-height:420px}.canvasStack,.canvasStack canvas{width:448px;height:448px}.steps{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:600px){.app{padding:6px}.topbar button{flex:1}.sourceBox{height:220px}.workspace{grid-template-columns:1fr}.tools{display:grid;grid-template-columns:repeat(4,1fr)}.canvasWrap{padding:10px;min-height:340px;justify-content:flex-start}.canvasStack,.canvasStack canvas{width:384px;height:384px}.palette{grid-template-columns:repeat(8,1fr)}.steps{grid-template-columns:repeat(2,1fr)}.layout{gap:7px}.panel h2{position:sticky;top:0;z-index:2}}
 </style>
 </head>
 <body>
-<h1>Sprite Studio Region Viewer v0.9.2.3</h1>
-<div class="sub">AIなし / Canvas + localStorageのみ。v0.9.1の補正記憶を維持し、v0.9.2.2でv0.4背景除去復帰、レビューUI保存処理を軽量化。</div>
-<div class="bar">
-<input id="file" type="file" accept="image/*" />
-<select id="k"><option value="7">色数 k=7</option><option value="6">色数 k=6</option><option value="8">色数 k=8</option><option value="10">色数 k=10</option></select>
-<select id="mergeMode"><option value="balanced">統合:標準</option><option value="strict">統合:厳しめ</option><option value="loose">統合:緩め</option></select>
-<button id="run">解析</button>
-<button id="summary">まとめPNG</button>
-<button id="json">JSON保存</button>
-<button id="teach">部位を教える</button>
-<button id="memoryJson">補正JSON保存</button>
-<button id="clearMemory">補正履歴クリア</button>
-</div>
-<div class="card wide" style="margin:8px 0 12px"><h2>基準線 微調整</h2><div class="legend">
-<label class="tag">肩 <input id="adjShoulder" type="range" min="-40" max="40" value="0"></label>
-<label class="tag">腰 <input id="adjWaist" type="range" min="-50" max="50" value="0"></label>
-<label class="tag">股 <input id="adjCrotch" type="range" min="-50" max="50" value="0"></label>
-<label class="tag">足首 <input id="adjAnkle" type="range" min="-50" max="50" value="0"></label>
-<span class="mini">部位判定がズレた時は、ここで先に線を直します。</span>
-</div></div>
+<div class="app">
+  <div class="topbar">
+    <div class="title">Sprite Studio <span class="version">v1.30 Production Editor</span></div>
+    <button id="newProject">新規</button><button id="saveProject">プロジェクト保存</button><label><button id="loadProjectBtn">プロジェクト読込</button><input id="loadProject" class="hidden" type="file" accept="application/json"></label><button id="helpBtn">ヘルプ</button>
+  </div>
+  <div class="layout">
+    <div class="stack">
+      <section class="panel"><h2>1. 画像入力 <span id="sourceInfo" class="mini">未読込</span></h2><div class="body stack">
+        <label><button class="primary" id="chooseImageBtn">画像を読み込む</button><input id="imageInput" class="hidden" type="file" accept="image/*"></label>
+        <div class="sourceBox"><img id="sourceImage" alt="入力画像"></div>
+        <div class="row"><button id="autoCut" class="good grow">背景と人物を解析</button><button id="resetCut">解析リセット</button></div>
+        <div class="row"><label class="label grow">背景許容値 <input id="bgTolerance" class="range" type="range" min="8" max="90" value="42"></label><span id="bgToleranceValue" class="mini">42</span></div>
+        <div class="thumbs"><div class="thumb"><canvas id="maskPreview" width="128" height="128"></canvas><div class="mini">マスク</div></div><div class="thumb"><canvas id="cutPreview" width="128" height="128"></canvas><div class="mini">切抜き</div></div><div class="thumb"><canvas id="palettePreview" width="128" height="128"></canvas><div class="mini">色解析</div></div></div>
+      </div></section>
+      <section class="panel"><h2>2. 自動初稿</h2><div class="body stack">
+        <div class="row"><button id="buildDraft" class="primary grow">64×64初稿を作成</button></div>
+        <div class="row"><label class="label">色数 <select id="colorCount"><option>16</option><option selected>24</option><option>32</option></select></label><label class="label">頭身 <select id="bodyRatio"><option>2.0</option><option selected>2.5</option><option>3.0</option></select></label></div>
+        <div class="row"><label class="label grow">輪郭強度 <input id="outlineStrength" class="range" type="range" min="0" max="100" value="52"></label></div>
+        <button id="applyElfTemplate">エルフ正面テンプレートを適用</button>
+      </div></section>
+      <section class="panel"><h2>3. 基本設定</h2><div class="body stack">
+        <div class="row"><span class="label">表示倍率</span><button class="zoomBtn" data-zoom="6">6×</button><button class="zoomBtn active" data-zoom="8">8×</button><button class="zoomBtn" data-zoom="10">10×</button></div>
+        <div class="row"><label class="label">ブラシ <select id="brushSize"><option value="1">1px</option><option value="2">2px</option><option value="3">3px</option><option value="4">4px</option></select></label><label class="label">グリッド <input id="gridToggle" type="checkbox" checked></label></div>
+        <div id="palette" class="palette"></div>
+        <div class="row"><input id="colorPicker" type="color" value="#f0d8ce"><button id="addColor">色追加</button><button id="extractPalette">再抽出</button></div>
+      </div></section>
+    </div>
 
-<div id="reviewPanel" class="reviewPanel">
-  <div class="reviewBox">
-    <div class="reviewHead">
-      <div>
-        <div id="reviewTitle" class="reviewTitle">部位レビュー</div>
-        <div id="reviewMeta" class="reviewMeta"></div>
+    <section class="panel"><h2>4. ピクセルエディタ（64×64マスター）<span id="cursorInfo" class="mini">x: -, y: -</span></h2><div class="body workspace">
+      <div class="tools">
+        <button class="tool active" data-tool="pen">✎ ペン</button><button class="tool" data-tool="eraser">消しゴム</button><button class="tool" data-tool="fill">塗りつぶし</button><button class="tool" data-tool="picker">スポイト</button><button class="tool" data-tool="line">直線</button><button class="tool" data-tool="rect">矩形</button><button id="undo">元に戻す</button><button id="redo">やり直す</button><button id="mirror">左右反転</button><button id="clearLayer" class="danger">レイヤー消去</button>
       </div>
-      <button id="reviewClose">閉じる</button>
+      <div class="canvasWrap" id="canvasWrap"><div class="canvasStack" id="canvasStack"><canvas id="compositeCanvas" width="64" height="64"></canvas><canvas id="editorCanvas" class="editorCanvas" width="64" height="64"></canvas><canvas id="gridCanvas" class="gridCanvas" width="64" height="64"></canvas></div></div>
+    </div></section>
+
+    <div class="stack">
+      <section class="panel"><h2>5. 部位レイヤー <button id="addLayer">＋</button></h2><div class="body"><div id="layers" class="layers"></div></div></section>
+      <section class="panel"><h2>6. 部位テンプレート</h2><div class="body stack">
+        <div class="row"><button class="templateBtn" data-template="hairLong">長髪</button><button class="templateBtn" data-template="elfEars">長耳</button><button class="templateBtn" data-template="wideSleeves">大袖</button></div>
+        <div class="row"><button class="templateBtn" data-template="torsoSlim">細身胴</button><button class="templateBtn" data-template="boots">ブーツ</button><button class="templateBtn" data-template="gold">金装飾</button></div>
+        <div class="mini">テンプレートは選択レイヤーへ描画します。元画像の色はパレットから適用されます。</div>
+      </div></section>
+      <section class="panel"><h2>7. 出力・アニメ</h2><div class="body stack">
+        <div class="outputGrid"><div><canvas id="out32" width="32" height="32"></canvas><div class="mini">32</div></div><div><canvas id="out64" width="64" height="64"></canvas><div class="mini">64</div></div><div><canvas id="out128" width="128" height="128"></canvas><div class="mini">128</div></div></div>
+        <button id="refreshOutputs" class="primary">出力更新</button>
+        <div class="frames" id="frames"></div>
+        <div class="row"><button id="generateFrames">歩行4フレーム生成</button><button id="exportSheet">スプライトシート</button></div>
+        <div class="row"><button id="export32">32 PNG</button><button id="export64">64 PNG</button><button id="export128">128 PNG</button></div>
+      </div></section>
+      <section class="panel"><h2>状態</h2><div class="body"><div id="status" class="status">準備完了</div></div></section>
     </div>
-    <div class="reviewCanvasWrap"><canvas id="reviewCanvas"></canvas></div>
-    <div id="reviewHint" class="reviewMeta">合っている/違う/フリーハンドで教える を選んでください。フリーハンドで教えるは、対象を指でドラッグして楕円指定します。</div>
-    <div class="reviewActions">
-      <button id="reviewAccept" class="ok">合っている</button>
-      <button id="reviewReject" class="bad">違う</button>
-      <button id="reviewCircle" class="circle">フリーハンドで教える</button>
-      <button id="reviewSkip" class="skip">あとで</button>
-    </div>
+
+    <section class="panel workflow"><h2>制作ワークフロー</h2><div class="body"><div class="steps"><div class="step" data-step="input">1 画像入力</div><div class="step" data-step="cut">2 背景解析</div><div class="step" data-step="draft">3 初稿</div><div class="step" data-step="parts">4 部位調整</div><div class="step" data-step="pixel">5 ドット編集</div><div class="step" data-step="animation">6 アニメ</div><div class="step" data-step="export">7 出力</div></div></div></section>
   </div>
 </div>
-<div class="grid">
-  <div class="card"><h2>0. Original <span id="size" class="pill"></span></h2><canvas id="cOriginal"></canvas></div>
-  <div class="card"><h2>1. Background Removed / Checker</h2><canvas id="cCutout"></canvas></div>
-  <div class="card"><h2>2. Analysis Image <span id="score" class="pill"></span></h2><canvas id="cAnalysis"></canvas></div>
-  <div class="card"><h2>3. Core / Soft / Shadow</h2><canvas id="cMasks"></canvas></div>
-  <div class="card"><h2>4. Base Lines</h2><canvas id="cLines"></canvas></div>
-  <div class="card"><h2>5. Color Cluster</h2><canvas id="cCluster"></canvas></div>
-  <div class="card"><h2>6. Region Before Merge</h2><canvas id="cBefore"></canvas></div>
-  <div class="card"><h2>7. Region After Merge</h2><canvas id="cAfter"></canvas></div>
-  <div class="card"><h2>8. Candidate Preview</h2><canvas id="cCand"></canvas></div>
-  <div class="card"><h2>9. Unknown Before</h2><canvas id="cUnknownBefore"></canvas></div>
-  <div class="card"><h2>10. Unknown After / Review</h2><canvas id="cUnknownAfter"></canvas></div>
-  <div class="card"><h2>11. Part Preview</h2><canvas id="cPart"></canvas><div class="legend" id="partButtons"></div></div>
-  <div class="card wide"><h2>Result Log</h2><div id="log" class="log"></div></div>
-</div>
-<div class="footer">MVP目的：完全自動の正解ではなく、手動補正しやすい候補Regionを作る。v0.9.2.1は背景除去結果をチェッカー背景で可視化し、レビューUIを軽量化した検証版です。</div>
-<script>
-'use strict';
-const qs=id=>document.getElementById(id);
-const canvases={original:qs('cOriginal'),cutout:qs('cCutout'),analysis:qs('cAnalysis'),masks:qs('cMasks'),lines:qs('cLines'),cluster:qs('cCluster'),before:qs('cBefore'),after:qs('cAfter'),cand:qs('cCand'),part:qs('cPart')};
-let state={img:null,w:0,h:0,orig:null,result:null,selectedPart:'hair',lineAdjust:{shoulder:0,waist:0,crotch:0,ankle:0}};
-const LABELS={hair:'髪',skin:'肌/顔',ear:'耳',sheer:'上着/薄布',cloth:'衣装本体',leg:'脚',shoe:'靴',ornament:'装飾',shadow:'影',unknown:'未分類'};
-const COLORS={hair:[184,120,255],skin:[255,176,144],ear:[255,140,110],sheer:[110,230,190],cloth:[20,160,100],leg:[20,120,90],shoe:[160,110,70],ornament:[255,205,70],shadow:[120,120,160],unknown:[170,180,195]};
-function fitCanvas(c,w,h){c.width=w;c.height=h;}
-function drawImageData(c,imgData){fitCanvas(c,imgData.width,imgData.height);c.getContext('2d').putImageData(imgData,0,0);}
-function drawChecker(c,w,h,cell=12){fitCanvas(c,w,h);let ctx=c.getContext('2d');for(let y=0;y<h;y+=cell){for(let x=0;x<w;x+=cell){let even=((x/cell+y/cell)&1)===0;ctx.fillStyle=even?'#d8dde6':'#f3f5f8';ctx.fillRect(x,y,cell,cell);}}}
-function drawCutout(c,imgData){drawChecker(c,imgData.width,imgData.height,12);c.getContext('2d').drawImage(imageDataToCanvas(imgData),0,0);}
-function imageDataToCanvas(imgData){let c=document.createElement('canvas');c.width=imgData.width;c.height=imgData.height;c.getContext('2d').putImageData(imgData,0,0);return c;}
-function cloneData(d){return new Uint8ClampedArray(d);}function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
-function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;let mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn,h=0;if(d!==0){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360}return [h,d/(mx||1),mx]}
-function rgb2xyz(r,g,b){r/=255;g/=255;b/=255;[r,g,b]=[r,g,b].map(v=>v>0.04045?Math.pow((v+0.055)/1.055,2.4):v/12.92);return [r*0.4124+g*0.3576+b*0.1805,r*0.2126+g*0.7152+b*0.0722,r*0.0193+g*0.1192+b*0.9505]}
-function rgb2lab(r,g,b){let [x,y,z]=rgb2xyz(r,g,b);x/=0.95047;y/=1.00000;z/=1.08883;let f=t=>t>0.008856?Math.cbrt(t):(7.787*t+16/116);let fx=f(x),fy=f(y),fz=f(z);return [116*fy-16,500*(fx-fy),200*(fy-fz)]}
-function labDist(a,b){let dl=a[0]-b[0],da=a[1]-b[1],db=a[2]-b[2];return Math.sqrt(dl*dl+da*da+db*db)}
-function median(arr){arr.sort((a,b)=>a-b);return arr[Math.floor(arr.length/2)]||0}
-function estimateBg(data,w,h,bw=12){let rs=[],gs=[],bs=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(x<bw||x>=w-bw||y<bw||y>=h-bw){let i=(y*w+x)*4;rs.push(data[i]);gs.push(data[i+1]);bs.push(data[i+2]);}}return [median(rs),median(gs),median(bs)]}
-function makeImageData(w,h,fill=[0,0,0,255]){let id=new ImageData(w,h);for(let i=0;i<w*h;i++){let j=i*4;id.data[j]=fill[0];id.data[j+1]=fill[1];id.data[j+2]=fill[2];id.data[j+3]=fill[3];}return id}
-function connected(mask,w,h){
-  const seen=new Uint8Array(w*h), comps=[];
-  const qx=new Int32Array(w*h), qy=new Int32Array(w*h);
-  for(let y=0;y<h;y++){
-    for(let x=0;x<w;x++){
-      const p=y*w+x;
-      if(!mask[p]||seen[p]) continue;
-      let qs=0,qe=0;
-      qx[qe]=x; qy[qe++]=y; seen[p]=1;
-      let area=0,minx=x,maxx=x,miny=y,maxy=y,sx=0,sy=0;
-      const pixels=[];
-      while(qs<qe){
-        const cx=qx[qs], cy=qy[qs++], cp=cy*w+cx;
-        area++; sx+=cx; sy+=cy; pixels.push(cp);
-        if(cx<minx)minx=cx; if(cx>maxx)maxx=cx; if(cy<miny)miny=cy; if(cy>maxy)maxy=cy;
-        const ns=[[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
-        for(const [nx,ny] of ns){
-          if(nx<0||ny<0||nx>=w||ny>=h) continue;
-          const np=ny*w+nx;
-          if(mask[np]&&!seen[np]){seen[np]=1; qx[qe]=nx; qy[qe++]=ny;}
-        }
-      }
-      comps.push({area,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx:sx/area,cy:sy/area,pixels});
-    }
-  }
-  return comps;
-}
-function removeSmall(mask,w,h,minArea=30,removeBorder=false){let out=new Uint8Array(mask), comps=connected(mask,w,h);for(const c of comps){let border=c.minx===0||c.miny===0||c.maxx===w-1||c.maxy===h-1;if(c.area<minArea||(removeBorder&&border&&c.area<2500)){for(const p of c.pixels)out[p]=0;}}return out}
-function dilate(mask,w,h,r=1){let out=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let hit=0;for(let dy=-r;dy<=r&&!hit;dy++)for(let dx=-r;dx<=r;dx++){let nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<w&&ny<h&&mask[ny*w+nx]){hit=1;break}}out[y*w+x]=hit;}return out}
-function erode(mask,w,h,r=1){let out=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let ok=1;for(let dy=-r;dy<=r&&ok;dy++)for(let dx=-r;dx<=r;dx++){let nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=w||ny>=h||!mask[ny*w+nx]){ok=0;break}}out[y*w+x]=ok;}return out}
-function closeMask(mask,w,h,r=1){return erode(dilate(mask,w,h,r),w,h,r)}
-function bboxOf(mask,w,h){let minx=w,miny=h,maxx=-1,maxy=-1,area=0,sx=0,sy=0;for(let p=0;p<w*h;p++){if(mask[p]){let x=p%w,y=(p/w)|0;area++;sx+=x;sy+=y;if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;}}if(!area)return null;return {minx,miny,maxx,maxy,w:maxx-minx+1,h:maxy-miny+1,area,cx:sx/area,cy:sy/area};}
-function preprocess(imgData){const {width:w,height:h,data}=imgData;const bg=estimateBg(data,w,h,12), bgLab=rgb2lab(...bg);let core=new Uint8Array(w*h),soft=new Uint8Array(w*h),shadow=new Uint8Array(w*h),alpha=new Uint8ClampedArray(w*h);let distArr=new Float32Array(w*h);let sureBg=new Uint8Array(w*h),probBg=new Uint8Array(w*h),probFg=new Uint8Array(w*h),sureFg=new Uint8Array(w*h);
-for(let y=0;y<h;y++)for(let x=0;x<w;x++){let p=y*w+x,i=p*4;let r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];let lab=rgb2lab(r,g,b),d=labDist(lab,bgLab);distArr[p]=d;let [hh,s,v]=rgb2hsv(r,g,b);let border=x<10||y<10||x>=w-10||y>=h-10;let central=x>w*.18&&x<w*.82&&y>h*.02&&y<h*.98; if(a<8){sureBg[p]=1;continue;} if(border || (d<8 && s*255<25)){sureBg[p]=1;} else if(d<16 && s*255<22){probBg[p]=1;} if(central || d>12){probFg[p]=1;} if(d>70 || (s*255>45 && v*255<245)){sureFg[p]=1;}}
-// lightweight GrabCut-like refinement by color centroids in Lab
-let fgLab=[0,0,0],bgLabMean=[0,0,0],fn=0,bn=0;function addLab(acc,lab){acc[0]+=lab[0];acc[1]+=lab[1];acc[2]+=lab[2];}
-for(let iter=0;iter<4;iter++){fgLab=[0,0,0];bgLabMean=[0,0,0];fn=0;bn=0;for(let p=0;p<w*h;p++){let i=p*4,lab=rgb2lab(data[i],data[i+1],data[i+2]);if(sureFg[p]|| (probFg[p]&&!probBg[p])){addLab(fgLab,lab);fn++;} if(sureBg[p]||probBg[p]){addLab(bgLabMean,lab);bn++;}}fgLab=fgLab.map(v=>v/(fn||1));bgLabMean=bgLabMean.map(v=>v/(bn||1));for(let p=0;p<w*h;p++){if(sureBg[p]||sureFg[p])continue;let i=p*4,lab=rgb2lab(data[i],data[i+1],data[i+2]);let df=labDist(lab,fgLab),db=labDist(lab,bgLabMean);if(df+3<db)probFg[p]=1;else if(db+3<df)probBg[p]=1;}}
-for(let p=0;p<w*h;p++){let i=p*4;let [hh,s,v]=rgb2hsv(data[i],data[i+1],data[i+2]);let d=distArr[p];let y=(p/w)|0;let isShadow=y>h*.76 && s*255<35 && d<38; if(isShadow){shadow[p]=1;}
-  if(sureFg[p] || (probFg[p]&&!probBg[p]) || d>34){core[p]=1;}
-  let softCond=(d>5 && d<45) || (probFg[p]&&d>10) || (s*255>12&&d>8); if(softCond&&!sureBg[p])soft[p]=1;
-  let aa=clamp((d-5)/28,0,1); alpha[p]=Math.round(aa*255);
-}
-core=removeSmall(closeMask(core,w,h,1),w,h,30,true);let coreDil=dilate(core,w,h,3);for(let p=0;p<w*h;p++){soft[p]=soft[p]&&coreDil[p]&&!shadow[p];}
-soft=dilate(removeSmall(soft,w,h,20,false),w,h,1);let finalMask=new Uint8Array(w*h);for(let p=0;p<w*h;p++)finalMask[p]=(core[p]||soft[p])&&!shadow[p];finalMask=removeSmall(finalMask,w,h,35,true);
-let bbox=bboxOf(finalMask,w,h);let out=makeImageData(w,h,[0,0,0,0]);let od=out.data;for(let p=0;p<w*h;p++){let i=p*4;if(finalMask[p]){od[i]=data[i];od[i+1]=data[i+1];od[i+2]=data[i+2];let a=core[p]?255:clamp(alpha[p],55,210);od[i+3]=a;}else{od[i+3]=0;}}
-return {bg,bgLab,core,soft,shadow,finalMask,distArr,alpha,analysis:out,bbox,score:scorePre(w,h,bbox,finalMask,core,soft,shadow)};}
-function scorePre(w,h,bbox,finalMask,core,soft,shadow){if(!bbox)return 0;let area=finalMask.reduce((a,b)=>a+b,0),ratio=area/(w*h);let s=100;if(ratio<.18||ratio>.48)s-=20;if(bbox.w>w*.88)s-=15;if(bbox.h<h*.65)s-=15;let border=0;for(let x=0;x<w;x++){border+=finalMask[x]+finalMask[(h-1)*w+x]}for(let y=0;y<h;y++){border+=finalMask[y*w]+finalMask[y*w+w-1]}if(border/(2*w+2*h)>.015)s-=12;return clamp(Math.round(s),0,100)}
-function baselines(mask,w,h){let bb=bboxOf(mask,w,h);if(!bb)return null;let top=bb.miny,bottom=bb.maxy,H=bb.h,cx=bb.cx;let widths=[];for(let y=top;y<=bottom;y++){let min=w,max=-1;for(let x=0;x<w;x++)if(mask[y*w+x]){if(x<min)min=x;if(x>max)max=x;}widths[y]=max>=min?max-min+1:0;}
-function yrel(r){return Math.round(top+H*r)}
-let head=yrel(.24),faceTop=yrel(.07),faceBot=yrel(.25),shoulder=yrel(.28),waist=yrel(.50),crotch=yrel(.60),ankle=yrel(.88);return {bbox:bb,cx,top,bottom,H,head,faceTop,faceBot,shoulder,waist,crotch,ankle,feet:yrel(.90),widths};}
-function applyLineAdjust(lines){if(!lines)return lines;let a=state.lineAdjust||{};let out={...lines};out.shoulder=clamp(out.shoulder+(a.shoulder||0),out.faceBot+4,out.waist-4);out.waist=clamp(out.waist+(a.waist||0),out.shoulder+4,out.crotch-4);out.crotch=clamp(out.crotch+(a.crotch||0),out.waist+4,out.ankle-4);out.ankle=clamp(out.ankle+(a.ankle||0),out.crotch+4,out.bottom);out.feet=clamp(out.ankle+Math.round(out.H*.03),out.ankle,out.bottom);return out;}
-function kmeansLab(imgData,mask,k=7){const {width:w,height:h,data}=imgData;let pts=[],idxs=[];for(let p=0;p<w*h;p++)if(mask[p]){let i=p*4;if(data[i+3]>0){pts.push(rgb2lab(data[i],data[i+1],data[i+2]));idxs.push(p)}}if(!pts.length)return null;let centers=[];for(let i=0;i<k;i++)centers.push(pts[Math.floor((i+.5)*pts.length/k)%pts.length].slice());let labels=new Int16Array(w*h);labels.fill(-1);for(let it=0;it<12;it++){let sums=Array.from({length:k},()=>[0,0,0,0]);for(let n=0;n<pts.length;n++){let best=0,bd=1e9;for(let c=0;c<k;c++){let d=labDist(pts[n],centers[c]);if(d<bd){bd=d;best=c}}labels[idxs[n]]=best;sums[best][0]+=pts[n][0];sums[best][1]+=pts[n][1];sums[best][2]+=pts[n][2];sums[best][3]++;}for(let c=0;c<k;c++)if(sums[c][3])centers[c]=[sums[c][0]/sums[c][3],sums[c][1]/sums[c][3],sums[c][2]/sums[c][3]];}
-let rgbCenters=centers.map(labToApproxRgb);return {labels,centers,rgbCenters,k};}
-function labToApproxRgb(lab){ // simple search approximation for display only
-let best=[0,0,0],bd=1e9;for(let r=0;r<=255;r+=17)for(let g=0;g<=255;g+=17)for(let b=0;b<=255;b+=17){let d=labDist(lab,rgb2lab(r,g,b));if(d<bd){bd=d;best=[r,g,b]}}return best;}
-function makeRegions(imgData,mask,km,lines){let {width:w,height:h,data}=imgData;let regs=[];for(let c=0;c<km.k;c++){let cmask=new Uint8Array(w*h);for(let p=0;p<w*h;p++)if(mask[p]&&km.labels[p]===c)cmask[p]=1;let comps=connected(cmask,w,h);for(const comp of comps){if(comp.area<28)continue;let sum=[0,0,0,0],alpha=0;for(const p of comp.pixels){let i=p*4;sum[0]+=data[i];sum[1]+=data[i+1];sum[2]+=data[i+2];alpha+=data[i+3];}let mean=sum.map(v=>Math.round(v/comp.area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);regs.push({...comp,id:regs.length+1,cluster:c,mean,alphaMean:alpha/comp.area,hue:hsv[0],sat:hsv[1],val:hsv[2],mergedFrom:[regs.length+1]});}}
-return regs;}
-function zoneOf(r,lines){if(!lines)return 'unknown';let y=r.cy;if(y<lines.head)return 'head';if(y<lines.shoulder)return 'face';if(y<lines.waist)return 'torso';if(y<lines.ankle)return 'legs';return 'feet'}
-function regionHint(r,lines){
-  let zone=zoneOf(r,lines),cx=lines?lines.cx:0;let hue=r.hue,s=r.sat,v=r.val;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;
-  let R=r.mean[0],G=r.mean[1],B=r.mean[2];
-  let lavender=((hue>245&&hue<340)||(s<.24&&B>=G-3&&R>=G-8&&v>.30));
-  let paleMint=((hue>85&&hue<180&&v>.45&&s<.45)||(s<.18&&G>=R-4&&G>=B-4&&v>.55));
-  let darkGreen=(hue>120&&hue<190&&s>.12&&v>.12)||(v<.20&&relX<.32);
-  let skin=(hue<48&&s>.08&&s<.55&&v>.38&&R>=G&&G>=B-15);
-  let gold=(hue>32&&hue<68&&s>.20&&v>.30);
-  if(zone==='feet')return 'shoe';
-  if(gold)return 'ornament';
-  if((zone==='head'||zone==='face')&&skin&&relX<.34)return 'skin';
-  if((zone==='head'||zone==='face'||(zone==='torso'&&r.cy<lines.waist&&relX>.16))&&lavender&&!paleMint)return 'hair';
-  if((zone==='torso'||zone==='legs')&&paleMint&&relX>.18)return 'sheer';
-  if((zone==='torso'||zone==='legs')&&darkGreen)return zone==='legs'?'leg':'cloth';
-  return 'unknown';
-}
-function mergeRegions(regs,lines,w,h){
-  let list=regs.map(r=>({...r,hint:regionHint(r,lines)}));let changed=true;let mode=(qs('mergeMode')&&qs('mergeMode').value)||'balanced';
-  function near(a,b,gap=6){gap=mode==='strict'?3:(mode==='loose'?10:gap);return !(a.maxx+gap<b.minx||b.maxx+gap<a.minx||a.maxy+gap<b.miny||b.maxy+gap<a.miny)}
-  function colorSim(a,b){let dh=Math.min(Math.abs(a.hue-b.hue),360-Math.abs(a.hue-b.hue));let ds=Math.abs(a.sat-b.sat),dv=Math.abs(a.val-b.val);let hueLimit=mode==='strict'?16:(mode==='loose'?32:24);let dsLimit=mode==='strict'?.10:(mode==='loose'?.22:.16);let dvLimit=mode==='strict'?.14:(mode==='loose'?.28:.20);let labLimit=mode==='strict'?12:(mode==='loose'?24:18);return (dh<hueLimit&&ds<dsLimit&&dv<dvLimit)||(labDist(rgb2lab(...a.mean),rgb2lab(...b.mean))<labLimit)}
-  function canMerge(a,b){
-    if(!near(a,b,6)||!colorSim(a,b))return false;
-    let za=zoneOf(a,lines),zb=zoneOf(b,lines);
-    let ha=a.hint,hb=b.hint;
-    // 部位境界を守る：髪・薄布・衣装・脚・靴は原則混ぜない
-    if(ha!==hb && ha!=='unknown' && hb!=='unknown')return false;
-    // 頭部と胴体外側の大領域を混ぜない。髪が袖を吸収するのを防ぐ。
-    if((za==='head'||za==='face') && (zb==='torso'||zb==='legs') && Math.min(a.area,b.area)>160)return false;
-    if((zb==='head'||zb==='face') && (za==='torso'||za==='legs') && Math.min(a.area,b.area)>160)return false;
-    // 小さい未分類は近い同系部位へ吸収してよい
-    let smallLimit=mode==='strict'?60:(mode==='loose'?160:110);if(Math.min(a.area,b.area)<smallLimit)return true;
-    if(ha===hb && za===zb)return true;
-    if(ha===hb && (ha==='hair'||ha==='sheer') && Math.abs(a.cy-b.cy)<130)return true;
-    return false;
-  }
-  while(changed){changed=false;outer:for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){let a=list[i],b=list[j];if(canMerge(a,b)){let pixels=a.pixels.concat(b.pixels);let area=pixels.length,minx=Math.min(a.minx,b.minx),maxx=Math.max(a.maxx,b.maxx),miny=Math.min(a.miny,b.miny),maxy=Math.max(a.maxy,b.maxy);let cx=(a.cx*a.area+b.cx*b.area)/area,cy=(a.cy*a.area+b.cy*b.area)/area;let mean=[0,1,2].map(k=>Math.round((a.mean[k]*a.area+b.mean[k]*b.area)/area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);let tmp={...a,area,pixels,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx,cy,mean,hue:hsv[0],sat:hsv[1],val:hsv[2],mergedFrom:a.mergedFrom.concat(b.mergedFrom)};tmp.hint=regionHint(tmp,lines);list[i]=tmp;list.splice(j,1);changed=true;break outer;}}}
-  list.forEach((r,i)=>r.mid=i+1);return list.filter(r=>r.area>50);
-}
-function classify(r,lines){
-  let zone=zoneOf(r,lines),cx=lines?lines.cx:0;let label='unknown',conf=25,reason=[];let hue=r.hue,s=r.sat,v=r.val;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;let aspect=r.h/(r.w||1);let R=r.mean[0],G=r.mean[1],B=r.mean[2];
-  let hint=regionHint(r,lines);function set(l,c,why){if(c>conf){label=l;conf=c;reason=[why];}}
-  if(hint==='hair')set('hair',zone==='head'||zone==='face'?76:62,'lavender/gray + head-connected zone');
-  if(hint==='skin')set('skin',70,'skin hue + face/head zone');
-  if(hint==='sheer')set('sheer',72,'pale mint + torso side cloth zone');
-  if(hint==='cloth')set('cloth',76,'dark green + torso center');
-  if(hint==='leg')set('leg',74,'dark green + lower body');
-  if(hint==='shoe')set('shoe',70,'feet zone');
-  if(hint==='ornament')set('ornament',70,'gold/high saturation');
-  // 耳は小さい肌色領域として別判定。ただし顔の左右外側のみ。
-  if((zone==='head'||zone==='face')&&r.area<lines.bbox.area*.035&&relX>.17&&r.cy>lines.faceTop&&r.cy<lines.faceBot&&R>G-10&&R>B-5)set('ear',64,'small side skin region');
-  // 胴体中央の暗色未分類は衣装本体として拾う
-  if(label==='unknown'&&zone==='torso'&&relX<.22&&v<.25&&r.area>180)set('cloth',68,'dark center torso fallback');
-  // 下半身中央の暗緑未分類は脚として拾う
-  if(label==='unknown'&&zone==='legs'&&relX<.30&&v<.35&&r.area>180)set('leg',66,'dark lower body fallback');
-  return {label,conf,reason:reason.join(' / ')||'rule not matched',zone};
-}
-function renderAll(){let res=state.result;if(!res)return;const {imgData,pre,lines,km,regions,merged,candidates}=res;drawImageData(canvases.original,imgData);if(canvases.cutout)drawCutout(canvases.cutout,pre.analysis);drawImageData(canvases.analysis,pre.analysis);drawMasks(canvases.masks,pre);drawLines(canvases.lines,imgData,lines);drawCluster(canvases.cluster,imgData,pre.finalMask,km);drawRegions(canvases.before,imgData,regions,lines,false);drawRegions(canvases.after,imgData,merged,lines,true);drawCandidates(canvases.cand,imgData,candidates);drawPart(canvases.part,imgData,candidates,state.selectedPart);makePartButtons();qs('size').textContent=`${imgData.width}×${imgData.height}`;qs('score').textContent=`score ${pre.score}`;logResult();}
-function drawMasks(c,pre){let w=state.w,h=state.h,id=makeImageData(w,h,[10,15,24,255]);for(let p=0;p<w*h;p++){let i=p*4;if(pre.shadow[p]){id.data[i]=120;id.data[i+1]=120;id.data[i+2]=160;}if(pre.soft[p]){id.data[i]=80;id.data[i+1]=140;id.data[i+2]=255;}if(pre.core[p]){id.data[i]=255;id.data[i+1]=190;id.data[i+2]=70;}}drawImageData(c,id)}
-function drawLines(c,img,lines){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=2;ctx.font='12px sans-serif';if(!lines)return;let arr=[['HEAD',lines.head,'#ff4f68'],['FACE',lines.faceBot,'#ff9f43'],['SHOULDER',lines.shoulder,'#ffd166'],['WAIST',lines.waist,'#00e5a8'],['CROTCH',lines.crotch,'#51a7ff'],['ANKLE',lines.ankle,'#9b5cff']];for(const [name,y,col] of arr){ctx.strokeStyle=col;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();ctx.fillText(name,4,y-3)}ctx.strokeStyle='#ff4f68';ctx.beginPath();ctx.moveTo(lines.cx,0);ctx.lineTo(lines.cx,c.height);ctx.stroke();}
-function drawCluster(c,img,mask,km){let w=img.width,h=img.height,id=makeImageData(w,h,[0,0,0,0]);for(let p=0;p<w*h;p++){let i=p*4;if(mask[p]){let cc=km.rgbCenters[km.labels[p]]||[200,200,200];id.data[i]=cc[0];id.data[i+1]=cc[1];id.data[i+2]=cc[2];id.data[i+3]=255;}}drawImageData(c,id)}
-function drawRegions(c,img,regs,lines,merged){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=1;ctx.font='10px sans-serif';for(const r of regs){let col=palette(r.id||r.mid);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillText((merged?'M':'R')+(r.mid||r.id),r.cx,r.cy);} }
-function drawCandidates(c,img,cands){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=2;ctx.font='10px sans-serif';for(const r of cands){let col='rgb('+COLORS[r.label].join(',')+')';ctx.strokeStyle=col;ctx.fillStyle=col;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillText(`${LABELS[r.label]} ${r.conf}`,r.minx,Math.max(10,r.miny-2));}}
-function drawPart(c,img,cands,label){let w=img.width,h=img.height,id=makeImageData(w,h,[0,0,0,0]),src=img.data;let pick=cands.filter(r=>r.label===label);let mask=new Uint8Array(w*h);for(const r of pick)for(const p of r.pixels)mask[p]=1;for(let p=0;p<w*h;p++){if(mask[p]){let i=p*4;id.data[i]=src[i];id.data[i+1]=src[i+1];id.data[i+2]=src[i+2];id.data[i+3]=src[i+3];}}drawImageData(c,id)}
-function makePartButtons(){let div=qs('partButtons');div.innerHTML='';for(const key of Object.keys(LABELS)){let b=document.createElement('button');b.className='tag';b.textContent=LABELS[key];b.style.border='1px solid rgb('+COLORS[key].join(',')+')';b.onclick=()=>{state.selectedPart=key;renderAll()};div.appendChild(b)}}
-function palette(i){let cols=['#ff4f68','#ffd166','#06d6a0','#4dabf7','#9b5cff','#ff8fab','#f78c6b','#c3f73a','#72efdd','#f4a261'];return cols[i%cols.length]}
-function logResult(){let {pre,lines,regions,merged,candidates}=state.result;let counts={};for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let txt=`Score ${pre.score}\nRegion ${regions.length} → ${merged.length} / merge=${(qs('mergeMode')&&qs('mergeMode').value)||'balanced'}\nLines shoulder=${lines?lines.shoulder:'-'} waist=${lines?lines.waist:'-'} crotch=${lines?lines.crotch:'-'} ankle=${lines?lines.ankle:'-'}\nBackground RGB ${pre.bg.join(', ')}\nFinal area ratio ${(pre.bbox?pre.bbox.area/(state.w*state.h):0).toFixed(3)}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,80))txt+=`M${r.mid} ${LABELS[r.label]} conf=${r.conf} zone=${r.zone} area=${r.area} bbox=${r.w}x${r.h} color=#${r.mean.map(x=>x.toString(16).padStart(2,'0')).join('')} reason=${r.reason}\n`;qs('log').textContent=txt;}
-async function analyze(){try{let imgData=state.orig;if(!imgData){qs('log').textContent='画像が未読み込みです。';return;}state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);let lines=applyLineAdjust(baselines(pre.finalMask,state.w,state.h));let km=kmeansLab(pre.analysis,pre.finalMask,parseInt(qs('k').value,10));if(!km){qs('log').textContent='解析失敗: 前景マスクが空です。背景除去設定を見直してください。';return;}let regions=makeRegions(pre.analysis,pre.finalMask,km,lines);let merged=mergeRegions(regions,lines,state.w,state.h);let candidates=merged.map(r=>({...r,...classify(r,lines)})).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions,merged,candidates};renderAll();}catch(err){console.error(err);qs('log').textContent='解析エラー: '+(err&&err.message?err.message:err);}}
-function loadImage(src){return new Promise((resolve,reject)=>{let im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src;});}
-function imageToData(im,maxH=640){let scale=Math.min(1,maxH/im.height,480/im.width);let w=Math.round(im.width*scale),h=Math.round(im.height*scale);let c=document.createElement('canvas');c.width=w;c.height=h;let ctx=c.getContext('2d');ctx.drawImage(im,0,0,w,h);return ctx.getImageData(0,0,w,h)}
-async function loadSample(){let im=await loadImage('sample.png');state.orig=imageToData(im);analyze();}
-qs('file').addEventListener('change',async e=>{let f=e.target.files[0];if(!f)return;let url=URL.createObjectURL(f);let im=await loadImage(url);state.orig=imageToData(im);URL.revokeObjectURL(url);analyze();});qs('run').onclick=analyze;['adjShoulder','adjWaist','adjCrotch','adjAnkle'].forEach(id=>{let el=qs(id);if(el)el.oninput=()=>{state.lineAdjust={shoulder:+qs('adjShoulder').value,waist:+qs('adjWaist').value,crotch:+qs('adjCrotch').value,ankle:+qs('adjAnkle').value};analyze();};});if(qs('mergeMode'))qs('mergeMode').onchange=analyze;
-qs('json').onclick=()=>{if(!state.result)return;let {pre,regions,merged,candidates}=state.result;let obj={version:'0.8.3',size:{w:state.w,h:state.h},preprocessor:{score:pre.score,bg:pre.bg,bbox:pre.bbox},region:{before:regions.length,after:merged.length},parts:candidates.map(r=>({id:r.mid,label:r.label,label_ja:LABELS[r.label],confidence:r.conf,zone:r.zone,bbox:[r.minx,r.miny,r.w,r.h],area:r.area,mean_color:r.mean,reason:r.reason,merged_from:r.mergedFrom}))};downloadBlob(JSON.stringify(obj,null,2),'sprite_region_metadata_v0_8_3.json','application/json');};
-qs('summary').onclick=()=>{let cards=[canvases.original,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.part];let W=900,H=1200,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='24px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.9.2.3 Summary',20,34);let x=20,y=60,cellW=270,cellH=330;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0;x=20+col*(cellW+20);y=60+row*(cellH+28);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,24);ctx.fillStyle='#e8eef8';ctx.font='13px sans-serif';ctx.fillText(['Original','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Part'][i],x+8,y+17);ctx.drawImage(cc,x,y+28,cellW,Math.min(cellH-30,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_8_3.png','image/png'));};
-function downloadBlob(data,name,type){let blob=data instanceof Blob?data:new Blob([data],{type});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-
-
-// ===== v0.9 enhanced classical image-processing layer =====
-Object.assign(LABELS,{
-  face:'顔', ears:'耳', eyes:'目', hands:'手', arms_skin:'腕/肌', chest_skin:'胸元肌',
-  hair_soft:'髪端候補', sheer_soft:'薄布候補', background_residue:'背景残り',
-  shadow:'影', ornament_candidate:'装飾候補', necklace:'首飾り', body_ornament:'胴装飾',
-  arm_ornament:'腕装飾', shoe_ornament:'靴装飾', hair_ornament:'髪飾り', needs_review:'要確認'
-});
-Object.assign(COLORS,{
-  face:[255,178,150], ears:[255,130,105], eyes:[40,30,45], hands:[255,170,145], arms_skin:[235,150,130], chest_skin:[255,190,170],
-  hair_soft:[205,140,255], sheer_soft:[120,255,210], background_residue:[90,90,100],
-  shadow:[95,95,130], ornament_candidate:[255,220,85], necklace:[255,210,80], body_ornament:[255,190,60],
-  arm_ornament:[245,170,60], shoe_ornament:[220,150,60], hair_ornament:[255,210,100], needs_review:[255,80,80]
-});
-if(qs('cUnknownBefore')) canvases.unknownBefore=qs('cUnknownBefore');
-if(qs('cUnknownAfter')) canvases.unknownAfter=qs('cUnknownAfter');
-
-function maskByAlpha(imgData,th){const w=imgData.width,h=imgData.height,d=imgData.data,m=new Uint8Array(w*h);for(let p=0;p<w*h;p++)m[p]=d[p*4+3]>th?1:0;return m;}
-function subtractMask(a,b){let out=new Uint8Array(a.length);for(let i=0;i<a.length;i++)out[i]=a[i]&&!b[i]?1:0;return out;}
-function touchesMask(region,mask,w,h,r=2){for(const p of region.pixels){let x=p%w,y=(p/w)|0;for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){let nx=x+dx,ny=y+dy;if(nx>=0&&ny>=0&&nx<w&&ny<h&&mask[ny*w+nx])return true;}}return false;}
-function regionAlphaStats(r,imgData){let a=0,min=255,max=0;for(const p of r.pixels){let v=imgData.data[p*4+3];a+=v;if(v<min)min=v;if(v>max)max=v;}return {mean:a/(r.area||1),min,max};}
-function enrichRegion(r,lines,imgData,pre){let w=imgData.width,h=imgData.height;let origin=originZoneOf(r,lines), visual=visualZoneOf(r,lines);let alpha=regionAlphaStats(r,imgData);let touches={head:false,shoulder:false,torso:false,waist:false,ankle:false,border:false};
-  touches.border=r.minx<=1||r.miny<=1||r.maxx>=w-2||r.maxy>=h-2;
-  if(lines){touches.head=r.miny<=lines.head && r.maxy>=lines.top;touches.shoulder=r.miny<=lines.shoulder+8 && r.maxy>=lines.shoulder-8;touches.torso=r.maxy>=lines.shoulder-6 && r.miny<=lines.waist+10;touches.waist=r.miny<=lines.waist+8&&r.maxy>=lines.waist-8;touches.ankle=r.miny<=lines.ankle+8&&r.maxy>=lines.ankle-8;}
-  let axis='center'; if(lines){let dx=r.cx-lines.cx;if(Math.abs(dx)<lines.bbox.w*.13)axis='center';else axis=dx<0?'left':'right';}
-  let relX=lines?Math.abs(r.cx-lines.cx)/(lines.bbox.w||1):0;let aspect=r.h/(r.w||1);let compact=r.area/Math.max(1,r.w*r.h);
-  return {...r, originZone:origin, visualZone:visual, meanAlpha:alpha.mean, alphaMin:alpha.min, alphaMax:alpha.max, touches, mainAxis:axis, relX, aspect, compact};
-}
-function originZoneOf(r,lines){if(!lines)return 'unknown';if(r.miny<lines.faceBot)return 'head';if(r.miny<lines.shoulder)return 'face';if(r.miny<lines.waist)return 'torso';if(r.miny<lines.ankle)return 'legs';return 'feet';}
-function visualZoneOf(r,lines){if(!lines)return 'unknown';let overlap=(a1,a2,b1,b2)=>Math.max(0,Math.min(a2,b2)-Math.max(a1,b1));let ranges={head:[lines.top,lines.head],face:[lines.faceTop,lines.faceBot],torso:[lines.shoulder,lines.waist],legs:[lines.crotch,lines.ankle],feet:[lines.ankle,lines.bottom]};let best='unknown',bo=0;for(const [k,[a,b]] of Object.entries(ranges)){let o=overlap(r.miny,r.maxy,a,b);if(o>bo){bo=o;best=k;}}return best;}
-function makeRegions(imgData,mask,km,lines){let {width:w,height:h,data}=imgData;let regs=[];for(let c=0;c<km.k;c++){let cmask=new Uint8Array(w*h);for(let p=0;p<w*h;p++){let a=data[p*4+3];if(a>0&&mask[p]&&km.labels[p]===c)cmask[p]=1;}let comps=connected(cmask,w,h);for(const comp of comps){if(comp.area<28)continue;let sum=[0,0,0],alpha=0;for(const p of comp.pixels){let i=p*4;if(data[i+3]===0)continue;sum[0]+=data[i];sum[1]+=data[i+1];sum[2]+=data[i+2];alpha+=data[i+3];}let mean=sum.map(v=>Math.round(v/comp.area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);regs.push({...comp,id:regs.length+1,cluster:c,mean,alphaMean:alpha/comp.area,hue:hsv[0],sat:hsv[1],val:hsv[2],softSource:false,mergedFrom:[regs.length+1]});}}
-return regs;}
-function makeSoftRegions(imgData,softMask,solidMask,lines){let {width:w,height:h,data}=imgData;let m=new Uint8Array(w*h);for(let p=0;p<w*h;p++)if(softMask[p]&&!solidMask[p]&&data[p*4+3]>8)m[p]=1;m=removeSmall(m,w,h,35,false);let comps=connected(m,w,h), regs=[];for(const comp of comps){if(comp.area<35)continue;let sum=[0,0,0],alpha=0;for(const p of comp.pixels){let i=p*4;sum[0]+=data[i];sum[1]+=data[i+1];sum[2]+=data[i+2];alpha+=data[i+3];}let mean=sum.map(v=>Math.round(v/comp.area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);regs.push({...comp,id:10000+regs.length+1,cluster:-1,mean,alphaMean:alpha/comp.area,hue:hsv[0],sat:hsv[1],val:hsv[2],softSource:true,mergedFrom:[10000+regs.length+1]});}return regs;}
-function regionHint(r,lines){let zone=visualZoneOf(r,lines),cx=lines?lines.cx:0;let hue=r.hue,s=r.sat,v=r.val;let relX=lines?Math.abs(r.cx-cx)/(lines.bbox.w||1):0;let R=r.mean[0],G=r.mean[1],B=r.mean[2];
-  let lavender=((hue>245&&hue<340)||(s<.25&&B>=G-8&&R>=G-18&&v>.24));
-  let paleMint=((hue>80&&hue<180&&v>.42&&s<.48)||(s<.22&&G>=R-7&&G>=B-9&&v>.48));
-  let darkGreen=(hue>115&&hue<190&&s>.10&&v>.10)||(v<.22&&relX<.34);
-  let skin=(hue<52&&s>.06&&s<.58&&v>.36&&R>=G-8&&R>=B-5);
-  let gold=(hue>28&&hue<72&&s>.18&&v>.26&&R>G*.75);
-  let dark=(v<.22&&r.area<lines?.bbox.area*.025);
-  if(zone==='feet')return 'shoe'; if(gold)return 'ornament'; if(dark&&zone==='face')return 'eyes';
-  if((zone==='head'||zone==='face')&&skin&&relX<.36)return 'skin';
-  if((zone==='head'||zone==='face'||(zone==='torso'&&r.cy<lines.waist&&relX>.12))&&lavender&&!paleMint)return r.softSource?'hair_soft':'hair';
-  if((zone==='torso'||zone==='legs')&&paleMint&&relX>.16)return r.softSource?'sheer_soft':'sheer';
-  if((zone==='torso'||zone==='legs')&&darkGreen)return zone==='legs'?'leg':'cloth';
-  if(r.softSource&&r.meanAlpha<150&&paleMint)return 'sheer_soft';
-  if(r.softSource&&lavender)return 'hair_soft';
-  return 'unknown';}
-function mergeRegions(regs,lines,w,h){let list=regs.map(r=>({...r,hint:regionHint(r,lines)}));let changed=true;let mode=(qs('mergeMode')&&qs('mergeMode').value)||'balanced';
-  function near(a,b,gap=5){gap=mode==='strict'?2:(mode==='loose'?9:gap);return !(a.maxx+gap<b.minx||b.maxx+gap<a.minx||a.maxy+gap<b.miny||b.maxy+gap<a.miny)}
-  function colorSim(a,b){let dh=Math.min(Math.abs(a.hue-b.hue),360-Math.abs(a.hue-b.hue));let ds=Math.abs(a.sat-b.sat),dv=Math.abs(a.val-b.val);let hueLimit=mode==='strict'?14:(mode==='loose'?34:24);let dsLimit=mode==='strict'?.09:(mode==='loose'?.24:.16);let dvLimit=mode==='strict'?.12:(mode==='loose'?.30:.20);let labLimit=mode==='strict'?11:(mode==='loose'?25:18);return (dh<hueLimit&&ds<dsLimit&&dv<dvLimit)||(labDist(rgb2lab(...a.mean),rgb2lab(...b.mean))<labLimit)}
-  function family(h){if(h==='hair_soft')return 'hair'; if(h==='sheer_soft')return 'sheer'; if(h&&h.includes('ornament'))return 'ornament'; return h;}
-  function canMerge(a,b){if(!near(a,b,6)||!colorSim(a,b))return false;let za=visualZoneOf(a,lines),zb=visualZoneOf(b,lines),ha=family(a.hint),hb=family(b.hint);if(ha!==hb&&ha!=='unknown'&&hb!=='unknown')return false;if((za==='head'||za==='face')&&(zb==='torso'||zb==='legs')&&Math.min(a.area,b.area)>120)return false;if((zb==='head'||zb==='face')&&(za==='torso'||za==='legs')&&Math.min(a.area,b.area)>120)return false;let smallLimit=mode==='strict'?55:(mode==='loose'?170:115);if(Math.min(a.area,b.area)<smallLimit)return true;if(ha===hb&&za===zb)return true;if(ha===hb&&(ha==='hair'||ha==='sheer')&&Math.abs(a.cy-b.cy)<120)return true;return false;}
-  while(changed){changed=false;outer:for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){let a=list[i],b=list[j];if(canMerge(a,b)){let pixels=a.pixels.concat(b.pixels);let area=pixels.length,minx=Math.min(a.minx,b.minx),maxx=Math.max(a.maxx,b.maxx),miny=Math.min(a.miny,b.miny),maxy=Math.max(a.maxy,b.maxy);let cx=(a.cx*a.area+b.cx*b.area)/area,cy=(a.cy*a.area+b.cy*b.area)/area;let mean=[0,1,2].map(k=>Math.round((a.mean[k]*a.area+b.mean[k]*b.area)/area));let hsv=rgb2hsv(mean[0],mean[1],mean[2]);let tmp={...a,area,pixels,minx,maxx,miny,maxy,w:maxx-minx+1,h:maxy-miny+1,cx,cy,mean,hue:hsv[0],sat:hsv[1],val:hsv[2],softSource:a.softSource&&b.softSource,mergedFrom:a.mergedFrom.concat(b.mergedFrom)};tmp.hint=regionHint(tmp,lines);list[i]=tmp;list.splice(j,1);changed=true;break outer;}}}
-  list.forEach((r,i)=>r.mid=i+1);return list.filter(r=>r.area>50);}
-function scoreFor(label,r,lines){let hint=regionHint(r,lines),zone=visualZoneOf(r,lines);let color=20,position=20,connection=20,shape=20,symmetry=45;let relX=r.relX??(lines?Math.abs(r.cx-lines.cx)/(lines.bbox.w||1):0);let aspect=r.h/(r.w||1);let v=r.val,s=r.sat,hue=r.hue;
-  function setScores(c,p,co,sh,sy=symmetry){color=c;position=p;connection=co;shape=sh;symmetry=sy;}
-  if(label==='hair'||label==='hair_soft'){setScores(hint==='hair'||hint==='hair_soft'?85:55,(zone==='head'||zone==='face'||(zone==='torso'&&r.cy<lines.waist))?80:45,(r.touches.head||r.miny<lines.head+25)?80:45,aspect>1.1?70:55,45)}
-  else if(label==='sheer'||label==='sheer_soft'){setScores(hint==='sheer'||hint==='sheer_soft'?85:50,(relX>.16&&(zone==='torso'||zone==='legs'))?85:40,(r.touches.shoulder||r.touches.torso)?75:45,aspect>1.15?78:48,70)}
-  else if(label==='cloth'){setScores(hint==='cloth'?88:55,(zone==='torso'&&relX<.32)?88:50,r.touches.torso?70:45,aspect>.9?70:50,55)}
-  else if(label==='leg'){setScores(hint==='leg'?86:55,(zone==='legs'&&r.cy>lines.waist&&r.cy<lines.ankle)?86:45,r.touches.waist||r.miny<lines.crotch+25?62:40,aspect>1.4?84:45,60)}
-  else if(label==='shoe'){setScores(hint==='shoe'?86:50,zone==='feet'||r.cy>lines.ankle?88:30,r.touches.ankle?65:45,r.w>=r.h*.4?68:55,70)}
-  else if(label==='face'){setScores(80,zone==='face'||zone==='head'?88:35,60,aspect>.65&&aspect<1.55?82:45,50)}
-  else if(label==='ears'){setScores(78,(zone==='head'||zone==='face')&&relX>.13?84:40,60,aspect>.45&&aspect<2.2?70:45,65)}
-  else if(label==='eyes'){setScores(82,zone==='face'&&r.cy<lines.faceBot?90:35,50,r.w>r.h?82:35,75)}
-  else if(label==='hands'){setScores(78,(zone==='torso'||zone==='legs')&&relX>.18?78:45,r.touches.torso?55:45,r.area<lines.bbox.area*.02?76:40,60)}
-  else if(label==='arms_skin'||label==='chest_skin'||label==='skin'){setScores(75,(zone==='torso'||zone==='face'||zone==='head')?70:45,r.touches.torso||r.touches.head?60:40,55,45)}
-  else if(label.includes('ornament')||label==='necklace'){setScores(88,(zone==='face'||zone==='torso'||zone==='feet'||zone==='head')?70:45,55,r.area<lines.bbox.area*.04?75:42,45)}
-  else if(label==='background_residue'){setScores(70,40,r.touches.border?80:40,50,40)}
-  else if(label==='shadow'){setScores(70,70,50,70,40)}
-  let conf=Math.round(color*.30+position*.25+connection*.20+shape*.15+symmetry*.10);return {color,position,connection,shape,symmetry,confidence:clamp(conf,0,100)};}
-function classify(r,lines){r=enrichRegion(r,lines,state.result?.imgData||state.orig,state.result?.pre||{});let zone=r.visualZone,hint=regionHint(r,lines),label='unknown',reason='rule not matched';let relX=r.relX,R=r.mean[0],G=r.mean[1],B=r.mean[2],v=r.val,s=r.sat;
-  if(hint==='hair'||hint==='hair_soft'){label=hint;reason='head-connected lavender/gray';}
-  else if(hint==='sheer'||hint==='sheer_soft'){label=hint;reason='pale mint + shoulder/torso side';}
-  else if(hint==='cloth'){label='cloth';reason='dark green + torso center';}
-  else if(hint==='leg'){label='leg';reason='dark green + lower body';}
-  else if(hint==='shoe'){label='shoe';reason='feet/ankle zone';}
-  else if(hint==='ornament'){label=ornamentSubtype(r,lines);reason='gold/high saturation ornament';}
-  else if(hint==='eyes'){label='eyes';reason='dark small region in face zone';}
-  else if(hint==='skin'){label=skinSubtype(r,lines);reason='skin hue refined by zone/position';}
-  else {let rec=reclassifyUnknown(r,lines);label=rec.label;reason=rec.reason;}
-  let scores=scoreFor(label,r,lines);let needs=scores.confidence<80 || label==='needs_review' || label==='unknown' || label==='background_residue';return {...r,label,conf:scores.confidence,confidence:scores.confidence,scores,needsReview:needs,reason,zone:zone,originZone:r.originZone,visualZone:r.visualZone};}
-function skinSubtype(r,lines){let relX=r.relX,zone=r.visualZone;if((zone==='head'||zone==='face')&&relX<.18&&r.area>120)return 'face';if((zone==='head'||zone==='face')&&relX>.15)return 'ears';if((zone==='torso'||zone==='legs')&&relX>.18&&r.area<lines.bbox.area*.018)return 'hands';if(zone==='torso'&&relX>.18)return 'arms_skin';if(zone==='torso'&&relX<.18)return 'chest_skin';return 'skin';}
-function ornamentSubtype(r,lines){let z=r.visualZone,relX=r.relX;if(z==='head'&&relX>.12)return 'hair_ornament';if((z==='face'||z==='head')&&r.cy>lines.faceBot-5)return 'necklace';if(z==='torso'&&relX<.25)return 'body_ornament';if(z==='torso'&&relX>.25)return 'arm_ornament';if(z==='feet')return 'shoe_ornament';return 'ornament_candidate';}
-function reclassifyUnknown(r,lines){let z=r.visualZone,relX=r.relX,hint=regionHint(r,lines);if(r.meanAlpha<18)return {label:'background_residue',reason:'alpha too low'};if(r.touches.border&&r.area<lines.bbox.area*.04)return {label:'background_residue',reason:'touches border'};if(r.cy>lines.ankle&&r.sat<.25&&r.val<.45)return {label:'shadow',reason:'low saturated bottom residue'};if(hint==='hair_soft'||(z!=='feet'&&r.meanAlpha>16&&r.sat<.35&&r.val>.20&&r.val<.78&&r.cy<lines.waist&&relX>.10))return {label:'hair_soft',reason:'unknown near upper/head with lavender-gray tendency'};if(hint==='sheer_soft'||(r.meanAlpha>16&&r.meanAlpha<220&&relX>.18&&(z==='torso'||z==='legs')&&r.val>.45&&r.sat<.35))return {label:'sheer_soft',reason:'unknown pale alpha torso-side'};if((r.hue>28&&r.hue<72&&r.sat>.15&&r.val>.25&&r.area<lines.bbox.area*.05))return {label:'ornament_candidate',reason:'small gold-like unknown'};if((r.mean[0]>r.mean[1]-8&&r.mean[0]>r.mean[2]-5&&r.sat>.06&&r.val>.35))return {label:'skin_candidate',reason:'skin-like unknown'};return {label:'needs_review',reason:'unknown after reclassification'};}
-function growSoftLabels(cands,lines){let out=cands.map(x=>({...x}));let hairs=out.filter(r=>r.label==='hair');let sheers=out.filter(r=>r.label==='sheer');for(const r of out){if(r.label!=='needs_review'&&r.label!=='unknown')continue;let closeHair=hairs.some(h=>!(h.maxx+8<r.minx||r.maxx+8<h.minx||h.maxy+8<r.miny||r.maxy+8<h.miny));let closeSheer=sheers.some(s=>!(s.maxx+8<r.minx||r.maxx+8<s.minx||s.maxy+8<r.miny||r.maxy+8<s.miny));if(closeHair&&r.cy<lines.waist&&r.meanAlpha>16){r.label='hair_soft';r.reason+=' / hair seed grow';r.scores=scoreFor(r.label,r,lines);r.conf=r.confidence=r.scores.confidence;r.needsReview=r.conf<80;}else if(closeSheer&&r.meanAlpha>16&&r.relX>.15){r.label='sheer_soft';r.reason+=' / sheer seed grow';r.scores=scoreFor(r.label,r,lines);r.conf=r.confidence=r.scores.confidence;r.needsReview=r.conf<80;}}return out;}
-function buildAdjacency(cands){for(const a of cands){a.adjacentParts=[];a.touches=a.touches||{};for(const b of cands){if(a===b)continue;let near=!(a.maxx+3<b.minx||b.maxx+3<a.minx||a.maxy+3<b.miny||b.maxy+3<a.miny);if(near&&a.adjacentParts.indexOf(b.label)<0)a.adjacentParts.push(b.label);}}return cands;}
-function drawCandidates(c,img,cands){drawImageData(c,img);let ctx=c.getContext('2d');ctx.lineWidth=2;ctx.font='12px sans-serif';for(const r of cands){let col='rgb('+((COLORS[r.label]||COLORS.unknown).join(','))+')';ctx.strokeStyle=r.needsReview?'#ff4f68':col;ctx.fillStyle=col;ctx.lineWidth=r.needsReview?3:2;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillText(`${LABELS[r.label]||r.label} ${r.conf}`,r.minx,Math.max(12,r.miny-2));}}
-function drawReview(c,img,cands,after=true){drawImageData(c,img);let ctx=c.getContext('2d');ctx.font='12px sans-serif';ctx.lineWidth=3;for(const r of cands){if(after){if(!r.needsReview&&!['hair_soft','sheer_soft','ornament_candidate','background_residue','needs_review','skin_candidate'].includes(r.label))continue;}else{if(r.baseLabel!=='unknown')continue;}let col=after?(r.needsReview?'#ff4f68':'#ffcf5a'):'#9aa8bd';ctx.strokeStyle=col;ctx.fillStyle=col;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillText(`${r.mid}:${LABELS[r.label]||r.label}`,r.minx,Math.max(12,r.miny-2));}}
-function renderAll(){let res=state.result;if(!res)return;const {imgData,pre,lines,km,regions,merged,candidates,baseCandidates}=res;drawImageData(canvases.original,imgData);if(canvases.cutout)drawCutout(canvases.cutout,pre.analysis);drawImageData(canvases.analysis,pre.analysis);drawMasks(canvases.masks,pre);drawLines(canvases.lines,imgData,lines);drawCluster(canvases.cluster,imgData,pre.finalMask,km);drawRegions(canvases.before,imgData,regions,lines,false);drawRegions(canvases.after,imgData,merged,lines,true);drawCandidates(canvases.cand,imgData,candidates);if(canvases.unknownBefore)drawReview(canvases.unknownBefore,imgData,baseCandidates,false);if(canvases.unknownAfter)drawReview(canvases.unknownAfter,imgData,candidates,true);drawPart(canvases.part,imgData,candidates,state.selectedPart);makePartButtons();qs('size').textContent=`${imgData.width}×${imgData.height}`;qs('score').textContent=`score ${pre.score}`;logResult();}
-function makePartButtons(){let div=qs('partButtons');div.innerHTML='';for(const key of Object.keys(LABELS)){let b=document.createElement('button');b.className='tag';b.textContent=LABELS[key];b.style.border='1px solid rgb('+((COLORS[key]||COLORS.unknown).join(','))+')';b.onclick=()=>{state.selectedPart=key;renderAll()};div.appendChild(b)}}
-function logResult(){let {pre,lines,regions,merged,candidates,baseCandidates}=state.result;let counts={};let review=candidates.filter(x=>x.needsReview).length;for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let unknownBefore=baseCandidates.filter(x=>x.baseLabel==='unknown').length;let unknownAfter=candidates.filter(x=>['unknown','needs_review'].includes(x.label)).length;let txt=`Score ${pre.score}\nRegion ${regions.length} → ${merged.length} / merge=${(qs('mergeMode')&&qs('mergeMode').value)||'balanced'}\nunknown ${unknownBefore} → ${unknownAfter} / needs_review=${review}\nLines shoulder=${lines?lines.shoulder:'-'} waist=${lines?lines.waist:'-'} crotch=${lines?lines.crotch:'-'} ankle=${lines?lines.ankle:'-'}\nBackground RGB ${pre.bg.join(', ')}\nFinal area ratio ${(pre.bbox?pre.bbox.area/(state.w*state.h):0).toFixed(3)}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]||k}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,100)){let sc=r.scores||{};txt+=`M${r.mid} ${LABELS[r.label]||r.label} conf=${r.conf} review=${r.needsReview?'Y':'N'} origin=${r.originZone} visual=${r.visualZone} alpha=${Math.round(r.meanAlpha||0)} area=${r.area} bbox=${r.w}x${r.h} scores[c${sc.color}/p${sc.position}/conn${sc.connection}/s${sc.shape}/sym${sc.symmetry}] reason=${r.reason}\n`;}qs('log').textContent=txt;}
-async function analyze(){try{let imgData=state.orig;if(!imgData){qs('log').textContent='画像が未読み込みです。';return;}state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);let lines=applyLineAdjust(baselines(pre.finalMask,state.w,state.h));let solidMask=maskByAlpha(pre.analysis,32);let softMask=maskByAlpha(pre.analysis,8);let softOnly=subtractMask(softMask,solidMask);let km=kmeansLab(pre.analysis,solidMask,parseInt(qs('k').value,10));if(!km){qs('log').textContent='解析失敗: solid foreground が空です。';return;}let solidRegions=makeRegions(pre.analysis,solidMask,km,lines);let softRegions=makeSoftRegions(pre.analysis,softOnly,solidMask,lines);let regions=solidRegions.concat(softRegions);let merged=mergeRegions(regions,lines,state.w,state.h).map(r=>enrichRegion(r,lines,imgData,pre));let baseCandidates=merged.map(r=>{let c=classify({...r},lines);c.baseLabel=c.label; if(c.label==='needs_review'||c.label==='background_residue'||c.label==='hair_soft'||c.label==='sheer_soft'||c.label==='skin_candidate') c.baseLabel='unknown'; return c;}).sort((a,b)=>b.area-a.area);let candidates=buildAdjacency(growSoftLabels(baseCandidates,lines)).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions,merged,candidates,baseCandidates};renderAll();}catch(err){console.error(err);qs('log').textContent='解析エラー: '+(err&&err.message?err.message:err);}}
-qs('json').onclick=()=>{if(!state.result)return;let {pre,regions,merged,candidates,baseCandidates}=state.result;let obj={version:'0.9',size:{w:state.w,h:state.h},preprocessor:{score:pre.score,bg:pre.bg,bbox:pre.bbox},region:{before:regions.length,after:merged.length,unknown_before:baseCandidates.filter(x=>x.baseLabel==='unknown').length,unknown_after:candidates.filter(x=>['unknown','needs_review'].includes(x.label)).length},parts:candidates.map(r=>({id:r.mid,label:r.label,label_ja:LABELS[r.label]||r.label,confidence:r.conf,needs_review:!!r.needsReview,origin_zone:r.originZone,visual_zone:r.visualZone,mean_alpha:Math.round(r.meanAlpha||0),touches:r.touches||{},adjacent_parts:r.adjacentParts||[],bbox:[r.minx,r.miny,r.w,r.h],area:r.area,mean_color:r.mean,scores:r.scores||{},reason:r.reason,merged_from:r.mergedFrom}))};downloadBlob(JSON.stringify(obj,null,2),'sprite_region_metadata_v0_9.json','application/json');};
-qs('summary').onclick=()=>{let cards=[canvases.original,canvases.cutout,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.unknownBefore,canvases.unknownAfter,canvases.part].filter(Boolean);let titles=['Original','Background Removed','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Unknown Before','Unknown After','Part'];let W=960,H=1850,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='26px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.9.2.3 Summary',20,36);let cellW=290,cellH=320;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0,x=20+col*(cellW+20),y=60+row*(cellH+35);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,28);ctx.fillStyle='#e8eef8';ctx.font='15px sans-serif';ctx.fillText(titles[i],x+8,y+19);ctx.drawImage(cc,x,y+32,cellW,Math.min(cellH-34,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_9_1.png','image/png'));};
-
-
-// ===== v0.9.1 correction memory / teaching UI =====
-const MEMORY_KEY='sprite_studio_correction_memory_v091';
-const REVIEW_PRIORITY=['face','eyes','hair','hands','sheer','ears','ear','ornament','ornament_candidate','skin_candidate','hair_soft','sheer_soft'];
-state.review={queue:[],index:0,current:null,circleMode:false,start:null,ellipse:null};
-function loadMemory(){try{let raw=localStorage.getItem(MEMORY_KEY);if(raw){let obj=JSON.parse(raw);if(obj&&Array.isArray(obj.samples))return obj;}}catch(e){}return {version:'0.9.1',preset:'front_fantasy_character',samples:[]};}
-function saveMemory(mem){localStorage.setItem(MEMORY_KEY,JSON.stringify(mem));}
-function imageHash(imgData){let d=imgData.data,w=imgData.width,h=imgData.height,hash=2166136261;let step=Math.max(4,Math.floor((w*h)/4096));for(let p=0;p<w*h;p+=step){let i=p*4;hash^=(d[i]<<16)^(d[i+1]<<8)^d[i+2]^d[i+3];hash=Math.imul(hash,16777619)>>>0;}return ('00000000'+hash.toString(16)).slice(-8);}
-function regionMaskFeaturePixels(region,imgData,ellipse){let d=imgData.data,w=imgData.width,h=imgData.height;let pixels=[];if(ellipse){let {cx,cy,rx,ry}=ellipse;rx=Math.max(1,rx);ry=Math.max(1,ry);let minx=Math.max(0,Math.floor(cx-rx)),maxx=Math.min(w-1,Math.ceil(cx+rx));let miny=Math.max(0,Math.floor(cy-ry)),maxy=Math.min(h-1,Math.ceil(cy+ry));for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){let dx=(x-cx)/rx,dy=(y-cy)/ry;if(dx*dx+dy*dy<=1){let p=y*w+x;if(d[p*4+3]>0)pixels.push(p);}}}else if(region&&region.pixels){pixels=region.pixels.filter(p=>d[p*4+3]>0);}return pixels;}
-function extractFeatures(region,imgData,lines,ellipse=null){let w=imgData.width,h=imgData.height,d=imgData.data;let pixels=regionMaskFeaturePixels(region,imgData,ellipse);let n=Math.max(1,pixels.length);let rgb=[0,0,0],lab=[0,0,0],hsv=[0,0,0],alpha=0;let minx=w,miny=h,maxx=0,maxy=0,sx=0,sy=0;for(const p of pixels){let i=p*4,x=p%w,y=(p/w)|0;let r=d[i],g=d[i+1],b=d[i+2],a=d[i+3];let L=rgb2lab(r,g,b),H=rgb2hsv(r,g,b);rgb[0]+=r;rgb[1]+=g;rgb[2]+=b;lab[0]+=L[0];lab[1]+=L[1];lab[2]+=L[2];hsv[0]+=H[0];hsv[1]+=H[1];hsv[2]+=H[2];alpha+=a;sx+=x;sy+=y;if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;}rgb=rgb.map(v=>v/n);lab=lab.map(v=>v/n);hsv=hsv.map(v=>v/n);let bx=region?region.minx:minx,by=region?region.miny:miny,bw=region?region.w:(maxx-minx+1),bh=region?region.h:(maxy-miny+1),area=region?region.area:n;let cx=region?region.cx:(sx/n),cy=region?region.cy:(sy/n);if(ellipse){bx=minx;by=miny;bw=maxx-minx+1;bh=maxy-miny+1;area=n;cx=sx/n;cy=sy/n;}let bboxArea=Math.max(1,bw*bh),perim=2*(bw+bh);return {mean_rgb:rgb.map(v=>Math.round(v)),mean_lab:lab.map(v=>+v.toFixed(2)),mean_hsv:[+hsv[0].toFixed(2),+hsv[1].toFixed(3),+hsv[2].toFixed(3)],relative_bbox:[+(bx/w).toFixed(4),+(by/h).toFixed(4),+(bw/w).toFixed(4),+(bh/h).toFixed(4)],relative_center:[+(cx/w).toFixed(4),+(cy/h).toFixed(4)],aspect:+(bh/Math.max(1,bw)).toFixed(3),area_ratio:+(area/(w*h)).toFixed(6),compactness:+(area/Math.max(1,bboxArea)).toFixed(4),alpha_mean:+(alpha/n).toFixed(1),visual_zone:region?.visualZone||'unknown',origin_zone:region?.originZone||'unknown',touches:region?.touches||{},adjacent_parts:region?.adjacentParts||[],has_eye_pair:false};}
-function featureSimilarity(a,b){if(!a||!b)return 0;let lab=1-clamp(labDist(a.mean_lab||[0,0,0],b.mean_lab||[0,0,0])/80,0,1);let ah=(a.mean_hsv||[0,0,0]),bh=(b.mean_hsv||[0,0,0]);let hd=Math.min(Math.abs(ah[0]-bh[0]),360-Math.abs(ah[0]-bh[0]))/180;let hsv=1-clamp((hd+Math.abs(ah[1]-bh[1])+Math.abs(ah[2]-bh[2]))/3,0,1);let c1=a.relative_center||[0,0],c2=b.relative_center||[0,0];let center=1-clamp(Math.hypot(c1[0]-c2[0],c1[1]-c2[1])/.45,0,1);let bb1=a.relative_bbox||[0,0,0,0],bb2=b.relative_bbox||[0,0,0,0];let box=1-clamp((Math.abs(bb1[2]-bb2[2])+Math.abs(bb1[3]-bb2[3])+Math.abs((a.aspect||0)-(b.aspect||0))*.25)/1.2,0,1);let area=1-clamp(Math.abs((a.area_ratio||0)-(b.area_ratio||0))/.12,0,1);let zone=(a.visual_zone===b.visual_zone?1:0.45)*(a.origin_zone===b.origin_zone?1:0.75);return +(lab*.28+hsv*.18+center*.22+box*.14+area*.10+zone*.08).toFixed(4);}
-function memoryLimit(mem){return (mem.samples||[]).length>=20?25:10;}
-function applyMemoryToCandidates(candidates,imgData,lines){let mem=loadMemory(),samples=mem.samples||[],limit=memoryLimit(mem);for(const r of candidates){let f=extractFeatures(r,imgData,lines);r.features=f;r.memoryScore=0;r.feedbackStatus='none';r.feedbackId=null;let best=null,bestSim=0,bestDelta=0;for(const s of samples){if(!s.features)continue;let label=s.final_label||s.auto_label;if(label!==r.label)continue;let sim=featureSimilarity(f,s.features);if(sim<.70)continue;let strong=sim>=.85;let delta=0;if(s.feedback_type==='accepted'||s.feedback_type==='corrected_by_circle')delta=strong?10:4;else if(s.feedback_type==='rejected')delta=strong?-10:-4;if(Math.abs(delta)>Math.abs(bestDelta)){best=s;bestSim=sim;bestDelta=delta;}}if(best){r.memoryScore=clamp(bestDelta,-limit,limit);r.feedbackStatus='memory_applied';r.feedbackId=best.id||null;}r.finalConfidence=clamp(Math.round((r.conf||r.confidence||0)+r.memoryScore),0,100);r.conf=r.confidence=r.finalConfidence;r.needsReview=!(r.finalConfidence>=85 && Math.abs(r.memoryScore)<=limit);}}
-function saveFeedback(region,type,ellipse=null){let mem=loadMemory();let id='fb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);let features=extractFeatures(region,state.result.imgData,state.result.lines,ellipse);let sample={id, image_hash:imageHash(state.result.imgData), part_id:region.mid||region.id, auto_label:region.label, final_label:(type==='rejected'?'rejected':region.label), feedback_type:type, confidence_before:region.confidence||region.conf||0, user_circle:ellipse?{cx:+ellipse.cx.toFixed(2),cy:+ellipse.cy.toFixed(2),rx:+ellipse.rx.toFixed(2),ry:+ellipse.ry.toFixed(2)}:null, features};mem.samples.push(sample);saveMemory(mem);region.feedbackStatus=type;region.feedbackId=id;return sample;}
-function makeReviewQueue(){if(!state.result)return [];let pr=(x)=>{let i=REVIEW_PRIORITY.indexOf(x.label);return i<0?99:i};return state.result.candidates.filter(r=>r.needsReview).sort((a,b)=>pr(a)-pr(b)||b.area-a.area).slice(0,5);}
-function openTeach(){if(!state.result){qs('log').textContent='先に解析してください。';return;}if(state.result.qualityBlocked||!state.result.pre||state.result.pre.score<60){qs('log').textContent='背景除去品質が低いため、部位レビューは停止しています。';return;}state.review.queue=makeReviewQueue();state.review.index=0;if(!state.review.queue.length){qs('log').textContent='needs_review 部位がありません。';return;}qs('reviewPanel').style.display='flex';showReviewItem();}
-function showReviewItem(){let q=state.review.queue,i=state.review.index;if(i>=q.length){qs('reviewPanel').style.display='none';renderAll();return;}let r=q[i];state.review.current=r;state.review.circleMode=false;state.review.ellipse=null;qs('reviewTitle').textContent=`部位レビュー ${i+1}/${q.length}: ${LABELS[r.label]||r.label}`;let sc=r.scores||{};qs('reviewMeta').textContent=`confidence ${r.conf} / reason: ${r.reason} / bbox ${r.w}×${r.h} / origin ${r.originZone} / visual ${r.visualZone} / memory ${r.memoryScore||0} / score c${sc.color||'-'} p${sc.position||'-'} conn${sc.connection||'-'} shape${sc.shape||'-'} sym${sc.symmetry||'-'}`;drawReviewCanvas();}
-function drawReviewCanvas(){
-  let r=state.review.current,img=state.result&&state.result.imgData,c=qs('reviewCanvas');
-  if(!r||!img)return;
-  fitCanvas(c,img.width,img.height);
-  let ctx=c.getContext('2d');
-  // Heavy iPhone-safe rendering: blend the region overlay directly into one ImageData
-  // instead of calling fillRect thousands of times.
-  let base=new ImageData(new Uint8ClampedArray(img.data), img.width, img.height);
-  let data=base.data;
-  if(r.pixels){
-    const ar=0.38, rr=255, gg=80, bb=120;
-    for(const p of r.pixels){
-      let i=p*4;
-      data[i]=Math.round(data[i]*(1-ar)+rr*ar);
-      data[i+1]=Math.round(data[i+1]*(1-ar)+gg*ar);
-      data[i+2]=Math.round(data[i+2]*(1-ar)+bb*ar);
-      data[i+3]=255;
-    }
-  }
-  ctx.putImageData(base,0,0);
-  ctx.strokeStyle='#ff4f68';
-  ctx.lineWidth=3;
-  ctx.strokeRect(r.minx,r.miny,r.w,r.h);
-  ctx.fillStyle='#ff4f68';
-  ctx.font='18px sans-serif';
-  ctx.fillText(`${LABELS[r.label]||r.label} ${r.conf}`,r.minx,Math.max(20,r.miny-5));
-  if(state.review.ellipse){
-    let e=state.review.ellipse;
-    ctx.strokeStyle='#58a6ff';
-    ctx.lineWidth=4;
-    ctx.beginPath();
-    ctx.ellipse(e.cx,e.cy,e.rx,e.ry,0,0,Math.PI*2);
-    ctx.stroke();
-  }
-}
-function nextReview(){state.review.index++;showReviewItem();}
-function canvasPoint(ev,c){let rect=c.getBoundingClientRect();let p=ev.touches?ev.touches[0]:ev;return {x:(p.clientX-rect.left)*c.width/rect.width,y:(p.clientY-rect.top)*c.height/rect.height};}
-function setupReviewEvents(){qs('teach').onclick=openTeach;qs('reviewClose').onclick=()=>{qs('reviewPanel').style.display='none'};qs('reviewAccept').onclick=()=>{saveFeedback(state.review.current,'accepted');nextReview();};qs('reviewReject').onclick=()=>{saveFeedback(state.review.current,'rejected');nextReview();};qs('reviewSkip').onclick=()=>{saveFeedback(state.review.current,'skipped');nextReview();};qs('reviewCircle').onclick=()=>{state.review.circleMode=true;state.review.ellipse=null;qs('reviewHint').textContent='フリーハンドで教える: 対象範囲を指でドラッグしてください。離すと保存します。';drawReviewCanvas();};let c=qs('reviewCanvas');let down=false;function start(ev){if(!state.review.circleMode)return;ev.preventDefault();down=true;state.review.start=canvasPoint(ev,c);state.review.ellipse=null;}function move(ev){if(!down||!state.review.circleMode)return;ev.preventDefault();let a=state.review.start,b=canvasPoint(ev,c);state.review.ellipse={cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,rx:Math.abs(b.x-a.x)/2,ry:Math.abs(b.y-a.y)/2};drawReviewCanvas();}function end(ev){if(!down||!state.review.circleMode)return;ev.preventDefault();down=false;if(state.review.ellipse&&state.review.ellipse.rx>3&&state.review.ellipse.ry>3){saveFeedback(state.review.current,'corrected_by_circle',state.review.ellipse);qs('reviewHint').textContent='保存しました。';nextReview();}}c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);window.addEventListener('mouseup',end);c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});c.addEventListener('touchend',end,{passive:false});qs('memoryJson').onclick=()=>downloadBlob(JSON.stringify(loadMemory(),null,2),'correction_memory.json','application/json');qs('clearMemory').onclick=()=>{if(confirm('補正履歴を削除しますか？')){localStorage.removeItem(MEMORY_KEY);qs('log').textContent='補正履歴を削除しました。';}};}
-const analyze091=async()=>{try{let imgData=state.orig;if(!imgData){qs('log').textContent='画像が未読み込みです。';return;}state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);let lines=applyLineAdjust(baselines(pre.finalMask,state.w,state.h));let solidMask=maskByAlpha(pre.analysis,32);let softMask=maskByAlpha(pre.analysis,8);let softOnly=subtractMask(softMask,solidMask);let km=kmeansLab(pre.analysis,solidMask,parseInt(qs('k').value,10));if(!km){qs('log').textContent='解析失敗: solid foreground が空です。';return;}let solidRegions=makeRegions(pre.analysis,solidMask,km,lines);let softRegions=makeSoftRegions(pre.analysis,softOnly,solidMask,lines);let regions=solidRegions.concat(softRegions);let merged=mergeRegions(regions,lines,state.w,state.h).map(r=>enrichRegion(r,lines,imgData,pre));let baseCandidates=merged.map(r=>{let c=classify({...r},lines);c.baseLabel=c.label;if(c.label==='needs_review'||c.label==='background_residue'||c.label==='hair_soft'||c.label==='sheer_soft'||c.label==='skin_candidate')c.baseLabel='unknown';return c;}).sort((a,b)=>b.area-a.area);let candidates=buildAdjacency(growSoftLabels(baseCandidates,lines)).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions,merged,candidates,baseCandidates};applyMemoryToCandidates(candidates,imgData,lines);renderAll();}catch(err){console.error(err);qs('log').textContent='解析エラー: '+(err&&err.message?err.message:err);}};
-function metadata091(){let {pre,regions,merged,candidates,baseCandidates}=state.result;return {version:'0.9.1',size:{w:state.w,h:state.h},preprocessor:{score:pre.score,bg:pre.bg,bbox:pre.bbox},memory:{sample_count:(loadMemory().samples||[]).length,key:MEMORY_KEY},region:{before:regions.length,after:merged.length,unknown_before:baseCandidates.filter(x=>x.baseLabel==='unknown').length,unknown_after:candidates.filter(x=>['unknown','needs_review'].includes(x.label)).length},parts:candidates.map(r=>({id:r.mid,label:r.label,label_ja:LABELS[r.label]||r.label,confidence:r.confidence,base_confidence:r.scores?.confidence,needs_review:!!r.needsReview,origin_zone:r.originZone,visual_zone:r.visualZone,mean_alpha:Math.round(r.meanAlpha||0),memory_score:r.memoryScore||0,final_confidence:r.finalConfidence??r.confidence,feedback_status:r.feedbackStatus||'none',feedback_id:r.feedbackId||null,touches:r.touches||{},adjacent_parts:r.adjacentParts||[],bbox:[r.minx,r.miny,r.w,r.h],area:r.area,mean_color:r.mean,scores:r.scores||{},features:r.features||null,reason:r.reason,merged_from:r.mergedFrom}))};}
-function enhanceLog091(){let oldLog=logResult;logResult=function(){oldLog();if(!state.result)return;let mem=loadMemory();let review=makeReviewQueue();qs('log').textContent += `\nMemory samples: ${(mem.samples||[]).length}\nReview queue: ${review.map(r=>'M'+r.mid+':'+(LABELS[r.label]||r.label)+'/'+r.conf).join(', ')}\n`;};}
-// override event handlers after v0.9 definitions
-setupReviewEvents();enhanceLog091();qs('run').onclick=analyze091;if(qs('mergeMode'))qs('mergeMode').onchange=analyze091;['adjShoulder','adjWaist','adjCrotch','adjAnkle'].forEach(id=>{let el=qs(id);if(el)el.oninput=()=>{state.lineAdjust={shoulder:+qs('adjShoulder').value,waist:+qs('adjWaist').value,crotch:+qs('adjCrotch').value,ankle:+qs('adjAnkle').value};analyze091();};});qs('json').onclick=()=>{if(!state.result)return;downloadBlob(JSON.stringify(metadata091(),null,2),'sprite_region_metadata_v0_9_1.json','application/json');};
-analyze=analyze091;
-
-
-
-// ===== v0.9.2 AI-free analysis improvements =====
-const PREPROCESSOR_VERSION_092 = 'v0.4-extracted';
-
-function bgp_countMask(mask){let n=0; if(!mask)return 0; for(let i=0;i<mask.length;i++) if(mask[i]) n++; return n;}
-function bgp_ratio(mask,w,h){return bgp_countMask(mask)/(w*h);}
-function bgp_median(vals){if(!vals.length)return 0; vals.sort((a,b)=>a-b); return vals[(vals.length/2)|0];}
-function bgp_estimateBgMedian(data,w,h,border=12){let rs=[],gs=[],bs=[],as=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(x<border||y<border||x>=w-border||y>=h-border){let i=(y*w+x)*4;if(data[i+3]>4){rs.push(data[i]);gs.push(data[i+1]);bs.push(data[i+2]);as.push(data[i+3]);}}}return [bgp_median(rs),bgp_median(gs),bgp_median(bs)];}
-function bgp_diagnoseBackground(data,w,h,bg){let border=12, n=0, white=0, highSat=0, alphaLow=0, diffs=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(x<border||y<border||x>=w-border||y>=h-border){let i=(y*w+x)*4;n++;let a=data[i+3];if(a<8)alphaLow++;let r=data[i],g=data[i+1],b=data[i+2];let hsv=rgb2hsv(r,g,b);if(r>235&&g>235&&b>235)white++;if(hsv[1]>.38)highSat++;diffs.push(Math.hypot(r-bg[0],g-bg[1],b-bg[2]));}}let mean=diffs.reduce((a,b)=>a+b,0)/(diffs.length||1);let variance=diffs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/(diffs.length||1);let std=Math.sqrt(variance);let type='solid', reason='外周色差が小さい単色背景候補';if(alphaLow/n>.50){type='alpha';reason='透過PNG候補';}else if(white/n>.55){type='white';reason='白背景候補';}else if(highSat/n>.18){type='complex';reason='外周に高彩度成分が多く複雑背景候補';}else if(std>20||mean>26){type='light_gradient';reason='外周にゆるい色差。薄グラデーション候補';}return {type,supported:type!=='complex',reason,borderMean:bg,borderStd:std,whiteRatio:white/n,alphaRatio:alphaLow/n,highSatRatio:highSat/n};}
-function bgp_scorePre(w,h,bbox,finalMask,core,soft,shadow,bgDiag){if(!bbox)return 0;let finalRatio=bgp_ratio(finalMask,w,h), coreRatio=bgp_ratio(core,w,h), softRatio=bgp_ratio(soft,w,h);let s=100;if(finalRatio<.18||finalRatio>.50)s-=20;if(coreRatio<.10)s-=12;if(softRatio>.28)s-=8;if(bbox.w>w*.88)s-=15;if(bbox.h<h*.62)s-=15;let border=0;for(let x=0;x<w;x++){border+=finalMask[x]+finalMask[(h-1)*w+x]}for(let y=0;y<h;y++){border+=finalMask[y*w]+finalMask[y*w+w-1]}let borderLeak=border/(2*w+2*h);if(borderLeak>.015)s-=12;if(bgDiag&&!bgDiag.supported)s-=35;return clamp(Math.round(s),0,100);}
-function bgp_layers(w,h,core,soft,finalMask,shadow,bbox){let coreArea=bgp_countMask(core),softArea=bgp_countMask(soft),finalArea=bgp_countMask(finalMask),shadowArea=bgp_countMask(shadow);let coreRatio=coreArea/(w*h),softRatio=softArea/(w*h),finalRatio=finalArea/(w*h);let missingRisk=0;if(coreRatio<.12)missingRisk+=20;if(finalRatio<.24)missingRisk+=12;if(softRatio<.05)missingRisk+=8;return {coreArea,softArea,finalArea,shadowArea,coreRatio,softRatio,finalRatio,missingRisk};}
-function bgp_makeAlphaPngPass(imgData){const {width:w,height:h,data}=imgData;let finalMask=new Uint8Array(w*h),core=new Uint8Array(w*h),soft=new Uint8Array(w*h),shadow=new Uint8Array(w*h);let out=makeImageData(w,h,[0,0,0,0]);for(let p=0;p<w*h;p++){let i=p*4,a=data[i+3];if(a>8){finalMask[p]=1;if(a>32)core[p]=1;else soft[p]=1;out.data[i]=data[i];out.data[i+1]=data[i+1];out.data[i+2]=data[i+2];out.data[i+3]=a;}}let bbox=bboxOf(finalMask,w,h);let bg=[0,0,0],bgDiag={type:'alpha',supported:true,reason:'入力PNGのalphaを前景として使用'};let layers=bgp_layers(w,h,core,soft,finalMask,shadow,bbox);let score=bgp_scorePre(w,h,bbox,finalMask,core,soft,shadow,bgDiag);return {analysis:out, finalMask, core, soft, shadow, bbox, score, bg, bgDiag, bestProfile:'alpha_png', layers};}
-function runBackgroundPreprocessorV04(imgData, options={}){const {width:w,height:h,data}=imgData;let alphaLow=0;for(let p=0;p<w*h;p++)if(data[p*4+3]<250)alphaLow++;if(alphaLow/(w*h)>.08)return bgp_makeAlphaPngPass(imgData);
-  const bg=bgp_estimateBgMedian(data,w,h,12), bgLab=rgb2lab(...bg), bgDiag=bgp_diagnoseBackground(data,w,h,bg);let best=null;let profiles=['white_background','light_gradient','simple_shadow','solid_background'];
-  for(const profile of profiles){let core=new Uint8Array(w*h),soft=new Uint8Array(w*h),shadow=new Uint8Array(w*h),alpha=new Uint8ClampedArray(w*h);let sureBg=new Uint8Array(w*h),probBg=new Uint8Array(w*h),probFg=new Uint8Array(w*h),sureFg=new Uint8Array(w*h),distArr=new Float32Array(w*h);
-    let bgStrict=profile==='white_background'?10:(profile==='light_gradient'?8:9);let bgLoose=profile==='white_background'?18:(profile==='light_gradient'?16:18);let fgLoose=profile==='light_gradient'?11:12;let fgStrong=profile==='light_gradient'?68:70;
-    for(let y=0;y<h;y++)for(let x=0;x<w;x++){let p=y*w+x,i=p*4;let r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];let lab=rgb2lab(r,g,b),d=labDist(lab,bgLab);distArr[p]=d;let hsv=rgb2hsv(r,g,b),s=hsv[1]*255,v=hsv[2]*255;let border=x<10||y<10||x>=w-10||y>=h-10;let central=x>w*.16&&x<w*.84&&y>h*.02&&y<h*.98;if(a<8){sureBg[p]=1;continue;}if(border || (d<bgStrict && s<28)){sureBg[p]=1;}else if(d<bgLoose && s<24){probBg[p]=1;}if(central||d>fgLoose){probFg[p]=1;}if(d>fgStrong || (s>45 && v<245)){sureFg[p]=1;}}
-    let fgLab=[0,0,0],bgLabMean=[0,0,0];function addLab(acc,lab){acc[0]+=lab[0];acc[1]+=lab[1];acc[2]+=lab[2];}
-    for(let iter=0;iter<4;iter++){let fn=0,bn=0;fgLab=[0,0,0];bgLabMean=[0,0,0];for(let p=0;p<w*h;p++){let i=p*4,lab=rgb2lab(data[i],data[i+1],data[i+2]);if(sureFg[p]||(probFg[p]&&!probBg[p])){addLab(fgLab,lab);fn++;}if(sureBg[p]||probBg[p]){addLab(bgLabMean,lab);bn++;}}fgLab=fgLab.map(v=>v/(fn||1));bgLabMean=bgLabMean.map(v=>v/(bn||1));for(let p=0;p<w*h;p++){if(sureBg[p]||sureFg[p])continue;let i=p*4,lab=rgb2lab(data[i],data[i+1],data[i+2]);let df=labDist(lab,fgLab),db=labDist(lab,bgLabMean);if(df+3<db)probFg[p]=1;else if(db+3<df)probBg[p]=1;}}
-    for(let p=0;p<w*h;p++){let i=p*4;let hsv=rgb2hsv(data[i],data[i+1],data[i+2]);let s=hsv[1]*255,d=distArr[p],y=(p/w)|0;let isShadow=(profile==='simple_shadow'||profile==='light_gradient') && y>h*.76 && s<40 && d<42;if(isShadow)shadow[p]=1;if(sureFg[p]||(probFg[p]&&!probBg[p])||d>34)core[p]=1;let softCond=(d>5&&d<48)||(probFg[p]&&d>10)||(s>12&&d>8);if(softCond&&!sureBg[p])soft[p]=1;alpha[p]=Math.round(clamp((d-5)/28,0,1)*255);}
-    core=removeSmall(closeMask(core,w,h,1),w,h,30,true);let coreDil=dilate(core,w,h,3);for(let p=0;p<w*h;p++)soft[p]=soft[p]&&coreDil[p]&&!shadow[p];soft=dilate(removeSmall(soft,w,h,20,false),w,h,1);let finalMask=new Uint8Array(w*h);for(let p=0;p<w*h;p++)finalMask[p]=(core[p]||soft[p])&&!shadow[p];finalMask=removeSmall(finalMask,w,h,35,true);let bbox=bboxOf(finalMask,w,h);let out=makeImageData(w,h,[0,0,0,0]);for(let p=0;p<w*h;p++){let i=p*4;if(finalMask[p]){out.data[i]=data[i];out.data[i+1]=data[i+1];out.data[i+2]=data[i+2];out.data[i+3]=core[p]?255:clamp(alpha[p],55,210);}else out.data[i+3]=0;}let layers=bgp_layers(w,h,core,soft,finalMask,shadow,bbox);let score=bgp_scorePre(w,h,bbox,finalMask,core,soft,shadow,bgDiag);if(bgDiag.type==='light_gradient'&&profile==='solid_background')score-=12;if(bgDiag.type==='white'&&profile==='white_background')score+=4;let res={analysis:out,finalMask,core,soft,shadow,bbox,score:clamp(score,0,100),bg,bgDiag,bestProfile:profile,layers,distArr,alpha};if(!best||res.score>best.score)best=res;}
-  return best;
-}
-const preprocessLegacy = preprocess;
-function preprocess(imgData){return runBackgroundPreprocessorV04(imgData,{version:'0.9.2'});}
-function buildBodyCoreMask(candidates, pre, w, h){let out=new Uint8Array(w*h);let reject=new Uint8Array(w*h);let positive=new Set(['face','eyes','ears','hands','arms_skin','chest_skin','skin','skin_candidate','cloth','leg','shoe','necklace','body_ornament','shoe_ornament']);let negative=new Set(['hair','hair_soft','sheer','sheer_soft','shadow','background_residue']);if(candidates){for(const r of candidates){let label=r.label||r.baseLabel||'';if(negative.has(label)){for(const p of r.pixels||[])reject[p]=1;}else if(positive.has(label)||label.includes('ornament')){for(const p of r.pixels||[])out[p]=1;}}}
-  if(bgp_countMask(out)<w*h*.05){ // fallback: use core but remove side pale cloth/hair heuristically
-    out=new Uint8Array(pre.core||pre.finalMask); if(candidates){for(const r of candidates){if(['hair','hair_soft','sheer','sheer_soft'].includes(r.label)){for(const p of r.pixels||[])out[p]=0;}}}
-  }
-  for(let p=0;p<w*h;p++){if(reject[p])out[p]=0;}out=closeMask(removeSmall(out,w,h,40,false),w,h,1);return out;
-}
-function baselinesBodyCore(bodyCoreMask,fallbackFinalMask,w,h){let bb=bboxOf(bodyCoreMask,w,h);let area=bb?bb.area:0;if(!bb||area<w*h*.04||bb.h<h*.35)return baselines(fallbackFinalMask,w,h);let lines=baselines(bodyCoreMask,w,h);lines.source='body_core';return lines;}
-function detectEyeCandidates(regions,imgData,lines){if(!lines)return [];return regions.filter(r=>{let z=visualZoneOf(r,lines);let relX=Math.abs(r.cx-lines.cx)/(lines.bbox.w||1);let areaRatio=r.area/(lines.bbox.area||1);return (z==='face'||z==='head')&&r.cy>=lines.faceTop&&r.cy<=lines.faceBot&&r.val<.36&&r.sat>.06&&r.w>r.h&&areaRatio>.00025&&areaRatio<.018&&relX>.03&&relX<.28;}).map(r=>({...r,label:'eyes',eyeScore:80}));}
-function findEyePairs(eyeCandidates,lines){let pairs=[];for(let i=0;i<eyeCandidates.length;i++)for(let j=i+1;j<eyeCandidates.length;j++){let a=eyeCandidates[i],b=eyeCandidates[j];if((a.cx-lines.cx)*(b.cx-lines.cx)>=0)continue;let yDiff=Math.abs(a.cy-b.cy);let sizeRatio=Math.min(a.area,b.area)/Math.max(a.area,b.area);let dist=Math.abs(a.cx-b.cx);if(yDiff<lines.H*.025&&sizeRatio>.35&&dist>lines.bbox.w*.08&&dist<lines.bbox.w*.42){pairs.push({left:a.cx<b.cx?a:b,right:a.cx<b.cx?b:a,score:Math.round(85-yDiff*2+(sizeRatio*10))});}}return pairs.sort((a,b)=>b.score-a.score);}
-function buildFaceEllipse(eyePair,lines){if(!eyePair||!lines)return null;let lx=eyePair.left.cx,rx=eyePair.right.cx,ey=(eyePair.left.cy+eyePair.right.cy)/2;let eyeDist=Math.max(10,rx-lx);let cx=(lx+rx)/2;let cy=ey+eyeDist*.42;return {cx,cy,rx:eyeDist*.95,ry:eyeDist*1.25,top:cy-eyeDist*1.25,bottom:cy+eyeDist*1.25,left:cx-eyeDist*.95,right:cx+eyeDist*.95,eyePair};}
-function ellipseContains(e,r){if(!e)return false;let dx=(r.cx-e.cx)/Math.max(1,e.rx),dy=(r.cy-e.cy)/Math.max(1,e.ry);return dx*dx+dy*dy<=1.35;}
-function splitSkinByFaceEllipse(candidates,faceEllipse,lines){if(!faceEllipse)return candidates;for(const r of candidates){let R=r.mean?.[0]||0,G=r.mean?.[1]||0,B=r.mean?.[2]||0;let skinLike=R>=G-10&&R>=B-6&&r.sat>.05&&r.val>.32;if(!skinLike)continue;if(ellipseContains(faceEllipse,r)&&r.miny<lines.shoulder){r.label='face';r.reason='eye_pair + skin ellipse';r.faceEllipse=faceEllipse;r.scores=scoreFace(r,faceEllipse,lines);r.conf=r.confidence=r.scores.confidence;r.needsReview=r.conf<80;}}
-  return candidates;
-}
-function detectEarCandidates(candidates,faceEllipse,lines){if(!faceEllipse)return candidates;for(const r of candidates){let R=r.mean?.[0]||0,G=r.mean?.[1]||0,B=r.mean?.[2]||0;let skinLike=R>=G-12&&R>=B-8&&r.sat>.05&&r.val>.30;let side=(r.cx<faceEllipse.left||r.cx>faceEllipse.right);let yOk=r.cy>faceEllipse.top&&r.cy<faceEllipse.bottom;let small=r.area<(lines.bbox.area||1)*.025;if(skinLike&&side&&yOk&&small){r.label='ears';r.reason='face ellipse side skin candidate';r.scores=scoreFor('ears',r,lines);r.conf=r.confidence=r.scores.confidence;r.needsReview=true;}}
-  return candidates;
-}
-function scoreFace(r,faceEllipse,lines){let color=80, position=88, connection=60, shape=45, symmetry=50, eye=faceEllipse?90:20;let aspect=r.h/Math.max(1,r.w);if(aspect>.65&&aspect<1.55)shape=82;if(faceEllipse&&ellipseContains(faceEllipse,r))position=92;let confidence=Math.round(color*.20+position*.20+shape*.15+eye*.25+connection*.10+symmetry*.10);return {color,position,connection,shape,symmetry,eye_pair:eye,confidence:clamp(confidence,0,100)};}
-const originZoneOfLegacy092 = originZoneOf;
-function originZoneOf(r,lines){if(!lines)return 'unknown';let vz=visualZoneOf(r,lines);if(r.touches){if(r.label==='sheer'||r.label==='sheer_soft'||r.hint==='sheer'||r.hint==='sheer_soft'){if(r.touches.shoulder||r.touches.torso)return 'torso';}if(r.label==='hair'||r.label==='hair_soft'||r.hint==='hair'||r.hint==='hair_soft'){if(r.touches.head||r.miny<lines.head)return 'head';}if(r.label==='shoe'||vz==='feet')return 'feet';if(r.label==='leg'&&vz==='legs')return 'legs';}if(vz==='torso'&&r.miny<lines.faceBot&&r.h>lines.H*.22)return 'torso';return vz;}
-function runCandidatePass(imgData,pre,lines,solidMask,softOnly,km){let solidRegions=makeRegions(pre.analysis,solidMask,km,lines);let softRegions=makeSoftRegions(pre.analysis,softOnly,solidMask,lines);let regions=solidRegions.concat(softRegions);let merged=mergeRegions(regions,lines,state.w,state.h).map(r=>enrichRegion(r,lines,imgData,pre));let baseCandidates=merged.map(r=>{let c=classify({...r},lines);c.baseLabel=c.label;if(c.label==='needs_review'||c.label==='background_residue'||c.label==='hair_soft'||c.label==='sheer_soft'||c.label==='skin_candidate')c.baseLabel='unknown';return c;}).sort((a,b)=>b.area-a.area);let candidates=buildAdjacency(growSoftLabels(baseCandidates,lines)).sort((a,b)=>b.area-a.area);return {regions,merged,baseCandidates,candidates};}
-async function analyze092(){try{let imgData=state.orig;if(!imgData){qs('log').textContent='画像が未読み込みです。';return;}state.w=imgData.width;state.h=imgData.height;let pre=preprocess(imgData);if(pre.score<60){state.result={imgData,pre,lines:null,km:null,regions:[],merged:[],candidates:[],baseCandidates:[],qualityBlocked:true};renderAll();qs('log').textContent=`Preprocessor score ${pre.score}: 品質不足のため部位解析を停止しました。背景除去済み/白背景/単色背景で再入力してください。`;return;}let solidMask=pre.core;let softOnly=pre.soft;let km=kmeansLab(pre.analysis,solidMask,parseInt(qs('k').value,10));if(!km){qs('log').textContent='解析失敗: core foreground が空です。';return;}let fallbackLines=applyLineAdjust(baselines(pre.finalMask,state.w,state.h));let first=runCandidatePass(imgData,pre,fallbackLines,solidMask,softOnly,km);let bodyCoreMask=buildBodyCoreMask(first.candidates,pre,state.w,state.h);let lines=applyLineAdjust(baselinesBodyCore(bodyCoreMask,pre.finalMask,state.w,state.h));let pass=runCandidatePass(imgData,pre,lines,solidMask,softOnly,km);let eyeCandidates=detectEyeCandidates(pass.merged,pre.analysis,lines);let eyePairs=findEyePairs(eyeCandidates,lines);let faceEllipse=buildFaceEllipse(eyePairs[0],lines);let candidates=pass.candidates;for(const e of eyeCandidates){let match=candidates.find(r=>r.mid===e.mid||r.id===e.id);if(match){match.label='eyes';match.reason='dark horizontal eye candidate';match.scores=scoreFor('eyes',match,lines);match.conf=match.confidence=match.scores.confidence;match.needsReview=match.conf<80;}}
-candidates=splitSkinByFaceEllipse(candidates,faceEllipse,lines);candidates=detectEarCandidates(candidates,faceEllipse,lines);candidates=buildAdjacency(candidates).sort((a,b)=>b.area-a.area);state.result={imgData,pre,lines,km,regions:pass.regions,merged:pass.merged,candidates,baseCandidates:pass.baseCandidates,bodyCoreMask,eyeCandidates,eyePairs,faceEllipse,solidMask,softOnly};applyMemoryToCandidates(candidates,imgData,lines);renderAll();}catch(err){console.error(err);qs('log').textContent='解析エラー: '+(err&&err.message?err.message:err);}}
-function metadata092(){let m=metadata091();let pre=state.result?.pre||{};m.version='0.9.2.1';m.preprocessor={version:PREPROCESSOR_VERSION_092,score:pre.score,bg:pre.bg,bbox:pre.bbox,bg_type:pre.bgDiag?.type,bg_supported:pre.bgDiag?.supported,bg_reason:pre.bgDiag?.reason,best_profile:pre.bestProfile,layers:pre.layers,foreground_ratio:pre.layers?.finalRatio,core_ratio:pre.layers?.coreRatio,soft_ratio:pre.layers?.softRatio,missing_risk:pre.layers?.missingRisk};m.face_detection={eye_candidate_count:state.result?.eyeCandidates?.length||0,eye_pair_count:state.result?.eyePairs?.length||0,face_ellipse:state.result?.faceEllipse||null,baseline_source:state.result?.lines?.source||'finalMask'};return m;}
-function logResult092(){if(!state.result)return;let {pre,lines,regions,merged,candidates,baseCandidates,qualityBlocked}=state.result;if(qualityBlocked)return;let counts={};for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let l=pre.layers||{};let warn=pre.score<70?'WARN: preprocessor score is low. 補正記憶の保存前に確認してください。':'OK';let txt=`Preprocessor ${PREPROCESSOR_VERSION_092}\nbg_type=${pre.bgDiag?.type||'-'} best_profile=${pre.bestProfile||'-'} score=${pre.score} ${warn}\ncore_ratio=${(l.coreRatio||0).toFixed(3)} soft_ratio=${(l.softRatio||0).toFixed(3)} final_ratio=${(l.finalRatio||0).toFixed(3)} missing_risk=${l.missingRisk||0}\nRegion ${regions.length} → ${merged.length} / merge=${(qs('mergeMode')&&qs('mergeMode').value)||'balanced'}\nLines source=${lines?.source||'final/fallback'} shoulder=${lines?lines.shoulder:'-'} waist=${lines?lines.waist:'-'} crotch=${lines?lines.crotch:'-'} ankle=${lines?lines.ankle:'-'}\nEye candidates=${state.result.eyeCandidates?.length||0} eye pairs=${state.result.eyePairs?.length||0}\nMemory samples: ${(loadMemory().samples||[]).length}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]||k}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,100)){let sc=r.scores||{};txt+=`M${r.mid} ${LABELS[r.label]||r.label} conf=${r.conf} review=${r.needsReview?'Y':'N'} memory=${r.memoryScore||0} final=${r.finalConfidence??r.conf} origin=${r.originZone} visual=${r.visualZone} alpha=${Math.round(r.meanAlpha||0)} area=${r.area} bbox=${r.w}x${r.h} scores[c${sc.color}/p${sc.position}/conn${sc.connection}/s${sc.shape}/sym${sc.symmetry}${sc.eye_pair?'/eye'+sc.eye_pair:''}] reason=${r.reason}\n`;}qs('log').textContent=txt;}
-logResult = logResult092;
-function renderAll092(){let res=state.result;if(!res)return;const {imgData,pre,lines,km,regions,merged,candidates,baseCandidates}=res;drawImageData(canvases.original,imgData);if(canvases.cutout)drawCutout(canvases.cutout,pre.analysis);drawImageData(canvases.analysis,pre.analysis);drawMasks(canvases.masks,pre);if(lines)drawLines(canvases.lines,imgData,lines);else drawImageData(canvases.lines,imgData);if(km)drawCluster(canvases.cluster,imgData,pre.finalMask,km);else drawImageData(canvases.cluster,pre.analysis);drawRegions(canvases.before,imgData,regions||[],lines,false);drawRegions(canvases.after,imgData,merged||[],lines,true);drawCandidates(canvases.cand,imgData,candidates||[]);if(canvases.unknownBefore)drawReview(canvases.unknownBefore,imgData,baseCandidates||[],false);if(canvases.unknownAfter)drawReview(canvases.unknownAfter,imgData,candidates||[],true);drawPart(canvases.part,imgData,candidates||[],state.selectedPart);makePartButtons();qs('size').textContent=`${imgData.width}×${imgData.height}`;qs('score').textContent=`score ${pre.score}`;logResult092();}
-renderAll = renderAll092;
-const saveFeedbackLegacy092=saveFeedback;
-function saveFeedback(region,type,ellipse=null){if(!state.result||!state.result.pre||state.result.pre.score<60){qs('log').textContent='pre.score < 60 のため補正記憶は保存しません。';return null;}if(state.result.pre.score<70&&!confirm('Preprocessor scoreが低めです。この補正を記憶に保存しますか？'))return null;return saveFeedbackLegacy092(region,type,ellipse);}
-analyze=analyze092;qs('run').onclick=analyze092;if(qs('mergeMode'))qs('mergeMode').onchange=analyze092;qs('json').onclick=()=>{if(!state.result)return;downloadBlob(JSON.stringify(metadata092(),null,2),'sprite_region_metadata_v0_9_2_1.json','application/json');};
-qs('summary').onclick=()=>{let cards=[canvases.original,canvases.cutout,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.unknownBefore,canvases.unknownAfter,canvases.part].filter(Boolean);let titles=['Original','Background Removed','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Unknown Before','Unknown After','Part'];let W=960,H=1850,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='26px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.9.2.3 Summary',20,36);let cellW=290,cellH=320;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0,x=20+col*(cellW+20),y=60+row*(cellH+35);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,28);ctx.fillStyle='#e8eef8';ctx.font='15px sans-serif';ctx.fillText(titles[i],x+8,y+19);ctx.drawImage(cc,x,y+32,cellW,Math.min(cellH-34,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_9_2_1.png','image/png'));};
-
-
-
-// ===== v0.9.2.2 stabilization patch =====
-// 目的: 背景除去をv0.4寄りへ戻し、レビューUIの同期処理を軽量化する。
-const PREPROCESSOR_VERSION_0922 = 'v0.4-restored-stable';
-
-function bgp2_getPix(data,w,x,y){const i=(y*w+x)*4;return [data[i],data[i+1],data[i+2],data[i+3]];}
-function bgp2_medianColor(list){if(!list.length)return [0,0,0];let rs=[],gs=[],bs=[];for(const c of list){if((c[3]??255)>4){rs.push(c[0]);gs.push(c[1]);bs.push(c[2]);}}return [bgp_median(rs),bgp_median(gs),bgp_median(bs)];}
-function bgp2_lum(r,g,b){return (0.2126*r+0.7152*g+0.0722*b)/255;}
-function bgp2_sat(r,g,b){return rgb2hsv(r,g,b)[1];}
-function bgp2_buildBackgroundModel(imgData,kind){const {data,width:w,height:h}=imgData;const out=makeImageData(w,h,[0,0,0,255]);const od=out.data;const top=[],bottom=[],left=[],right=[];const step=Math.max(2,Math.round(Math.max(w,h)/160));for(let x=0;x<w;x+=step){top.push(bgp2_getPix(data,w,x,0));bottom.push(bgp2_getPix(data,w,x,h-1));}for(let y=0;y<h;y+=step){left.push(bgp2_getPix(data,w,0,y));right.push(bgp2_getPix(data,w,w-1,y));}const ct=bgp2_medianColor(top),cb=bgp2_medianColor(bottom),cl=bgp2_medianColor(left),cr=bgp2_medianColor(right);const solid=bgp2_medianColor(top.concat(bottom,left,right));for(let y=0;y<h;y++){let ty=h<=1?0:y/(h-1);for(let x=0;x<w;x++){let tx=w<=1?0:x/(w-1),c;if(kind==='light_gradient'||kind==='simple_shadow'){let v=[ct[0]*(1-ty)+cb[0]*ty,ct[1]*(1-ty)+cb[1]*ty,ct[2]*(1-ty)+cb[2]*ty];let hv=[cl[0]*(1-tx)+cr[0]*tx,cl[1]*(1-tx)+cr[1]*tx,cl[2]*(1-tx)+cr[2]*tx];c=[(v[0]+hv[0])/2,(v[1]+hv[1])/2,(v[2]+hv[2])/2];}else c=solid;let i=(y*w+x)*4;od[i]=c[0];od[i+1]=c[1];od[i+2]=c[2];od[i+3]=255;}}return out;}
-function bgp2_edgeMap(imgData){const {data,width:w,height:h}=imgData;const out=new Float32Array(w*h);const L=(x,y)=>{let i=(y*w+x)*4;return bgp2_lum(data[i],data[i+1],data[i+2]);};for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let gx=-L(x-1,y-1)-2*L(x-1,y)-L(x-1,y+1)+L(x+1,y-1)+2*L(x+1,y)+L(x+1,y+1);let gy=-L(x-1,y-1)-2*L(x,y-1)-L(x+1,y-1)+L(x-1,y+1)+2*L(x,y+1)+L(x+1,y+1);out[y*w+x]=Math.min(255,Math.hypot(gx,gy)/4);}return out;}
-function bgp2_estimateStats(labels,features,wantFg){let n=0,L=0,A=0,B=0,S=0,V=0;for(let p=0;p<labels.length;p++){let label=labels[p];let use=wantFg?(label===1||label===3):(label===0||label===2);if(!use)continue;let weight=wantFg?(label===1?3:1):(label===0?3:1);let lab=features.lab[p],hsv=features.hsv[p];n+=weight;L+=lab[0]*weight;A+=lab[1]*weight;B+=lab[2]*weight;S+=hsv[1]*100*weight;V+=hsv[2]*100*weight;}n=n||1;return [L/n,A/n,B/n,S/n,V/n];}
-function bgp2_featureDistance(f,m){let dL=f[0]-m[0],da=f[1]-m[1],db=f[2]-m[2],ds=(f[3]-m[3])*.55,dv=(f[4]-m[4])*.35;return Math.sqrt(dL*dL+da*da+db*db+ds*ds+dv*dv);}
-function bgp2_rawMask(imgData,bgData,profile){const {data,width:w,height:h}=imgData,bd=bgData.data;const weak=new Uint8Array(w*h),mid=new Uint8Array(w*h),strong=new Uint8Array(w*h),labels=new Uint8Array(w*h),edge=bgp2_edgeMap(imgData),labArr=new Array(w*h),hsvArr=new Array(w*h),labD=new Float32Array(w*h),alphaHint=new Float32Array(w*h);for(let i=0,p=0;i<data.length;i+=4,p++){let r=data[i],g=data[i+1],b=data[i+2],a=data[i+3],br=bd[i],bg=bd[i+1],bb=bd[i+2];let lab=rgb2lab(r,g,b),blab=rgb2lab(br,bg,bb),hsv=rgb2hsv(r,g,b);labArr[p]=lab;hsvArr[p]=hsv;let d=labDist(lab,blab);labD[p]=d;alphaHint[p]=clamp((d-5)/28,0,1);let x=p%w,y=(p/w)|0,s=hsv[1]*255,v=hsv[2]*255;let onBorder=x<10||y<10||x>=w-10||y>=h-10;let center=Math.abs(x-w/2)<w*.43&&y>h*.03&&y<h*.985;let centralLoose=Math.abs(x-w/2)<w*.49&&y>h*.02&&y<h*.99;let label=2;if(a<8)label=0;else if(onBorder||(d<8&&s<25))label=0;else if(d<16&&s<18)label=2;else if(d>70||(s>45&&v<235&&d>18))label=1;else if((center&&d>8)||(d>12)||(d>35)||(edge[p]>12&&centralLoose))label=3;else label=2;labels[p]=label;}const features={lab:labArr,hsv:hsvArr};for(let iter=0;iter<5;iter++){const fg=bgp2_estimateStats(labels,features,true),bg=bgp2_estimateStats(labels,features,false),next=labels.slice();for(let p=0;p<labels.length;p++){if(labels[p]===0||labels[p]===1)continue;let x=p%w,y=(p/w)|0,hsv=hsvArr[p],lab=labArr[p];let f=[lab[0],lab[1],lab[2],hsv[1]*100,hsv[2]*100];let df=bgp2_featureDistance(f,fg),db=bgp2_featureDistance(f,bg);let centerBonus=(Math.abs(x-w/2)<w*.44&&y>h*.04&&y<h*.985)?8:-3;let edgeBonus=edge[p]>10?4:0;let alphaBonus=alphaHint[p]*10;next[p]=(db-df)+centerBonus+edgeBonus+alphaBonus>2?3:2;}labels.set(next);}for(let p=0;p<labels.length;p++){let x=p%w,y=(p/w)|0,hsv=hsvArr[p],s=hsv[1]*255,v=hsv[2]*255,d=labD[p],centerLoose=Math.abs(x-w/2)<w*.49&&y>h*.02&&y<h*.99,centerSafe=Math.abs(x-w/2)<w*.41&&y>h*.04&&y<h*.975,structured=edge[p]>6,darkSubject=v<105&&d>12,label=labels[p];weak[p]=(label===1||label===3||(centerLoose&&d>7&&(structured||s>18||darkSubject)))?1:0;mid[p]=(label===1||(label===3&&(d>12||s>22||structured||darkSubject)))?1:0;strong[p]=(label===1||(label===3&&centerSafe&&(d>35||s>45||darkSubject)&&edge[p]>4))?1:0;}return {weak,mid,strong,edge,w,h,labD,alphaHint,labels};}
-function bgp2_maskUnion(a,b){let out=new Uint8Array(a.length);for(let i=0;i<a.length;i++)out[i]=(a[i]||b[i])?1:0;return out;}
-function bgp2_maskSubtract(a,b){let out=new Uint8Array(a.length);for(let i=0;i<a.length;i++)out[i]=(a[i]&&!b[i])?1:0;return out;}
-function bgp2_keepConnectedSoft(soft,core,w,h,radius=10){let coreNear=dilate(core,w,h,radius),comps=connected(soft,w,h),out=new Uint8Array(soft.length);for(const c of comps){let touches=0,total=0;for(const p of c.pixels){total++;if(coreNear[p])touches++;}let tr=touches/(total||1),tiny=c.area<12,farLR=(c.maxx<w*.03||c.minx>w*.97),farTop=c.maxy<h*.035;let useful=tr>.08||(touches>0&&c.area<280)||(tr>.02&&c.area>280);if(useful&&!tiny&&!farLR&&!farTop){for(const p of c.pixels)out[p]=1;}}return out;}
-function bgp2_removeShadowLike(mask,imgData){const {width:w,height:h,data}=imgData;let out=mask.slice();for(const c of connected(mask,w,h)){let bottom=c.miny>h*.63,wide=c.w>w*.28,flat=c.h<h*.14;let avSat=0,n=0;for(let k=0;k<c.pixels.length;k+=Math.max(1,Math.floor(c.pixels.length/800))){let p=c.pixels[k],i=p*4;avSat+=bgp2_sat(data[i],data[i+1],data[i+2]);n++;}avSat/=n||1;if(bottom&&wide&&flat&&avSat<.18){for(const p of c.pixels)out[p]=0;}}return out;}
-function bgp2_keepMain(mask,w,h){let comps=connected(mask,w,h);if(!comps.length)return {mask,main:null,comps:[]};let cx=w/2,cy=h/2;let scored=comps.map(c=>{let cd=Math.hypot((c.cx-cx)/w,(c.cy-cy)/h);let shadow=c.miny>h*.68&&c.w>w*.28&&c.h<h*.16;return {...c,score:c.area*(shadow?.05:1)*(1.3-cd)};}).sort((a,b)=>b.score-a.score);let main=scored[0],out=new Uint8Array(mask.length);for(const p of main.pixels)out[p]=1;let ex=clamp(Math.round(main.w*.18),6,60),ey=clamp(Math.round(main.h*.08),6,60);for(const c of scored.slice(1)){let near=c.maxx>=main.minx-ex&&c.minx<=main.maxx+ex&&c.maxy>=main.miny-ey&&c.miny<=main.maxy+ey;if(near&&c.area>8)for(const p of c.pixels)out[p]=1;}return {mask:out,main,comps:scored};}
-function bgp2_refine(raw,imgData){const {w,h}=raw;let weakBase=closeMask(raw.weak,w,h,1),weakExpanded=dilate(weakBase,w,h,2),mid=closeMask(raw.mid,w,h,1),core=mid.slice();let softCand=bgp2_maskSubtract(weakExpanded,core);let soft=bgp2_keepConnectedSoft(softCand,core,w,h,14);soft=dilate(soft,w,h,1);soft=bgp2_keepConnectedSoft(soft,core,w,h,10);let final=bgp2_maskUnion(core,soft);final=bgp2_removeShadowLike(final,imgData);let kept=bgp2_keepMain(final,w,h);let nearFinal=dilate(kept.mask,w,h,4),softKept=new Uint8Array(w*h);for(let i=0;i<soft.length;i++)if(soft[i]&&nearFinal[i]&&!core[i])softKept[i]=1;let final2=bgp2_maskUnion(core,softKept);final2=bgp2_removeShadowLike(final2,imgData);let kept2=bgp2_keepMain(final2,w,h);let shadow=new Uint8Array(w*h);for(let i=0;i<final.length;i++)if(final[i]&&!kept2.mask[i])shadow[i]=1;return {weak:weakBase,mid,strong:raw.strong,core,soft:softKept,final:kept2.mask,shadow,main:kept2.main,labD:raw.labD,alphaHint:raw.alphaHint};}
-function bgp2_analysisImage(imgData,core,soft,labD){const w=imgData.width,h=imgData.height,out=new ImageData(new Uint8ClampedArray(imgData.data),w,h),alpha=new Float32Array(w*h);for(let p=0;p<alpha.length;p++){if(core[p])alpha[p]=1;else if(soft[p])alpha[p]=clamp(((labD?labD[p]:24)-5)/28,.18,.86);else alpha[p]=0;}for(let pass=0;pass<2;pass++){let sm=new Float32Array(alpha.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){let sum=0,n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){let xx=x+dx,yy=y+dy;if(xx>=0&&yy>=0&&xx<w&&yy<h){sum+=alpha[yy*w+xx];n++;}}sm[y*w+x]=Math.max(alpha[y*w+x],(sum/n)*.92);}alpha.set(sm);}for(let p=0,i=0;p<alpha.length;p++,i+=4)out.data[i+3]=Math.round(clamp(alpha[p],0,1)*255);return out;}
-function runBackgroundPreprocessorV04(imgData,options={}){const {width:w,height:h,data}=imgData;let alphaLow=0;for(let p=0;p<w*h;p++)if(data[p*4+3]<250)alphaLow++;if(alphaLow/(w*h)>.08)return bgp_makeAlphaPngPass(imgData);let bg=bgp_estimateBgMedian(data,w,h,12),bgDiag=bgp_diagnoseBackground(data,w,h,bg);let profiles=bgDiag.type==='alpha'?['alpha_png']:['light_gradient','white_background','simple_shadow','solid_background'];let best=null;for(const profile of profiles){if(profile==='alpha_png')continue;let model=bgp2_buildBackgroundModel(imgData,profile);let raw=bgp2_rawMask(imgData,model,profile);let ref=bgp2_refine(raw,imgData);let bbox=bboxOf(ref.final,w,h);let analysis=bgp2_analysisImage(imgData,ref.core,ref.soft,ref.labD);let layers=bgp_layers(w,h,ref.core,ref.soft,ref.final,ref.shadow,bbox);let score=bgp_scorePre(w,h,bbox,ref.final,ref.core,ref.soft,ref.shadow,bgDiag);if(bgDiag.type==='light_gradient'&&profile==='light_gradient')score+=6;if(bgDiag.type==='light_gradient'&&profile==='solid_background')score-=14;if(bgDiag.type==='white'&&profile==='white_background')score+=4;let res={analysis,finalMask:ref.final,core:ref.core,soft:ref.soft,shadow:ref.shadow,bbox,score:clamp(Math.round(score),0,100),bg,bgDiag,bestProfile:profile,layers,backgroundModel:model};if(!best||res.score>best.score)best=res;}return best;}
-function preprocess(imgData){return runBackgroundPreprocessorV04(imgData,{version:'0.9.2.2'});}
-
-// --- Review UI stability patch ---
-function regionMaskFeaturePixels(region,imgData,ellipse){let d=imgData.data,w=imgData.width,h=imgData.height;let pixels=[];if(ellipse){let {cx,cy,rx,ry}=ellipse;rx=Math.max(1,rx);ry=Math.max(1,ry);let minx=Math.max(0,Math.floor(cx-rx)),maxx=Math.min(w-1,Math.ceil(cx+rx));let miny=Math.max(0,Math.floor(cy-ry)),maxy=Math.min(h-1,Math.ceil(cy+ry));let step=1;for(let y=miny;y<=maxy;y+=step)for(let x=minx;x<=maxx;x+=step){let dx=(x-cx)/rx,dy=(y-cy)/ry;if(dx*dx+dy*dy<=1){let p=y*w+x;if(d[p*4+3]>0)pixels.push(p);}}}else if(region&&region.pixels){pixels=region.pixels.filter(p=>d[p*4+3]>0);}let max=1800;if(pixels.length>max){let sampled=[],step=Math.ceil(pixels.length/max);for(let i=0;i<pixels.length;i+=step)sampled.push(pixels[i]);pixels=sampled;}return pixels;}
-state.pendingFeedback=[];let memorySaveTimer=null;
-function queueMemorySample(sample){state.pendingFeedback.push(sample);if(memorySaveTimer)clearTimeout(memorySaveTimer);memorySaveTimer=setTimeout(()=>{try{let mem=loadMemory();mem.samples.push(...state.pendingFeedback);state.pendingFeedback.length=0;saveMemory(mem);qs('log').textContent += `\n補正記憶を保存しました。samples=${(mem.samples||[]).length}`;}catch(e){qs('log').textContent += '\n補正記憶保存エラー: '+e.message;}},120);}
-function saveFeedback(region,type,ellipse=null){if(type==='skipped'){region.feedbackStatus='skipped';return null;}if(!state.result||!state.result.pre||state.result.pre.score<60){qs('log').textContent='pre.score < 60 のため補正記憶は保存しません。';return null;}if(state.result.pre.score<70&&!confirm('Preprocessor scoreが低めです。この補正を記憶に保存しますか？'))return null;let id='fb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);let features=extractFeatures(region,state.result.imgData,state.result.lines,ellipse);let sample={id,image_hash:imageHash(state.result.imgData),part_id:region.mid||region.id,auto_label:region.label,final_label:(type==='rejected'?'rejected':region.label),feedback_type:type,confidence_before:region.confidence||region.conf||0,user_circle:ellipse?{cx:+ellipse.cx.toFixed(2),cy:+ellipse.cy.toFixed(2),rx:+ellipse.rx.toFixed(2),ry:+ellipse.ry.toFixed(2)}:null,features};queueMemorySample(sample);region.feedbackStatus=type;region.feedbackId=id;return sample;}
-function showReviewItem(){let q=state.review.queue,i=state.review.index;if(i>=q.length){qs('reviewPanel').style.display='none';qs('log').textContent += '\nレビュー終了。画面再描画は省略しました。';return;}let r=q[i];state.review.current=r;state.review.circleMode=false;state.review.ellipse=null;qs('reviewTitle').textContent=`部位レビュー ${i+1}/${q.length}: ${LABELS[r.label]||r.label}`;let sc=r.scores||{};qs('reviewMeta').textContent=`confidence ${r.conf} / reason: ${r.reason} / bbox ${r.w}×${r.h} / origin ${r.originZone} / visual ${r.visualZone} / memory ${r.memoryScore||0} / score c${sc.color||'-'} p${sc.position||'-'} conn${sc.connection||'-'} shape${sc.shape||'-'} sym${sc.symmetry||'-'}`;drawReviewCanvas();}
-let reviewRAF=0;
-function scheduleReviewDraw(){if(reviewRAF)return;reviewRAF=requestAnimationFrame(()=>{reviewRAF=0;drawReviewCanvas();});}
-function drawReviewCanvas(){let r=state.review.current,img=state.result&&state.result.imgData,c=qs('reviewCanvas');if(!r||!img)return;fitCanvas(c,img.width,img.height);let ctx=c.getContext('2d');let base=new ImageData(new Uint8ClampedArray(img.data),img.width,img.height);let data=base.data;if(r.pixels){let max=3500,step=Math.max(1,Math.ceil(r.pixels.length/max));const ar=.38,rr=255,gg=80,bb=120;for(let k=0;k<r.pixels.length;k+=step){let p=r.pixels[k],i=p*4;data[i]=Math.round(data[i]*(1-ar)+rr*ar);data[i+1]=Math.round(data[i+1]*(1-ar)+gg*ar);data[i+2]=Math.round(data[i+2]*(1-ar)+bb*ar);data[i+3]=255;}}ctx.putImageData(base,0,0);ctx.strokeStyle='#ff4f68';ctx.lineWidth=3;ctx.strokeRect(r.minx,r.miny,r.w,r.h);ctx.fillStyle='#ff4f68';ctx.font='18px sans-serif';ctx.fillText(`${LABELS[r.label]||r.label} ${r.conf}`,r.minx,Math.max(20,r.miny-5));if(state.review.ellipse){let e=state.review.ellipse;ctx.strokeStyle='#58a6ff';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(e.cx,e.cy,e.rx,e.ry,0,0,Math.PI*2);ctx.stroke();}}
-// Rebind review touch events by replacing canvas node to drop old heavy listeners.
-(function rebindReviewEvents0922(){let old=qs('reviewCanvas');if(!old)return;let c=old.cloneNode(true);old.parentNode.replaceChild(c,old);let down=false,last=0;function start(ev){if(!state.review.circleMode)return;ev.preventDefault();down=true;state.review.start=canvasPoint(ev,c);state.review.ellipse=null;}function move(ev){if(!down||!state.review.circleMode)return;ev.preventDefault();let now=Date.now();if(now-last<50)return;last=now;let a=state.review.start,b=canvasPoint(ev,c);state.review.ellipse={cx:(a.x+b.x)/2,cy:(a.y+b.y)/2,rx:Math.abs(b.x-a.x)/2,ry:Math.abs(b.y-a.y)/2};scheduleReviewDraw();}function end(ev){if(!down||!state.review.circleMode)return;ev.preventDefault();down=false;if(state.review.ellipse&&state.review.ellipse.rx>3&&state.review.ellipse.ry>3){saveFeedback(state.review.current,'corrected_by_circle',state.review.ellipse);qs('reviewHint').textContent='保存しました。';nextReview();}}c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);window.addEventListener('mouseup',end);c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});c.addEventListener('touchend',end,{passive:false});qs('reviewAccept').onclick=()=>{saveFeedback(state.review.current,'accepted');nextReview();};qs('reviewReject').onclick=()=>{saveFeedback(state.review.current,'rejected');nextReview();};qs('reviewSkip').onclick=()=>{saveFeedback(state.review.current,'skipped');nextReview();};qs('reviewCircle').onclick=()=>{state.review.circleMode=true;state.review.ellipse=null;qs('reviewHint').textContent='フリーハンドで教える: 対象範囲を指でドラッグしてください。離すと保存します。';drawReviewCanvas();};})();
-function metadata092(){let m=metadata091();let pre=state.result?.pre||{};m.version='0.9.2.3';m.preprocessor={version:PREPROCESSOR_VERSION_0922,score:pre.score,bg:pre.bg,bbox:pre.bbox,bg_type:pre.bgDiag?.type,bg_supported:pre.bgDiag?.supported,bg_reason:pre.bgDiag?.reason,best_profile:pre.bestProfile,layers:pre.layers,foreground_ratio:pre.layers?.finalRatio,core_ratio:pre.layers?.coreRatio,soft_ratio:pre.layers?.softRatio,missing_risk:pre.layers?.missingRisk};m.review_perf={feature_sampling:true,deferred_localStorage:true,skip_saved:false};m.face_detection={eye_candidate_count:state.result?.eyeCandidates?.length||0,eye_pair_count:state.result?.eyePairs?.length||0,face_ellipse:state.result?.faceEllipse||null,baseline_source:state.result?.lines?.source||'finalMask'};return m;}
-function logResult092(){if(!state.result)return;let {pre,lines,regions,merged,candidates,qualityBlocked}=state.result;if(qualityBlocked)return;let counts={};for(const c of candidates)counts[c.label]=(counts[c.label]||0)+1;let l=pre.layers||{};let warn=pre.score<70?'WARN: preprocessor score is low. 補正記憶の保存前に確認してください。':'OK';let txt=`Preprocessor ${PREPROCESSOR_VERSION_0922}\nbg_type=${pre.bgDiag?.type||'-'} best_profile=${pre.bestProfile||'-'} score=${pre.score} ${warn}\ncore_ratio=${(l.coreRatio||0).toFixed(3)} soft_ratio=${(l.softRatio||0).toFixed(3)} final_ratio=${(l.finalRatio||0).toFixed(3)} missing_risk=${l.missingRisk||0}\nReview UI: sampled features + deferred localStorage + no skipped save\nRegion ${regions.length} → ${merged.length} / merge=${(qs('mergeMode')&&qs('mergeMode').value)||'balanced'}\nLines source=${lines?.source||'final/fallback'} shoulder=${lines?lines.shoulder:'-'} waist=${lines?lines.waist:'-'} crotch=${lines?lines.crotch:'-'} ankle=${lines?lines.ankle:'-'}\nEye candidates=${state.result.eyeCandidates?.length||0} eye pairs=${state.result.eyePairs?.length||0}\nMemory samples: ${(loadMemory().samples||[]).length} + pending ${state.pendingFeedback?.length||0}\n\nParts:\n`;for(const [k,v] of Object.entries(counts))txt+=`- ${LABELS[k]||k}: ${v}\n`;txt+='\nCandidates:\n';for(const r of candidates.slice(0,100)){let sc=r.scores||{};txt+=`M${r.mid} ${LABELS[r.label]||r.label} conf=${r.conf} review=${r.needsReview?'Y':'N'} memory=${r.memoryScore||0} final=${r.finalConfidence??r.conf} origin=${r.originZone} visual=${r.visualZone} alpha=${Math.round(r.meanAlpha||0)} area=${r.area} bbox=${r.w}x${r.h} scores[c${sc.color}/p${sc.position}/conn${sc.connection}/s${sc.shape}/sym${sc.symmetry}${sc.eye_pair?'/eye'+sc.eye_pair:''}] reason=${r.reason}\n`;}qs('log').textContent=txt;}
-qs('json').onclick=()=>{if(!state.result)return;downloadBlob(JSON.stringify(metadata092(),null,2),'sprite_region_metadata_v0_9_2_3.json','application/json');};
-qs('summary').onclick=()=>{let cards=[canvases.original,canvases.cutout,canvases.analysis,canvases.masks,canvases.lines,canvases.cluster,canvases.before,canvases.after,canvases.cand,canvases.unknownBefore,canvases.unknownAfter,canvases.part].filter(Boolean);let titles=['Original','Background Removed / Checker','Analysis','Masks','Base Lines','Color Cluster','Region Before','Region After','Candidates','Unknown Before','Unknown After','Part'];let W=960,H=1850,c=document.createElement('canvas');c.width=W;c.height=H;let ctx=c.getContext('2d');ctx.fillStyle='#0f1520';ctx.fillRect(0,0,W,H);ctx.fillStyle='#e8eef8';ctx.font='26px sans-serif';ctx.fillText('Sprite Studio Region Viewer v0.9.2.3 Summary',20,36);let cellW=290,cellH=320;for(let i=0;i<cards.length;i++){let cc=cards[i],col=i%3,row=(i/3)|0,x=20+col*(cellW+20),y=60+row*(cellH+35);ctx.fillStyle='#202a3a';ctx.fillRect(x,y,cellW,32);ctx.fillStyle='#e8eef8';ctx.font='16px sans-serif';ctx.fillText(titles[i],x+8,y+22);ctx.drawImage(cc,x,y+36,cellW,Math.min(cellH-38,cellW*cc.height/cc.width));}c.toBlob(b=>downloadBlob(b,'sprite_region_summary_v0_9_2_3.png','image/png'));};
-
-loadSample().catch(e=>{qs('log').textContent='sample load error: '+e.message});
-</script>
-
-<script>
-// ===== v0.9.2.3 stability patch: inner-hole recovery + freehand teaching =====
-const PREPROCESSOR_VERSION_0923 = 'v0.4-restored-stable+inner-recovery';
-function ss_floodFillOutsideZeros(mask,w,h){
-  const seen=new Uint8Array(w*h), q=[];
-  function push(p){ if(p>=0&&p<w*h&&!seen[p]&&!mask[p]){seen[p]=1;q.push(p);} }
-  for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}
-  for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}
-  for(let qi=0;qi<q.length;qi++){
-    const p=q[qi],x=p%w,y=(p/w)|0;
-    if(x>0)push(p-1); if(x<w-1)push(p+1); if(y>0)push(p-w); if(y<h-1)push(p+w);
-  }
-  return seen;
-}
-function ss_recoverInteriorMask(pre,imgData){
-  const w=imgData.width,h=imgData.height;
-  if(!pre||!pre.finalMask)return pre;
-  const final=pre.finalMask.slice(), core=pre.core?pre.core.slice():new Uint8Array(w*h), soft=pre.soft?pre.soft.slice():new Uint8Array(w*h);
-  // 1) Fill only enclosed holes. This avoids extending the silhouette outward,
-  // but recovers internal holes caused by over-aggressive background rejection.
-  const outside=ss_floodFillOutsideZeros(final,w,h);
-  let recovered=0;
-  for(let p=0;p<w*h;p++){
-    if(!final[p]&&!outside[p]){ final[p]=1; soft[p]=1; recovered++; }
-  }
-  // 2) Recover small interior slits where left/right or up/down are foreground nearby.
-  // This is intentionally conservative and bounded to the existing silhouette area.
-  const f2=final.slice();
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
-    const p=y*w+x;if(f2[p])continue;
-    let lr=0,ud=0;
-    for(let d=1;d<=5;d++){
-      if(x-d>=0&&f2[y*w+x-d])lr++;
-      if(x+d<w&&f2[y*w+x+d])lr++;
-      if(y-d>=0&&f2[(y-d)*w+x])ud++;
-      if(y+d<h&&f2[(y+d)*w+x])ud++;
-    }
-    // Only recover if surrounded in both axes and not on the border.
-    if(lr>=2&&ud>=2){final[p]=1;soft[p]=1;recovered++;}
-  }
-  const analysis=bgp2_analysisImage(imgData,core,soft,pre.distArr||pre.labD||null);
-  // Raise alpha for recovered soft slightly to make review/cluster stable.
-  const ad=analysis.data;
-  for(let p=0;p<w*h;p++){
-    if(final[p]&&!core[p]&&ad[p*4+3]>0&&ad[p*4+3]<96) ad[p*4+3]=96;
-    if(!final[p]) ad[p*4+3]=0;
-  }
-  const bbox=bboxOf(final,w,h);
-  const layers=bgp_layers(w,h,core,soft,final,pre.shadow||new Uint8Array(w*h),bbox);
-  return {...pre, analysis, finalMask:final, core, soft, bbox, layers, recoveredInterior:recovered, score:Math.max(pre.score||0, Math.min(100,(pre.score||0)+ (recovered>0?0:0)))};
-}
-if(typeof runBackgroundPreprocessorV04==='function'){
-  const __runBackgroundPreprocessorV04_0922 = runBackgroundPreprocessorV04;
-  runBackgroundPreprocessorV04 = function(imgData,options={}){
-    const pre = __runBackgroundPreprocessorV04_0922(imgData,options);
-    return ss_recoverInteriorMask(pre,imgData);
-  };
-}
-// Override metadata/log to show v0.9.2.3 and recovery diagnostics.
-if(typeof metadata092==='function'){
-  const __metadata092_0922 = metadata092;
-  metadata092 = function(){
-    const m=__metadata092_0922();
-    m.version='0.9.2.3';
-    if(m.preprocessor){
-      m.preprocessor.version=PREPROCESSOR_VERSION_0923;
-      m.preprocessor.recovered_interior_pixels=state.result?.pre?.recoveredInterior||0;
-    }
-    m.review_perf={...(m.review_perf||{}), freehand:true, circle_deprecated:true, inner_recovery:true};
-    return m;
-  };
-}
-// Freehand path utilities. A path is saved as seed/features, not as final mask.
-function ss_simplifyPath(points,maxN=80){
-  if(!points||points.length<=maxN)return points||[];
-  const out=[]; const step=(points.length-1)/(maxN-1);
-  for(let i=0;i<maxN;i++){out.push(points[Math.round(i*step)]);}return out;
-}
-function ss_pathBounds(path){
-  let minx=1e9,miny=1e9,maxx=-1,maxy=-1;
-  for(const p of path){if(p.x<minx)minx=p.x;if(p.x>maxx)maxx=p.x;if(p.y<miny)miny=p.y;if(p.y>maxy)maxy=p.y;}
-  return {minx,miny,maxx,maxy,w:maxx-minx+1,h:maxy-miny+1};
-}
-function ss_pixelsNearPath(path,imgData,radius=8){
-  const w=imgData.width,h=imgData.height,d=imgData.data;
-  path=ss_simplifyPath(path,120);
-  if(!path.length)return [];
-  const b=ss_pathBounds(path), minx=Math.max(0,Math.floor(b.minx-radius)), maxx=Math.min(w-1,Math.ceil(b.maxx+radius));
-  const miny=Math.max(0,Math.floor(b.miny-radius)), maxy=Math.min(h-1,Math.ceil(b.maxy+radius));
-  const r2=radius*radius, pixels=[];
-  for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
-    let ok=false;
-    // sampled distance to path points; cheap enough for small review canvas.
-    for(let i=0;i<path.length;i+=2){let dx=x-path[i].x,dy=y-path[i].y;if(dx*dx+dy*dy<=r2){ok=true;break;}}
-    if(ok){let p=y*w+x;if(d[p*4+3]>0)pixels.push(p);}
-  }
-  return pixels;
-}
-function ss_extractFeaturesFreehand(region,imgData,lines,path){
-  const pixels=ss_pixelsNearPath(path,imgData,8);
-  if(!pixels.length)return extractFeatures(region,imgData,lines,null);
-  // create a light temporary region from selected pixels
-  const w=imgData.width,h=imgData.height;let minx=w,miny=h,maxx=0,maxy=0,sx=0,sy=0;
-  for(const p of pixels){const x=p%w,y=(p/w)|0;if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;sx+=x;sy+=y;}
-  const tmp={...region,pixels,area:pixels.length,minx,miny,maxx,maxy,w:maxx-minx+1,h:maxy-miny+1,cx:sx/pixels.length,cy:sy/pixels.length};
-  return extractFeatures(tmp,imgData,lines,null);
-}
-function ss_drawReviewCanvasFreehand(){
-  const r=state.review.current,img=state.result&&state.result.imgData,c=qs('reviewCanvas');
-  if(!r||!img)return;
-  fitCanvas(c,img.width,img.height);
-  const ctx=c.getContext('2d');
-  const base=new ImageData(new Uint8ClampedArray(img.data),img.width,img.height);
-  const data=base.data;
-  if(r.pixels){
-    const max=4500,step=Math.max(1,Math.ceil(r.pixels.length/max)),ar=.38,rr=255,gg=80,bb=120;
-    for(let k=0;k<r.pixels.length;k+=step){let p=r.pixels[k],i=p*4;data[i]=Math.round(data[i]*(1-ar)+rr*ar);data[i+1]=Math.round(data[i+1]*(1-ar)+gg*ar);data[i+2]=Math.round(data[i+2]*(1-ar)+bb*ar);data[i+3]=255;}
-  }
-  ctx.putImageData(base,0,0);
-  ctx.strokeStyle='#ff4f68';ctx.lineWidth=3;ctx.strokeRect(r.minx,r.miny,r.w,r.h);
-  ctx.fillStyle='#ff4f68';ctx.font='18px sans-serif';ctx.fillText(`${LABELS[r.label]||r.label} ${r.conf}`,r.minx,Math.max(20,r.miny-5));
-  const path=state.review.freehandPath||[];
-  if(path.length){ctx.strokeStyle='#58a6ff';ctx.lineWidth=8;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(path[0].x,path[0].y);for(const p of path.slice(1))ctx.lineTo(p.x,p.y);ctx.stroke();}
-}
-drawReviewCanvas = ss_drawReviewCanvasFreehand;
-function ss_saveFeedbackFreehand(region,path){
-  if(!state.result||!state.result.pre||state.result.pre.score<60){qs('log').textContent='pre.score < 60 のため補正記憶は保存しません。';return null;}
-  const id='fb_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
-  const simple=ss_simplifyPath(path,80);
-  const features=ss_extractFeaturesFreehand(region,state.result.imgData,state.result.lines,simple);
-  const sample={id,image_hash:imageHash(state.result.imgData),part_id:region.mid||region.id,auto_label:region.label,final_label:region.label,feedback_type:'corrected_by_freehand',confidence_before:region.confidence||region.conf||0,user_path:simple.map(p=>({x:+p.x.toFixed(1),y:+p.y.toFixed(1)})),features};
-  queueMemorySample(sample);region.feedbackStatus='corrected_by_freehand';region.feedbackId=id;return sample;
-}
-// Rebind review UI one more time: freehand replaces circle/ellipse.
-(function rebindFreehandReview0923(){
-  const old=qs('reviewCanvas'); if(!old)return; const c=old.cloneNode(true); old.parentNode.replaceChild(c,old);
-  let down=false,last=0;
-  function start(ev){if(!state.review.freehandMode)return;ev.preventDefault();down=true;state.review.freehandPath=[canvasPoint(ev,c)];ss_drawReviewCanvasFreehand();}
-  function move(ev){if(!down||!state.review.freehandMode)return;ev.preventDefault();const now=Date.now();const pt=canvasPoint(ev,c);const path=state.review.freehandPath||[];const lastPt=path[path.length-1];if(!lastPt||Math.hypot(pt.x-lastPt.x,pt.y-lastPt.y)>3)path.push(pt);state.review.freehandPath=path;if(now-last>45){last=now;requestAnimationFrame(ss_drawReviewCanvasFreehand);}}
-  function end(ev){if(!down||!state.review.freehandMode)return;ev.preventDefault();down=false;const path=state.review.freehandPath||[];if(path.length>=3){ss_saveFeedbackFreehand(state.review.current,path);qs('reviewHint').textContent='フリーハンド補正を保存しました。';nextReview();}}
-  c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);window.addEventListener('mouseup',end);
-  c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});c.addEventListener('touchend',end,{passive:false});
-  qs('reviewCircle').textContent='フリーハンドで教える';
-  qs('reviewCircle').onclick=()=>{state.review.freehandMode=true;state.review.circleMode=false;state.review.freehandPath=[];qs('reviewHint').textContent='フリーハンド: 対象部分を指でなぞってください。離すと保存します。';ss_drawReviewCanvasFreehand();};
-  qs('reviewAccept').onclick=()=>{saveFeedback(state.review.current,'accepted');nextReview();};
-  qs('reviewReject').onclick=()=>{saveFeedback(state.review.current,'rejected');nextReview();};
-  qs('reviewSkip').onclick=()=>{saveFeedback(state.review.current,'skipped');nextReview();};
-})();
-// Make memory matching aware of freehand feedback too.
-if(typeof applyMemoryToCandidates==='function'){
-  const __applyMemoryToCandidates0922=applyMemoryToCandidates;
-  applyMemoryToCandidates=function(candidates,imgData,lines){
-    __applyMemoryToCandidates0922(candidates,imgData,lines);
-    // existing implementation ignores corrected_by_freehand; add a small second-pass boost if needed
-    const mem=loadMemory(),samples=mem.samples||[],limit=memoryLimit(mem);
-    for(const r of candidates){
-      let f=r.features||extractFeatures(r,imgData,lines);let bestDelta=0,best=null;
-      for(const s of samples){if(s.feedback_type!=='corrected_by_freehand'||!s.features)continue;let label=s.final_label||s.auto_label;if(label!==r.label)continue;let sim=featureSimilarity(f,s.features);if(sim<.70)continue;let delta=sim>=.85?10:4;if(Math.abs(delta)>Math.abs(bestDelta)){bestDelta=delta;best=s;}}
-      if(best&&Math.abs(bestDelta)>Math.abs(r.memoryScore||0)){r.memoryScore=clamp(bestDelta,-limit,limit);r.feedbackStatus='memory_applied';r.feedbackId=best.id||null;r.finalConfidence=clamp(Math.round((r.base_confidence||r.scores?.confidence||r.conf||0)+r.memoryScore),0,100);r.conf=r.confidence=r.finalConfidence;r.needsReview=!(r.finalConfidence>=85 && Math.abs(r.memoryScore)<=limit);}
-    }
-  };
-}
-// Override json filename/version button after all previous handlers.
-qs('json').onclick=()=>{if(!state.result)return;downloadBlob(JSON.stringify(metadata092(),null,2),'sprite_region_metadata_v0_9_2_3.json','application/json');};
-</script>
-</body>
-</html>
+<script src="js/sprite_studio_v1300.js"></script>
+</body></html>
