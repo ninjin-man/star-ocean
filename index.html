@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sprite Studio 128 Phase3.7</title>
+<title>Sprite Studio 128 Phase3.7.1</title>
 <style>
 :root{--bg:#0b1020;--panel:#151c30;--line:#34415f;--text:#f5f7ff;--muted:#aab4cf;--accent:#1d82ae}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -15,10 +15,11 @@ canvas{max-width:100%;image-rendering:pixelated} #out,#sil{width:min(85vw,512px)
 .field{display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center;margin:9px 0} input[type=range]{width:100%} output{text-align:right}
 .metrics{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:13px} @media(max-width:680px){.grid{grid-template-columns:1fr}}
 </style></head>
-<body><div class="app"><header><h1>Sprite Studio 128 <span style="font-size:13px;background:#244d68;border-radius:999px;padding:5px 9px">Phase3.7</span></h1>
+<body><div class="app"><header><h1>Sprite Studio 128 <span style="font-size:13px;background:#244d68;border-radius:999px;padding:5px 9px">Phase3.7.1</span></h1>
 <div class="sub">Detail Budget Pass / 部位ごとに使える情報量を制限し、重要箇所へドットを集中</div></header>
 <section class="card"><h2>1. 入力</h2><div class="row"><label class="file">画像を選択<input id="file" type="file" accept="image/*"></label>
-<button id="sa">サンプルA</button><button id="sb">サンプルB</button></div><p class="hint">背景除去済みPNGが最も安定します。市松・明るい単色背景も外周から除去します。</p></section>
+<button id="sa">サンプルA</button><button id="sb">サンプルB</button></div>
+<div id="loadStatus" class="hint" style="margin-top:10px;padding:10px;border:1px solid #34415f;border-radius:10px">画像を選択してください</div><p class="hint">背景除去済みPNGが最も安定します。市松・明るい単色背景も外周から除去します。</p></section>
 <section class="card"><h2>2. 全身シルエット設計</h2>
 <div class="field"><label>頭身</label><select id="mode"><option value="3">3頭身</option><option value="4" selected>4頭身</option><option value="faithful">忠実頭身</option></select><output></output></div>
 <div class="field"><label>誇張</label><input id="ex" type="range" min="0" max="100" value="70"><output id="exo">70</output></div>
@@ -50,9 +51,29 @@ $('hairBudget').oninput=()=>$('hairBudgeto').textContent=$('hairBudget').value;
 $('bodyBudget').oninput=()=>$('bodyBudgeto').textContent=$('bodyBudget').value;
 $('limbBudget').oninput=()=>$('limbBudgeto').textContent=$('limbBudget').value;
 $('accentBudget').oninput=()=>$('accentBudgeto').textContent=$('accentBudget').value;
-function loadURL(url,n){const im=new Image();im.onload=()=>{original=im;name=n;drawSrc();run()};im.src=url}
-$('sa').onclick=()=>loadURL(SAMPLE_A,'sample_pose'); $('sb').onclick=()=>loadURL(SAMPLE_B,'sample_standing');
-$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;name=f.name.replace(/\.[^.]+$/,'');loadURL(URL.createObjectURL(f),name)};
+const status=t=>{$('loadStatus').textContent=t};
+function loadURL(url,n,revoke=false){
+  status('画像を読み込み中…');
+  const im=new Image();
+  im.onload=()=>{
+    try{
+      original=im;name=n;drawSrc();run();status(`読み込み完了：${im.naturalWidth}×${im.naturalHeight}`);
+    }catch(err){console.error(err);status('画像処理中にエラー：'+err.message)}
+    if(revoke)URL.revokeObjectURL(url);
+  };
+  im.onerror=()=>{status('画像を開けません。PNG/JPEG/WEBPへ変換して再試行してください。');if(revoke)URL.revokeObjectURL(url)};
+  im.src=url;
+}
+$('sa').onclick=()=>loadURL(SAMPLE_A,'sample_pose');
+$('sb').onclick=()=>loadURL(SAMPLE_B,'sample_standing');
+$('file').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0];if(!f){status('画像が選択されていません');return}
+  name=f.name.replace(/\.[^.]+$/,'');
+  const ext=(f.name.split('.').pop()||'').toLowerCase();
+  if(['heic','heif'].includes(ext)){status('HEICは端末により読み込めません。写真アプリでPNG/JPEGとして保存して選択してください。')}
+  const url=URL.createObjectURL(f);loadURL(url,name,true);
+  e.target.value='';
+});
 function drawSrc(){const max=640,s=Math.min(1,max/Math.max(original.width,original.height));src.width=Math.round(original.width*s);src.height=Math.round(original.height*s);src.getContext('2d').drawImage(original,0,0,src.width,src.height)}
 function getMask(){const c=document.createElement('canvas'),max=900,s=Math.min(1,max/Math.max(original.width,original.height));c.width=Math.round(original.width*s);c.height=Math.round(original.height*s);const x=c.getContext('2d');x.drawImage(original,0,0,c.width,c.height);const im=x.getImageData(0,0,c.width,c.height),d=im.data,w=c.width,h=c.height;
 let hasAlpha=false;for(let i=3;i<d.length;i+=4)if(d[i]<250){hasAlpha=true;break}
@@ -223,7 +244,7 @@ function artistPass(ctx){
 }
 
 function run(){if(!original)return;const a=model(getMask()),ctx=out.getContext('2d'),o=ctx.createImageData(128,128),od=o.data,d=a.im.data,mode=$('mode').value,e=+$('ex').value/100,bw=a.maxx-a.minx+1,base=Math.min(1,92/bw);let baseC=0;for(const v of a.cent)baseC+=v;baseC/=a.cent.length;
-for(let ty=3;ty<=124;ty++){const yn=(ty-3)/121,idx=Math.max(0,Math.min(a.H-1,Math.round(syMap(yn,mode)*(a.H-1)))),sy=a.miny+idx,sc=a.cent[idx],oc=64+(sc-baseC)*base*.72,scale=base*rscale(yn,mode,e);for(const seg of a.ints[idx]){let ta=Math.round(oc+(seg[0]-sc)*scale),tb=Math.round(oc+(seg[1]-sc)*scale);if(tb<ta){const t=ta;ta=tb;tb=t}ta=Math.max(0,ta);tb=Math.min(127,tb);for(let tx=ta;tx<=tb;tx++){const sx=Math.round(sc+(tx-oc)/scale);if(sx<0||sx>=a.w)continue;const si=(sy*a.w+sx)*4,di=(ty*128+tx)*4;if(a.m[sy*a.w+sx]){od[di]=d[si];od[di+1]=d[si+1];od[di+2]=d[si+2];od[di+3]=255}}}
+for(let ty=3;ty<=124;ty++){const yn=(ty-3)/121,idx=Math.max(0,Math.min(a.H-1,Math.round(syMap(yn,mode)*(a.H-1)))),sy=a.miny+idx,sc=a.cent[idx],oc=64+(sc-baseC)*base*.72,scale=base*rscale(yn,mode,e);for(const seg of a.ints[idx]){let ta=Math.round(oc+(seg[0]-sc)*scale),tb=Math.round(oc+(seg[1]-sc)*scale);if(tb<ta){const t=ta;ta=tb;tb=t}ta=Math.max(0,ta);tb=Math.min(127,tb);for(let tx=ta;tx<=tb;tx++){const sx=Math.round(sc+(tx-oc)/scale);if(sx<0||sx>=a.w)continue;const si=(sy*a.w+sx)*4,di=(ty*128+tx)*4;if(a.m[sy*a.w+sx]){od[di]=d[si];od[di+1]=d[si+1];od[di+2]=d[si+2];od[di+3]=255}}}}
 ctx.putImageData(o,0,0);artistPass(ctx);o=ctx.getImageData(0,0,128,128);const sctx=sil.getContext('2d'),sim=sctx.createImageData(128,128);let fill=0,minx=128,maxx=0;for(let p=0;p<16384;p++)if(o.data[p*4+3]){fill++;const x=p%128;minx=Math.min(minx,x);maxx=Math.max(maxx,x);sim.data[p*4]=245;sim.data[p*4+1]=248;sim.data[p*4+2]=255;sim.data[p*4+3]=255}sctx.putImageData(sim,0,0);$('metrics').innerHTML=`<span>不透明ドット</span><b>${fill}</b><span>使用幅</span><b>${maxx-minx+1}px</b><span>方式</span><b>隙間保持・切り貼りなし</b>`}
 $('run').onclick=run;
 function dl(c,n){const a=document.createElement('a');a.download=n;a.href=c.toDataURL('image/png');a.click()}
