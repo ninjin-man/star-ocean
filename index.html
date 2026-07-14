@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sprite Studio 128 Phase5.4.1</title>
+<title>Sprite Studio 128 Phase5.4.2</title>
 <style>
 :root{--bg:#0b1020;--panel:#151c30;--line:#34415f;--text:#f5f7ff;--muted:#aab4cf;--accent:#1d82ae}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -11,12 +11,12 @@ h1{font-size:21px;margin:0} .sub,.hint{font-size:12px;color:var(--muted);line-he
 .row{display:flex;gap:8px;flex-wrap:wrap} button,label.file,select{min-height:48px;border:1px solid var(--line);border-radius:12px;background:#1e2943;color:var(--text);font-weight:750;padding:10px}
 button{flex:1} button.primary{background:var(--accent)} .file{display:flex;align-items:center;justify-content:center;flex:1} .file input{display:none}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px} .box{display:grid;place-items:center;min-height:280px;border:1px solid var(--line);border-radius:14px;background:repeating-conic-gradient(#1d263d 0 25%,#11182a 0 50%) 50%/20px 20px;overflow:hidden}
-canvas{max-width:100%;image-rendering:pixelated} #out,#sil,#maskView,#blueprint{width:min(85vw,512px);height:auto}.box.dark{background:#070a12}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{min-height:42px}.warn{color:#ffd58a}.ok{color:#86efac}.activeTool{outline:3px solid #62d7ff;background:#214d67!important}.handle{touch-action:none}.featureChip{padding:8px 10px;min-height:40px}.marker{pointer-events:none}.featureList{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}.criticGrid{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}.bad{color:#ff9c9c}.score{font-size:22px;font-weight:800}.sourceWrap{position:relative;display:inline-grid;place-items:center}.sourceWrap canvas.overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.featureHelp{border-left:3px solid #62d7ff;padding-left:9px}
+canvas{max-width:100%;image-rendering:pixelated} #out,#sil,#maskView,#blueprint{width:min(85vw,512px);height:auto}.box.dark{background:#070a12}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{min-height:42px}.warn{color:#ffd58a}.ok{color:#86efac}.activeTool{outline:3px solid #62d7ff;background:#214d67!important}.handle{touch-action:none}.featureChip{padding:8px 10px;min-height:40px}.marker{pointer-events:none}.featureList{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}.criticGrid{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}.bad{color:#ff9c9c}.score{font-size:22px;font-weight:800}.sourceWrap{position:relative;display:inline-grid;place-items:center}.sourceWrap canvas.overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.featureHelp{border-left:3px solid #62d7ff;padding-left:9px}.featureStats{font-size:11px;color:#c9d4ee;line-height:1.5}.featureStats b{color:#fff}
 .field{display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center;margin:9px 0} input[type=range]{width:100%} output{text-align:right}
 .metrics{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:13px} @media(max-width:680px){.grid{grid-template-columns:1fr}}
 </style></head>
-<body><div class="app"><header><h1>Sprite Studio 128 <span style="font-size:13px;background:#244d68;border-radius:999px;padding:5px 9px">Phase5.4.1</span></h1>
-<div class="sub">Source Feature Mapping / 入力画像で特徴を指定し、Blueprint経由で128×128へ投影</div></header>
+<body><div class="app"><header><h1>Sprite Studio 128 <span style="font-size:13px;background:#244d68;border-radius:999px;padding:5px 9px">Phase5.4.2</span></h1>
+<div class="sub">Feature Structure Extraction / 入力範囲から主軸・縦横比・色ランプを抽出して再描画</div></header>
 <section class="card"><h2>1. 入力</h2><div class="row"><label class="file">画像を選択<input id="file" type="file" accept="image/*"></label>
 <button id="sa">サンプルA</button><button id="sb">サンプルB</button></div>
 <div id="loadStatus" class="hint" style="margin-top:10px;padding:10px;border:1px solid #34415f;border-radius:10px">画像を選択してください</div>
@@ -56,8 +56,10 @@ canvas{max-width:100%;image-rendering:pixelated} #out,#sil,#maskView,#blueprint{
 <div class="row"><select id="featureType"><option value="ear">耳・角</option><option value="hair">髪型</option><option value="sleeve">袖</option><option value="weapon">武器</option><option value="cape">マント</option><option value="wing">翼</option><option value="tail">尻尾</option><option value="accent">代表装飾</option></select><button id="addFeatureMode">入力で特徴指定</button><button id="adjustFeatureMode">出力位置補正</button><button id="clearFeatures">全解除</button></div>
 <div class="field"><label>認識予算</label><input id="recognitionBudget" type="range" min="20" max="100" value="85"><output id="recognitionBudgeto">85</output></div>
 <div class="field"><label>初期範囲</label><input id="featureRadius" type="range" min="3" max="22" value="10"><output id="featureRadiuso">10</output></div>
-<div id="featureList" class="featureList"><span>指定特徴</span><b>0件</b></div>
-<p class="hint featureHelp">入力画像上でドラッグして登録します。耳・髪・袖・マント・翼・装飾は範囲、武器・尻尾は始点→終点として記録します。出力位置補正では投影後のマーカーをドラッグします。</p>
+<div class="field"><label>構造忠実度</label><input id="structureStrength" type="range" min="20" max="100" value="82"><output id="structureStrengtho">82</output></div>
+<div class="field"><label>形状単純化</label><input id="shapeSimplify" type="range" min="0" max="100" value="58"><output id="shapeSimplifyo">58</output></div>
+<div id="featureList" class="featureList"><span>指定特徴</span><b>0件</b></div><div id="featureStats" class="featureStats">構造未抽出</div>
+<p class="hint featureHelp">入力画像上でドラッグします。範囲から主軸・縦横比・主要3色を抽出し、Blueprint変形後も構造を保ちます。武器・尻尾は始点→終点と太さを記録します。</p>
 <div class="field"><label>特徴再描画</label><input id="redrawStrength" type="range" min="0" max="100" value="72"><output id="redrawStrengtho">72</output></div>
 <div class="field"><label>Pixel Critic</label><input id="criticStrength" type="range" min="0" max="100" value="68"><output id="criticStrengtho">68</output></div>
 <button id="run" class="primary" style="width:100%">特徴再描画＋品質検査</button>
@@ -66,7 +68,7 @@ canvas{max-width:100%;image-rendering:pixelated} #out,#sil,#maskView,#blueprint{
 <div class="box" style="margin-top:10px"><canvas id="sil" width="128" height="128"></canvas></div><p class="hint">シルエット確認</p>
 <div id="metrics" class="metrics"></div></section>
 <section class="card"><h2>4. 今回の職人ルール</h2>
-<p class="hint">①特徴は情報が残る入力画像で指定　②Blueprint変形へ座標を投影　③出力側は位置ずれだけ補正　④武器・尻尾は方向も保持　⑤範囲特徴は入力で大きさを取得　⑥固定パーツは貼らない</p></section>
+<p class="hint">①入力範囲から主軸・縦横比・主要色を抽出　②Blueprint後も構造を保持　③耳は先細り、髪は塊と束、布は面として再描画　④武器・尻尾は方向と太さを保持　⑤形状単純化でノイズを削る　⑥固定パーツは貼らない</p></section>
 <section class="card"><h2>5. Pixel Critic</h2><div id="criticScore" class="score">--</div><div id="criticReport" class="criticGrid"><span>未評価</span><b>--</b></div><p class="hint">孤立ドット、1px穴、過密輪郭、バンディング候補、色数、シルエット断裂を検査します。</p></section>
 <section class="card"><h2>6. 保存</h2><div class="row"><button id="png">128 PNG</button><button id="big">4倍 PNG</button><button id="saveMask">マスク PNG</button><button id="saveBlueprint">Blueprint PNG</button></div></section>
 </div>
@@ -464,55 +466,82 @@ const featureColors={ear:'#ffd166',hair:'#70d6ff',sleeve:'#ff70a6',weapon:'#f8f9
 const isLineFeature=t=>t==='weapon'||t==='tail';
 function srcPt(e){const r=inputFeatureOverlay.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))}}
 function outPt(e){const r=out.getBoundingClientRect();return{x:Math.max(0,Math.min(127,(e.clientX-r.left)*128/r.width)),y:Math.max(0,Math.min(127,(e.clientY-r.top)*128/r.height))}}
+function qRGB(r,g,b){return [Math.round(r/24)*24,Math.round(g/24)*24,Math.round(b/24)*24]}
+function analyzeSourceFeature(f){
+  if(!src.width||!src.height)return;
+  const c=src.getContext('2d'),im=c.getImageData(0,0,src.width,src.height),d=im.data,w=src.width,h=src.height;
+  const cx=f.sx*w,cy=f.sy*h,rx=Math.max(3,(f.srx||f.sr||.03)*w),ry=Math.max(3,(f.sry||f.sr||.03)*h);
+  let pts=[],colors=new Map(),lumMin=255,lumMax=0;
+  const x0=Math.max(1,Math.floor(cx-rx)),x1=Math.min(w-2,Math.ceil(cx+rx)),y0=Math.max(1,Math.floor(cy-ry)),y1=Math.min(h-2,Math.ceil(cy+ry));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const nx=(x-cx)/rx,ny=(y-cy)/ry;if(nx*nx+ny*ny>1)continue;
+    const i=(y*w+x)*4;if(d[i+3]<20)continue;const r=d[i],g=d[i+1],b=d[i+2],lum=.299*r+.587*g+.114*b;
+    const il=(y*w+x-1)*4,ir=(y*w+x+1)*4,iu=((y-1)*w+x)*4,id=((y+1)*w+x)*4;
+    const gx=Math.abs((d[ir]+d[ir+1]+d[ir+2])-(d[il]+d[il+1]+d[il+2]));
+    const gy=Math.abs((d[id]+d[id+1]+d[id+2])-(d[iu]+d[iu+1]+d[iu+2]));
+    const wt=1+Math.min(8,(gx+gy)/90);pts.push([x-cx,y-cy,wt]);lumMin=Math.min(lumMin,lum);lumMax=Math.max(lumMax,lum);
+    const q=qRGB(r,g,b).join(',');colors.set(q,(colors.get(q)||0)+1);
+  }
+  let sxx=0,syy=0,sxy=0,sw=0;for(const [x,y,wt] of pts){sxx+=x*x*wt;syy+=y*y*wt;sxy+=x*y*wt;sw+=wt}if(!sw)sw=1;sxx/=sw;syy/=sw;sxy/=sw;
+  const angle=.5*Math.atan2(2*sxy,sxx-syy),tr=sxx+syy,det=Math.sqrt(Math.max(0,(sxx-syy)*(sxx-syy)+4*sxy*sxy));
+  const l1=Math.max(.01,(tr+det)/2),l2=Math.max(.01,(tr-det)/2),aspect=Math.max(1,Math.min(8,Math.sqrt(l1/l2)));
+  const palette=[...colors.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(v=>v[0].split(',').map(Number));
+  f.structure={angle,aspect,palette,contrast:Math.round(lumMax-lumMin),samples:pts.length};
+}
 function drawInputFeatureOverlay(){
  const c=inputFeatureOverlay.getContext('2d');c.clearRect(0,0,inputFeatureOverlay.width,inputFeatureOverlay.height);if(!inputFeatureOverlay.width)return;
  c.font=Math.max(10,inputFeatureOverlay.width/55)+'px -apple-system';c.textAlign='center';c.textBaseline='middle';c.lineWidth=Math.max(2,inputFeatureOverlay.width/320);
  recognitionFeatures.forEach((f,i)=>{c.strokeStyle=c.fillStyle=featureColors[f.type]||'#fff';const x=f.sx*inputFeatureOverlay.width,y=f.sy*inputFeatureOverlay.height;
-  if(f.ex!=null){const ex=f.ex*inputFeatureOverlay.width,ey=f.ey*inputFeatureOverlay.height;c.beginPath();c.moveTo(x,y);c.lineTo(ex,ey);c.stroke();c.fillText(String(i+1),(x+ex)/2,(y+ey)/2)}
-  else{const rr=f.sr*Math.min(inputFeatureOverlay.width,inputFeatureOverlay.height);c.beginPath();c.ellipse(x,y,rr,rr*.78,0,0,Math.PI*2);c.stroke();c.fillText(String(i+1),x,y)}})
+  if(f.ex!=null){const ex=f.ex*inputFeatureOverlay.width,ey=f.ey*inputFeatureOverlay.height;c.beginPath();c.moveTo(x,y);c.lineTo(ex,ey);c.stroke();c.beginPath();c.arc(x,y,4,0,Math.PI*2);c.arc(ex,ey,4,0,Math.PI*2);c.stroke();c.fillText(String(i+1),(x+ex)/2,(y+ey)/2)}
+  else{const rx=(f.srx||f.sr)*inputFeatureOverlay.width,ry=(f.sry||f.sr)*inputFeatureOverlay.height;c.save();c.translate(x,y);c.rotate(f.structure?.angle||0);c.beginPath();c.ellipse(0,0,rx,ry,0,0,Math.PI*2);c.stroke();if(f.structure){c.beginPath();c.moveTo(-rx*.8,0);c.lineTo(rx*.8,0);c.stroke()}c.restore();c.fillText(String(i+1),x,y)}})
 }
 function targetYForSource(s){let lo=0,hi=1;for(let i=0;i<20;i++){const m=(lo+hi)/2;if(editableSourceY(m)<s)lo=m;else hi=m}return(lo+hi)/2}
 function projectSourcePoint(a,nx,ny){
  const sx=nx*a.w,sy=ny*a.h,sn=Math.max(0,Math.min(1,(sy-a.miny)/Math.max(1,a.H-1))),yn=targetYForSource(sn),idx=Math.max(0,Math.min(a.H-1,Math.round(sn*(a.H-1)))),sc=a.cent[idx],bw=a.maxx-a.minx+1,base=Math.min(1,92/bw);
  let bc=0;for(const v of a.cent)bc+=v;bc/=a.cent.length;const mode=$('mode').value,e=+$('ex').value/100,oc=64+(sc-bc)*base*.72,scale=base*rscale(yn,mode,e)*editableWidth(yn);
- return{x:oc+(sx-sc)*scale,y:3+yn*121}
+ return{x:oc+(sx-sc)*scale,y:3+yn*121,scale}
 }
 function updateFeatureProjection(a){currentProjection=a;for(const f of recognitionFeatures){const p=projectSourcePoint(a,f.sx,f.sy);f.x=Math.round(Math.max(0,Math.min(127,p.x+(f.ox||0))));f.y=Math.round(Math.max(0,Math.min(127,p.y+(f.oy||0))));
- if(f.ex!=null){const q=projectSourcePoint(a,f.ex,f.ey);f.tx=Math.round(Math.max(0,Math.min(127,q.x+(f.ox||0))));f.ty=Math.round(Math.max(0,Math.min(127,q.y+(f.oy||0))));f.r=Math.max(3,Math.round(Math.hypot(f.tx-f.x,f.ty-f.y)*.5))}
- else{const q=projectSourcePoint(a,Math.min(1,f.sx+f.sr),f.sy);f.r=Math.max(3,Math.min(24,Math.round(Math.abs(q.x-p.x))))}}}
+ if(f.ex!=null){const q=projectSourcePoint(a,f.ex,f.ey);f.tx=Math.round(Math.max(0,Math.min(127,q.x+(f.ox||0))));f.ty=Math.round(Math.max(0,Math.min(127,q.y+(f.oy||0))));f.r=Math.max(2,Math.round(+$('featureRadius').value*.35+p.scale*.6))}
+ else{const qx=projectSourcePoint(a,Math.min(1,f.sx+(f.srx||f.sr)),f.sy),qy=projectSourcePoint(a,f.sx,Math.min(1,f.sy+(f.sry||f.sr)));f.rx=Math.max(2,Math.min(28,Math.round(Math.abs(qx.x-p.x))));f.ry=Math.max(2,Math.min(28,Math.round(Math.abs(qy.y-p.y))));f.r=Math.max(f.rx,f.ry)}}}
 function drawFeatureOverlay(){const c=featureOverlay.getContext('2d');c.clearRect(0,0,128,128);c.font='8px -apple-system';c.textAlign='center';c.textBaseline='middle';
- recognitionFeatures.forEach((f,i)=>{c.strokeStyle=c.fillStyle=featureColors[f.type]||'#fff';c.lineWidth=1;if(f.tx!=null){c.beginPath();c.moveTo(f.x,f.y);c.lineTo(f.tx,f.ty);c.stroke();c.fillText(String(i+1),(f.x+f.tx)/2,(f.y+f.ty)/2)}else{c.beginPath();c.arc(f.x,f.y,f.r,0,Math.PI*2);c.stroke();c.fillText(String(i+1),f.x,f.y)}});$('featureList').innerHTML=`<span>指定特徴</span><b>${recognitionFeatures.length}件（入力基準）</b>`}
+ recognitionFeatures.forEach((f,i)=>{c.strokeStyle=c.fillStyle=featureColors[f.type]||'#fff';c.lineWidth=1;if(f.tx!=null){c.beginPath();c.moveTo(f.x,f.y);c.lineTo(f.tx,f.ty);c.stroke();c.fillText(String(i+1),(f.x+f.tx)/2,(f.y+f.ty)/2)}else{c.save();c.translate(f.x,f.y);c.rotate(f.structure?.angle||0);c.beginPath();c.ellipse(0,0,f.rx||f.r,f.ry||f.r,0,0,Math.PI*2);c.stroke();c.restore();c.fillText(String(i+1),f.x,f.y)}});
+ $('featureList').innerHTML=`<span>指定特徴</span><b>${recognitionFeatures.length}件（構造抽出済）</b>`;
+ const last=recognitionFeatures[recognitionFeatures.length-1];$('featureStats').innerHTML=last?.structure?`最新：<b>${last.type}</b>　主軸 <b>${Math.round(last.structure.angle*180/Math.PI)}°</b>　縦横比 <b>${last.structure.aspect.toFixed(1)}</b>　色差 <b>${last.structure.contrast}</b>`:'構造未抽出';
+}
 inputFeatureOverlay.addEventListener('pointerdown',e=>{if(!featureMode)return;const p=srcPt(e);featureDrag={type:$('featureType').value,start:p,current:p};inputFeatureOverlay.setPointerCapture(e.pointerId)});
 inputFeatureOverlay.addEventListener('pointermove',e=>{if(!featureDrag)return;featureDrag.current=srcPt(e);drawInputFeatureOverlay();const c=inputFeatureOverlay.getContext('2d'),s=featureDrag.start,p=featureDrag.current,x=s.x*inputFeatureOverlay.width,y=s.y*inputFeatureOverlay.height,ex=p.x*inputFeatureOverlay.width,ey=p.y*inputFeatureOverlay.height;c.strokeStyle=featureColors[featureDrag.type]||'#fff';c.lineWidth=2;c.beginPath();if(isLineFeature(featureDrag.type)){c.moveTo(x,y);c.lineTo(ex,ey)}else c.ellipse(x,y,Math.max(5,Math.abs(ex-x)),Math.max(5,Math.abs(ey-y)),0,0,Math.PI*2);c.stroke()});
-inputFeatureOverlay.addEventListener('pointerup',e=>{if(!featureDrag)return;const s=featureDrag.start,p=srcPt(e),type=featureDrag.type,budget=+$('recognitionBudget').value/100;if(isLineFeature(type))recognitionFeatures.push({type,sx:s.x,sy:s.y,ex:p.x,ey:p.y,budget,ox:0,oy:0});else recognitionFeatures.push({type,sx:s.x,sy:s.y,sr:Math.max(.008,Math.hypot(p.x-s.x,p.y-s.y)),budget,ox:0,oy:0});featureDrag=null;drawInputFeatureOverlay();run()});
+inputFeatureOverlay.addEventListener('pointerup',e=>{if(!featureDrag)return;const s=featureDrag.start,p=srcPt(e),type=featureDrag.type,budget=+$('recognitionBudget').value/100;let f;if(isLineFeature(type))f={type,sx:s.x,sy:s.y,ex:p.x,ey:p.y,budget,ox:0,oy:0};else f={type,sx:s.x,sy:s.y,srx:Math.max(.008,Math.abs(p.x-s.x)),sry:Math.max(.008,Math.abs(p.y-s.y)),budget,ox:0,oy:0};analyzeSourceFeature(f);recognitionFeatures.push(f);featureDrag=null;drawInputFeatureOverlay();run()});
 out.addEventListener('pointerdown',e=>{if(!adjustMode||!recognitionFeatures.length)return;const p=outPt(e);let best=-1,dist=999;recognitionFeatures.forEach((f,i)=>{const x=f.tx!=null?(f.x+f.tx)/2:f.x,y=f.ty!=null?(f.y+f.ty)/2:f.y,d=Math.hypot(p.x-x,p.y-y);if(d<dist){dist=d;best=i}});if(best>=0&&dist<24){adjustDrag={index:best,last:p};out.setPointerCapture(e.pointerId)}});
 out.addEventListener('pointermove',e=>{if(!adjustDrag)return;const p=outPt(e),f=recognitionFeatures[adjustDrag.index];f.ox=(f.ox||0)+p.x-adjustDrag.last.x;f.oy=(f.oy||0)+p.y-adjustDrag.last.y;adjustDrag.last=p;if(currentProjection){updateFeatureProjection(currentProjection);drawFeatureOverlay()}});
 out.addEventListener('pointerup',()=>{if(adjustDrag){adjustDrag=null;run()}});
-
 function sampleColor(src,x,y,r=3){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,y-r);yy<=Math.min(127,y+r);yy++)for(let xx=Math.max(0,x-r);xx<=Math.min(127,x+r);xx++){const i=(yy*128+xx)*4;if(src[i+3]){rr+=src[i];gg+=src[i+1];bb+=src[i+2];n++}}return n?[rr/n,gg/n,bb/n]:[180,160,180]}
 function putPx(d,x,y,c,a=255){if(x<0||x>127||y<0||y>127)return;const i=(y*128+x)*4;d[i]=Math.max(0,Math.min(255,c[0]));d[i+1]=Math.max(0,Math.min(255,c[1]));d[i+2]=Math.max(0,Math.min(255,c[2]));d[i+3]=a}
 function featureRedraw(ctx){
   if(!recognitionFeatures.length)return;
-  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d),global=+$('redrawStrength').value/100;
+  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d),global=+$('redrawStrength').value/100,structure=+$('structureStrength').value/100,simplify=+$('shapeSimplify').value/100;
   for(const f of recognitionFeatures){
-    const b=Math.max(.15,Math.min(1,f.budget))*global,r=Math.max(3,f.r),base=sampleColor(src,f.x,f.y,Math.max(2,Math.round(r*.35)));
-    const dark=base.map(v=>v*.52), light=base.map(v=>Math.min(255,v*1.20+8));
+    const b=Math.max(.15,Math.min(1,f.budget))*global,rx=f.rx||f.r||5,ry=f.ry||f.r||5,ang=f.structure?.angle||0;
+    const sampled=sampleColor(src,f.x,f.y,Math.max(2,Math.round(Math.min(rx,ry)*.35))),pal=f.structure?.palette||[];
+    const base=pal[0]||sampled, dark=(pal[1]||base).map(v=>v*.52), light=(pal[2]||base).map(v=>Math.min(255,v*1.20+8));
+    const ca=Math.cos(ang),sa=Math.sin(ang),local=(u,v)=>[Math.round(f.x+u*ca-v*sa),Math.round(f.y+u*sa+v*ca)];
     if(f.type==='ear'){
-      const dir=f.x<64?-1:1,len=Math.max(4,Math.round(r*(.55+.45*b)));
-      for(let k=0;k<len;k++){const x=f.x+dir*k,y=Math.round(f.y-k*.12);putPx(d,x,y,k<len-1?base:dark);if(k>1&&k<len-2&&b>.6)putPx(d,x,y+1,light)}
+      const len=Math.max(4,Math.round(rx*(.8+structure*.8))),thick=Math.max(1,Math.round(ry*(.25+(1-simplify)*.35)));
+      const sign=f.x<64?-1:1;for(let u=0;u<len;u++){const taper=Math.max(1,Math.round(thick*(1-u/len)));for(let v=-taper;v<=taper;v++){const [x,y]=local(sign*u,v);putPx(d,x,y,u>len-2?dark:(v===-taper?light:base))}}
     }else if(f.type==='hair'){
-      const strands=b>.75?4:b>.45?3:2;
-      for(let s=0;s<strands;s++){const off=(s-(strands-1)/2)*Math.max(2,r*.22);for(let k=-r;k<=r;k++){const y=f.y+k,x=Math.round(f.x+off+Math.sin((k+s*3)*.22)*2);if((k+s)%5<3)putPx(d,x,y,(k+s)%7===0?light:base)}}
+      const ribbons=Math.max(2,Math.min(5,Math.round(2+b*2+(1-simplify)))),width=Math.max(1,Math.round(rx/(ribbons*2.4)));
+      for(let s=0;s<ribbons;s++){const off=(s-(ribbons-1)/2)*rx*.42;for(let k=-ry;k<=ry;k++){const curve=Math.sin((k/Math.max(1,ry))*Math.PI+s*.7)*rx*.10*structure;const [x,y]=local(off+curve,k);for(let t=0;t<width;t++)if((k+s+t)%Math.max(3,Math.round(7-structure*3))<2)putPx(d,x+t,y,(k+s)%7===0?light:base)}}
     }else if(f.type==='sleeve'||f.type==='cape'){
-      const half=Math.max(3,Math.round(r*.55));for(let y=f.y-half;y<=f.y+half;y++)for(let x=f.x-half;x<=f.x+half;x++){const dx=(x-f.x)/half,dy=(y-f.y)/half;if(dx*dx+dy*dy<1&&((x+y)%4!==0||b>.7))putPx(d,x,y,dy>.25?dark:base)}
+      for(let v=-ry;v<=ry;v++)for(let u=-rx;u<=rx;u++){const q=(u*u)/(rx*rx)+(v*v)/(ry*ry);if(q>1)continue;if(simplify>.5&&((u+v)%4===0)&&q<.75)continue;const [x,y]=local(u,v);putPx(d,x,y,v>ry*.25?dark:(u<-rx*.25?light:base))}
     }else if(f.type==='weapon'){
-      const ex=f.tx!=null?f.tx:f.x+r,ey=f.ty!=null?f.ty:f.y-r*.58,dx=ex-f.x,dy=ey-f.y,len=Math.max(6,Math.round(Math.hypot(dx,dy))),nx=-dy/Math.max(1,len),ny=dx/Math.max(1,len);for(let k=0;k<=len;k++){const t=k/len,x=Math.round(f.x+dx*t),y=Math.round(f.y+dy*t);putPx(d,x,y,k%5===0?light:dark);if(b>.65&&k%3!==0)putPx(d,Math.round(x+nx),Math.round(y+ny),base)}
+      const ex=f.tx!=null?f.tx:f.x+rx,ey=f.ty!=null?f.ty:f.y,dx=ex-f.x,dy=ey-f.y,len=Math.max(6,Math.round(Math.hypot(dx,dy))),nx=-dy/len,ny=dx/len,thick=Math.max(1,Math.round((1-simplify)*2+b));
+      for(let k=0;k<=len;k++){const t=k/len,x=f.x+dx*t,y=f.y+dy*t;for(let w=-thick;w<=thick;w++)putPx(d,Math.round(x+nx*w),Math.round(y+ny*w),w<0?light:(w>0?dark:base))}
     }else if(f.type==='wing'){
-      const side=f.x<64?-1:1;for(let k=0;k<r;k++){for(let w=0;w<=Math.max(1,Math.round((r-k)*.28));w++)putPx(d,f.x+side*k,f.y-k+w, w===0?dark:light)}
+      const feathers=Math.max(3,Math.round(3+structure*3));for(let s=0;s<feathers;s++){const u0=-rx+s*(2*rx/(feathers-1));for(let k=0;k<ry;k++){const [x,y]=local(u0*(1-k/(ry*1.4)),k-ry*.2);putPx(d,x,y,k%5===0?dark:light)}}
     }else if(f.type==='tail'){
-      const ex=f.tx!=null?f.tx:f.x,ey=f.ty!=null?f.ty:f.y+r*2,dx=ex-f.x,dy=ey-f.y,len=Math.max(4,Math.round(Math.hypot(dx,dy)));for(let k=0;k<=len;k++){const t=k/len,x=Math.round(f.x+dx*t+Math.sin(t*Math.PI*2)*2),y=Math.round(f.y+dy*t);putPx(d,x,y,k%4===0?light:base);if(b>.6)putPx(d,x+1,y,base)}
+      const ex=f.tx!=null?f.tx:f.x,ey=f.ty!=null?f.ty:f.y+ry*2,dx=ex-f.x,dy=ey-f.y,len=Math.max(5,Math.round(Math.hypot(dx,dy)));for(let k=0;k<=len;k++){const t=k/len,x=Math.round(f.x+dx*t+Math.sin(t*Math.PI*2)*2*structure),y=Math.round(f.y+dy*t);putPx(d,x,y,k%4===0?light:base);if(b>.55)putPx(d,x+1,y,dark)}
     }else{
-      for(let y=f.y-r;y<=f.y+r;y++)for(let x=f.x-r;x<=f.x+r;x++){const dist=Math.hypot(x-f.x,y-f.y);if(dist<=r&&dist>=r*.45&&((x+y)%3===0))putPx(d,x,y,dist>r*.78?dark:light)}
+      const ring=simplify>.6?.62:.42;for(let v=-ry;v<=ry;v++)for(let u=-rx;u<=rx;u++){const q=(u*u)/(rx*rx)+(v*v)/(ry*ry);if(q<=1&&q>=ring&&((u+v)%3===0)){const [x,y]=local(u,v);putPx(d,x,y,q>.78?dark:light)}}
     }
   }
   ctx.putImageData(im,0,0);
@@ -535,9 +564,9 @@ function pixelCritic(ctx,applyFix=true){
 
 function run(){if(!original)return;const a=model(getMask());drawMaskAndBlueprint(a);updateFeatureProjection(a);drawInputFeatureOverlay();drawFeatureOverlay();const ctx=out.getContext('2d'),o=ctx.createImageData(128,128),od=o.data,d=a.im.data,mode=$('mode').value,e=+$('ex').value/100,bw=a.maxx-a.minx+1,base=Math.min(1,92/bw);let baseC=0;for(const v of a.cent)baseC+=v;baseC/=a.cent.length;
 for(let ty=3;ty<=124;ty++){const yn=(ty-3)/121,idx=Math.max(0,Math.min(a.H-1,Math.round(editableSourceY(yn)*(a.H-1)))),sy=a.miny+idx,sc=a.cent[idx],oc=64+(sc-baseC)*base*.72,scale=base*rscale(yn,mode,e)*editableWidth(yn);for(const seg of a.ints[idx]){let ta=Math.round(oc+(seg[0]-sc)*scale),tb=Math.round(oc+(seg[1]-sc)*scale);if(tb<ta){const t=ta;ta=tb;tb=t}ta=Math.max(0,ta);tb=Math.min(127,tb);for(let tx=ta;tx<=tb;tx++){const sx=Math.round(sc+(tx-oc)/scale);if(sx<0||sx>=a.w)continue;const si=(sy*a.w+sx)*4,di=(ty*128+tx)*4;if(a.m[sy*a.w+sx]){od[di]=d[si];od[di+1]=d[si+1];od[di+2]=d[si+2];od[di+3]=255}}}}
-ctx.putImageData(o,0,0);applyMassRenderer(ctx);artistPass(ctx);featureRedraw(ctx);pixelCritic(ctx,true);o=ctx.getImageData(0,0,128,128);const sctx=sil.getContext('2d');sctx.clearRect(0,0,128,128);sctx.fillStyle='#070a12';sctx.fillRect(0,0,128,128);const sim=sctx.createImageData(128,128);let fill=0,minx=128,maxx=0;for(let p=0;p<16384;p++)if(o.data[p*4+3]){fill++;const x=p%128;minx=Math.min(minx,x);maxx=Math.max(maxx,x);sim.data[p*4]=80;sim.data[p*4+1]=225;sim.data[p*4+2]=255;sim.data[p*4+3]=255}sctx.putImageData(sim,0,0);$('metrics').innerHTML=`<span>不透明ドット</span><b>${fill}</b><span>使用幅</span><b>${maxx-minx+1}px</b><span>方式</span><b>入力Feature→Blueprint投影→Mass→Type Redraw→Critic</b>`}
+ctx.putImageData(o,0,0);applyMassRenderer(ctx);artistPass(ctx);featureRedraw(ctx);pixelCritic(ctx,true);o=ctx.getImageData(0,0,128,128);const sctx=sil.getContext('2d');sctx.clearRect(0,0,128,128);sctx.fillStyle='#070a12';sctx.fillRect(0,0,128,128);const sim=sctx.createImageData(128,128);let fill=0,minx=128,maxx=0;for(let p=0;p<16384;p++)if(o.data[p*4+3]){fill++;const x=p%128;minx=Math.min(minx,x);maxx=Math.max(maxx,x);sim.data[p*4]=80;sim.data[p*4+1]=225;sim.data[p*4+2]=255;sim.data[p*4+3]=255}sctx.putImageData(sim,0,0);$('metrics').innerHTML=`<span>不透明ドット</span><b>${fill}</b><span>使用幅</span><b>${maxx-minx+1}px</b><span>方式</span><b>入力Feature構造→Blueprint投影→Structure Redraw→Critic</b>`}
 $('run').onclick=run;
 function dl(c,n){const a=document.createElement('a');a.download=n;a.href=c.toDataURL('image/png');a.click()}
-$('png').onclick=()=>dl(out,name+'_128_phase5_4_1.png');$('saveMask').onclick=()=>dl(maskView,name+'_mask.png');$('saveBlueprint').onclick=()=>dl(blueprint,name+'_blueprint.png');$('big').onclick=()=>{const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(out,0,0,512,512);dl(c,name+'_128_phase5_4_1_4x.png')};
+$('png').onclick=()=>dl(out,name+'_128_phase5_4_2.png');$('saveMask').onclick=()=>dl(maskView,name+'_mask.png');$('saveBlueprint').onclick=()=>dl(blueprint,name+'_blueprint.png');$('big').onclick=()=>{const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(out,0,0,512,512);dl(c,name+'_128_phase5_4_2_4x.png')};
 loadURL(SAMPLE_A,'sample_pose');
 </script></body></html>
