@@ -1,0 +1,1452 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sprite Studio 128 Phase6.0</title>
+<style>
+:root{--bg:#0b1020;--panel:#151c30;--line:#34415f;--text:#f5f7ff;--muted:#aab4cf;--accent:#1d82ae}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:900px;margin:auto;padding:12px 12px calc(24px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;background:rgba(11,16,32,.94);padding:calc(8px + env(safe-area-inset-top)) 0 10px;z-index:5}
+h1{font-size:21px;margin:0} .sub,.hint{font-size:12px;color:var(--muted);line-height:1.55}
+.card{background:var(--panel);border:1px solid #293653;border-radius:16px;padding:13px;margin-top:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap} button,label.file,select{min-height:48px;border:1px solid var(--line);border-radius:12px;background:#1e2943;color:var(--text);font-weight:750;padding:10px}
+button{flex:1} button.primary{background:var(--accent)} .file{display:flex;align-items:center;justify-content:center;flex:1} .file input{display:none}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px} .box{display:grid;place-items:center;min-height:280px;border:1px solid var(--line);border-radius:14px;background:repeating-conic-gradient(#1d263d 0 25%,#11182a 0 50%) 50%/20px 20px;overflow:hidden}
+canvas{max-width:100%;image-rendering:pixelated} #out,#sil,#maskView,#blueprint{width:min(85vw,512px);height:auto}.box.dark{background:#070a12}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{min-height:42px}.warn{color:#ffd58a}.ok{color:#86efac}.activeTool{outline:3px solid #62d7ff;background:#214d67!important}.handle{touch-action:none}.featureChip{padding:8px 10px;min-height:40px}.marker{pointer-events:none}.featureList{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}.criticGrid{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:12px}.bad{color:#ff9c9c}.score{font-size:22px;font-weight:800}.sourceWrap{position:relative;display:inline-grid;place-items:center}.sourceWrap canvas.overlay{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.featureHelp{border-left:3px solid #62d7ff;padding-left:9px}.featureStats{font-size:11px;color:#c9d4ee;line-height:1.5}.featureStats b{color:#fff}.layerBadge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;margin-left:5px}.layer-back{background:#40315f}.layer-body{background:#24536b}.layer-front{background:#6b3b4c}.qualityGrid{display:grid;grid-template-columns:1fr auto;gap:7px;font-size:12px}.qualityPass{color:#86efac}.qualityWarn{color:#ffd58a}.qualityFail{color:#ff9c9c}.meter{height:8px;background:#0c1323;border-radius:999px;overflow:hidden}.meter>i{display:block;height:100%;background:#58c7f3}.contourLegend{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:11px;color:#c9d4ee}.editorStage{position:relative;display:grid;place-items:center;min-height:520px;border:1px solid var(--line);border-radius:14px;background:#070a12;overflow:auto}#editor{width:min(88vw,640px);height:auto;image-rendering:pixelated;touch-action:none}.toolActive{outline:3px solid #62d7ff;background:#214d67!important}.swatch{width:44px;height:44px;border-radius:10px;border:2px solid #fff3;background:#000}.paletteBar{display:flex;gap:7px;overflow-x:auto;padding:8px 0}.paletteBar button{flex:0 0 42px;min-height:42px;padding:0;border:2px solid #fff3}.focusActive{outline:3px solid #ffd166;background:#59471f!important}.finishSteps{display:grid;grid-template-columns:1fr auto;gap:7px;font-size:12px}
+.field{display:grid;grid-template-columns:120px 1fr 48px;gap:8px;align-items:center;margin:9px 0} input[type=range]{width:100%} output{text-align:right}
+.metrics{display:grid;grid-template-columns:1fr auto;gap:6px;font-size:13px} @media(max-width:680px){.grid{grid-template-columns:1fr}}
+</style></head>
+<body><div class="app"><header><h1>Sprite Studio 128 <span style="font-size:13px;background:#244d68;border-radius:999px;padding:5px 9px">Phase6.0</span></h1>
+<div class="sub">Head Local Renderer / 顔・前髪・横髪・後ろ髪・耳を入力由来の局所情報から再構築</div></header>
+<section class="card"><h2>1. 入力</h2><div class="row"><label class="file">画像を選択<input id="file" type="file" accept="image/*"></label>
+</div>
+<div id="loadStatus" class="hint" style="margin-top:10px;padding:10px;border:1px solid #34415f;border-radius:10px">画像を選択してください</div>
+<div class="field"><label>背景許容値</label><input id="bgTolerance" type="range" min="6" max="70" value="24"><output id="bgToleranceo">24</output></div>
+<div class="field"><label>Alpha境界</label><input id="alphaCut" type="range" min="1" max="200" value="24"><output id="alphaCuto">24</output></div>
+<div class="field"><label>細線保護</label><input id="edgeProtect" type="range" min="0" max="3" value="1"><output id="edgeProtecto">1</output></div>
+<div class="row"><button id="invertMask">マスク反転</button><button id="rerunMask">背景解析を更新</button></div>
+<p class="hint">最初にマスクを確認します。人物の内側が削れる場合は背景許容値を下げ、背景が残る場合は上げます。</p></section>
+<section class="card"><h2>2. マスク確認</h2>
+<div class="row" style="margin-bottom:10px"><button id="toolFg">人物を塗る</button><button id="toolBg">背景を消す</button><button id="toolLine" class="activeTool">基準線編集</button></div>
+<div class="field"><label>ブラシ幅</label><input id="brushSize" type="range" min="1" max="18" value="6"><output id="brushSizeo">6</output></div>
+<div class="grid"><div><div class="box"><canvas id="maskView" class="handle" width="128" height="128"></canvas></div><p class="hint">人物を塗る／背景を消す。指を離した時点で再生成。</p></div>
+<div><div class="box dark"><canvas id="blueprint" class="handle" width="128" height="128"></canvas></div><p class="hint">色付き基準線を上下へドラッグ。</p></div></div>
+<div id="maskMetrics" class="metrics"></div>
+<div class="row" style="margin-top:10px"><button id="resetMask">手動マスクを解除</button><button id="resetBlueprint">Blueprintを自動値へ戻す</button></div></section>
+<section class="card"><h2>3. 全身シルエット設計</h2>
+<div class="field"><label>頭身</label><select id="mode"><option value="3">3頭身</option><option value="4" selected>4頭身</option><option value="faithful">忠実頭身</option></select><output></output></div>
+<div class="field"><label>誇張</label><input id="ex" type="range" min="0" max="100" value="70"><output id="exo">70</output></div>
+<h3>Deformation Design</h3>
+<div class="field"><label>デフォルメ設計</label><select id="deformPreset">
+<option value="balanced" selected>SFCバランス</option><option value="cute">可愛さ優先</option>
+<option value="action">アクション優先</option><option value="faithful">忠実</option></select><output></output></div>
+<div class="field"><label>頭部情報量</label><input id="deformHead" type="range" min="80" max="145" value="118"><output id="deformHeado">118</output></div>
+<div class="field"><label>胴の圧縮</label><input id="deformTorso" type="range" min="65" max="115" value="86"><output id="deformTorsoo">86</output></div>
+<div class="field"><label>脚の圧縮</label><input id="deformLeg" type="range" min="60" max="115" value="82"><output id="deformLego">82</output></div>
+<div class="field"><label>重心・ポーズ保持</label><input id="posePreserve" type="range" min="50" max="100" value="90"><output id="posePreserveo">90</output></div>
+<div class="field"><label>負の空間保護</label><input id="negativeSpace" type="range" min="50" max="100" value="94"><output id="negativeSpaceo">94</output></div>
+<div id="deformReport" class="contourLegend"><span>未評価</span><b>—</b></div>
+
+<div class="field"><label>色数</label><select id="colors"><option selected>32</option><option>40</option><option>48</option></select><output></output></div><div class="field"><label>色面整理</label><input id="flat" type="range" min="0" max="3" value="2"><output id="flato">2</output></div><div class="field"><label>顔・髪補正</label><input id="identity" type="range" min="0" max="100" value="70"><output id="identityo">70</output></div>
+<div class="field"><label>顔予算</label><input id="faceBudget" type="range" min="20" max="100" value="85"><output id="faceBudgeto">85</output></div>
+<div class="field"><label>髪予算</label><input id="hairBudget" type="range" min="20" max="100" value="75"><output id="hairBudgeto">75</output></div>
+<div class="field"><label>胴体予算</label><input id="bodyBudget" type="range" min="10" max="100" value="45"><output id="bodyBudgeto">45</output></div>
+<div class="field"><label>手足予算</label><input id="limbBudget" type="range" min="10" max="100" value="35"><output id="limbBudgeto">35</output></div>
+<div class="field"><label>装飾予算</label><input id="accentBudget" type="range" min="0" max="100" value="25"><output id="accentBudgeto">25</output></div>
+
+<h3>Mass幅</h3>
+<div class="field"><label>頭部幅</label><input id="headWidth" type="range" min="70" max="145" value="108"><output id="headWidtho">108</output></div>
+<div class="field"><label>肩幅</label><input id="shoulderWidth" type="range" min="70" max="150" value="110"><output id="shoulderWidtho">110</output></div>
+<div class="field"><label>腰幅</label><input id="waistWidth" type="range" min="65" max="145" value="96"><output id="waistWidtho">96</output></div>
+<div class="field"><label>脚幅</label><input id="legWidth" type="range" min="70" max="150" value="108"><output id="legWidtho">108</output></div>
+<h3>Mass Renderer</h3>
+<div class="field"><label>Mass化強度</label><input id="massStrength" type="range" min="0" max="100" value="78"><output id="massStrengtho">78</output></div>
+<div class="field"><label>素材色面数</label><select id="massColors"><option value="2">2面</option><option value="3" selected>3面</option><option value="4">4面</option></select><output></output></div>
+<div class="field"><label>陰影方向</label><select id="lightDir"><option value="ul" selected>左上光</option><option value="ur">右上光</option><option value="flat">平面</option></select><output></output></div>
+<div class="field"><label>境界強調</label><input id="boundaryStrength" type="range" min="0" max="100" value="62"><output id="boundaryStrengtho">62</output></div>
+<h3>Recognition Feature</h3>
+<div class="row"><select id="featureType"><option value="face">顔</option><option value="ear">耳・角</option><option value="hairBack">後ろ髪</option><option value="hairFront">前髪・横髪</option><option value="sleeve">袖</option><option value="weapon">武器</option><option value="cape">マント</option><option value="wing">翼</option><option value="tail">尻尾</option><option value="accent">代表装飾</option></select><button id="addFeatureMode">入力で特徴指定</button><button id="adjustFeatureMode">出力位置補正</button><button id="clearFeatures">全解除</button></div>
+<div class="field"><label>接続先</label><select id="featureAnchor">
+<option value="auto" selected>自動</option><option value="head">頭</option><option value="shoulder">肩</option><option value="hand">手</option><option value="back">背中</option><option value="waist">腰</option><option value="free">自由</option>
+</select><output></output></div>
+<div class="field"><label>接続補正</label><input id="anchorStrength" type="range" min="0" max="100" value="82"><output id="anchorStrengtho">82</output></div>
+<div class="field"><label>描画レイヤー</label><select id="featureLayer"><option value="back">後景</option><option value="body">身体面</option><option value="front" selected>前景</option></select><output></output></div>
+<div class="row"><button id="deleteLastFeature">最後の特徴を削除</button><button id="autoLayerFeatures">種類から自動配置</button></div>
+<div class="field"><label>認識予算</label><input id="recognitionBudget" type="range" min="20" max="100" value="85"><output id="recognitionBudgeto">85</output></div>
+<div class="field"><label>初期範囲</label><input id="featureRadius" type="range" min="3" max="22" value="10"><output id="featureRadiuso">10</output></div>
+<div class="field"><label>構造忠実度</label><input id="structureStrength" type="range" min="20" max="100" value="82"><output id="structureStrengtho">82</output></div>
+<div class="field"><label>形状単純化</label><input id="shapeSimplify" type="range" min="0" max="100" value="58"><output id="shapeSimplifyo">58</output></div>
+<div id="featureList" class="featureList"><span>指定特徴</span><b>0件</b></div><div id="featureStats" class="featureStats">構造未抽出</div>
+<p class="hint featureHelp">入力画像上でドラッグします。範囲から主軸・縦横比・主要3色を抽出し、Blueprint変形後も構造を保ちます。武器・尻尾は始点→終点と太さを記録します。</p>
+<h3>Phase6 Head Local Renderer</h3>
+<div class="field"><label>局所再構築</label><input id="headLocalStrength" type="range" min="0" max="100" value="82"><output id="headLocalStrengtho">82</output></div>
+<div class="field"><label>顔Renderer</label><input id="localFaceStrength" type="range" min="0" max="100" value="86"><output id="localFaceStrengtho">86</output></div>
+<div class="field"><label>前髪Renderer</label><input id="localFringeStrength" type="range" min="0" max="100" value="82"><output id="localFringeStrengtho">82</output></div>
+<div class="field"><label>横・後ろ髪</label><input id="localHairStrength" type="range" min="0" max="100" value="78"><output id="localHairStrengtho">78</output></div>
+<div class="field"><label>耳Renderer</label><input id="localEarStrength" type="range" min="0" max="100" value="88"><output id="localEarStrengtho">88</output></div>
+<div id="headLocalReport" class="contourLegend"><span>局所Renderer</span><b>未評価</b></div>
+<h3>Head Detail Reprojection</h3>
+<div class="field"><label>頭部再投影</label><input id="headReproject" type="range" min="0" max="100" value="72"><output id="headReprojecto">72</output></div>
+<div class="field"><label>頭部の色数</label><select id="headColors"><option>8</option><option selected>12</option><option>16</option></select><output></output></div>
+<div class="field"><label>顔コントラスト</label><input id="faceContrast" type="range" min="0" max="100" value="68"><output id="faceContrasto">68</output></div>
+<div id="headReprojectReport" class="contourLegend"><span>未評価</span><b>—</b></div>
+<h3>Fringe / Tip Rhythm</h3>
+<div class="field"><label>目の露出</label><input id="eyeExposure" type="range" min="20" max="100" value="72"><output id="eyeExposureo">72</output></div>
+<div class="field"><label>前髪整理</label><input id="fringeCleanup" type="range" min="0" max="100" value="68"><output id="fringeCleanupo">68</output></div>
+<div class="field"><label>毛先リズム</label><input id="tipRhythm" type="range" min="0" max="100" value="74"><output id="tipRhythmo">74</output></div>
+<div id="fringeTipReport" class="contourLegend"><span>未評価</span><b>—</b></div>
+<h3>Source-Guided Face / Hair</h3>
+<div class="field"><label>入力輪郭忠実度</label><input id="sourceIdentity" type="range" min="0" max="100" value="82"><output id="sourceIdentityo">82</output></div>
+<div class="field"><label>髪束整理</label><input id="hairGrouping" type="range" min="2" max="10" value="5"><output id="hairGroupingo">5</output></div>
+<div class="field"><label>顔線の強さ</label><input id="faceLineStrength" type="range" min="0" max="100" value="72"><output id="faceLineStrengtho">72</output></div>
+<div id="sourceIdentityReport" class="contourLegend"><span>未評価</span><b>—</b></div>
+<h3>Identity Mass</h3>
+<div class="field"><label>髪Mass再設計</label><input id="hairMassStrength" type="range" min="0" max="100" value="78"><output id="hairMassStrengtho">78</output></div>
+<div class="field"><label>顔の印象</label><select id="faceImpression"><option value="soft" selected>穏やか</option><option value="cute">可愛い</option><option value="cool">凛々しい</option><option value="sleepy">眠そう</option><option value="neutral">中立</option></select><output></output></div>
+<div class="field"><label>表情強度</label><input id="faceStrength" type="range" min="0" max="100" value="72"><output id="faceStrengtho">72</output></div>
+<div id="identityReport" class="contourLegend"><span>未評価</span><b>—</b></div>
+<h3>Contour Grammar</h3>
+<div class="field"><label>輪郭整理</label><input id="contourStrength" type="range" min="0" max="100" value="72"><output id="contourStrengtho">72</output></div>
+<div class="field"><label>段差リズム</label><input id="stepRhythm" type="range" min="0" max="100" value="68"><output id="stepRhythmo">68</output></div>
+<div class="field"><label>先細り保護</label><input id="taperProtect" type="range" min="0" max="100" value="84"><output id="taperProtecto">84</output></div>
+<div id="contourReport" class="contourLegend"><span>未評価</span><b>—</b></div>
+<div class="field"><label>特徴再描画</label><input id="redrawStrength" type="range" min="0" max="100" value="72"><output id="redrawStrengtho">72</output></div>
+<div class="field"><label>Pixel Critic</label><input id="criticStrength" type="range" min="0" max="100" value="68"><output id="criticStrengtho">68</output></div>
+<button id="run" class="primary" style="width:100%">特徴再描画＋品質検査</button>
+<div class="grid" style="margin-top:12px"><div><div class="box"><div class="sourceWrap"><canvas id="src"></canvas><canvas id="inputFeatureOverlay" class="overlay"></canvas></div></div><p class="hint">入力：特徴指定はここでドラッグ</p></div>
+<div><div class="box" style="position:relative"><canvas id="out" class="handle" width="128" height="128"></canvas><canvas id="featureOverlay" width="128" height="128" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas></div><p class="hint">128×128 Artist Pass / 出力位置補正時はマーカーをドラッグ</p></div></div>
+<div class="box" style="margin-top:10px"><canvas id="sil" width="128" height="128"></canvas></div><p class="hint">シルエット確認</p>
+<div id="metrics" class="metrics"></div></section>
+<section class="card"><h2>4. 今回の職人ルール</h2>
+<p class="hint">①入力範囲から主軸・縦横比・主要色を抽出　②Blueprint後も構造を保持　③耳は先細り、髪は塊と束、布は面として再描画　④武器・尻尾は方向と太さを保持　⑤形状単純化でノイズを削る　⑥固定パーツは貼らない</p></section>
+<section class="card"><h2>5. Pixel Critic</h2><div id="criticScore" class="score">--</div><div id="criticReport" class="criticGrid"><span>未評価</span><b>--</b></div><p class="hint">孤立ドット、1px穴、過密輪郭、バンディング候補、色数、シルエット断裂を検査します。</p></section>
+<section class="card"><h2>6. Artist Quality Gate</h2>
+<div id="qualityGate" class="qualityGrid"><span>未評価</span><b>—</b></div>
+<div class="meter"><i id="qualityMeter" style="width:0%"></i></div>
+<p class="hint">合格条件：接続不良0、細かな分断2以下、使用色48以下、総合82点以上。未達の場合は完成扱いにしません。</p></section>
+<section class="card"><h2>7. Artist Finish</h2>
+<p class="hint">自動結果を完成品とは扱いません。ここでシルエット・顔・髪・手足を直接整えます。変更は128×128出力へ反映されます。</p>
+<div class="row"><button id="editBrush" class="toolActive">1px鉛筆</button><button id="editCluster">Cluster筆</button><button id="editErase">消しゴム</button><button id="editPick">色取得</button></div>
+<div class="row"><button id="focusFull" class="focusActive">全体</button><button id="focusHead">顔・髪</button><button id="focusUpper">上半身</button><button id="focusLower">下半身</button></div>
+<div class="row"><button id="safeFinish">安全な自動仕上げ</button><button id="showReference">参照ON/OFF</button></div>
+<div id="paletteBar" class="paletteBar"></div>
+<div class="field"><label>筆サイズ</label><input id="editSize" type="range" min="1" max="6" value="1"><output id="editSizeo">1</output></div>
+<div class="field"><label>参照表示</label><input id="refOpacity" type="range" min="0" max="100" value="18"><output id="refOpacityo">18</output></div>
+<div class="row"><button id="editUndo">元に戻す</button><button id="editRedo">やり直す</button><button id="copyAuto">自動結果を再読込</button><div id="editSwatch" class="swatch"></div></div>
+<div class="editorStage"><canvas id="editor" width="128" height="128"></canvas></div>
+<div id="editStats" class="qualityGrid"><span>編集</span><b>未開始</b></div>
+<div id="finishGuide" class="finishSteps">
+<span>1. シルエット</span><b>未確認</b>
+<span>2. 顔・髪</span><b>未確認</b>
+<span>3. 手足</span><b>未確認</b>
+<span>4. 色面・装飾</span><b>未確認</b>
+</div>
+</section>
+<section class="card"><h2>8. 保存</h2><div class="row"><button id="png">完成128 PNG</button><button id="big">完成4倍 PNG</button><button id="saveMask">マスク PNG</button><button id="saveBlueprint">Blueprint PNG</button></div></section>
+</div>
+<script>
+// Embedded sample character images removed for lightweight distribution.
+const $=id=>document.getElementById(id), src=$('src'), out=$('out'), sil=$('sil'), maskView=$('maskView'), blueprint=$('blueprint'), featureOverlay=$('featureOverlay'), inputFeatureOverlay=$('inputFeatureOverlay'), editor=$('editor');
+let original=null,name='sprite',maskInverted=false,lastMaskData=null;
+let manualMaskEdits=null,maskTransform=null,activeTool='line',painting=false,draggedLine=null;
+let blueprintState={head:.22,shoulder:.31,waist:.53,knee:.77,foot:1};
+let recognitionFeatures=[],featureMode=false,adjustMode=false,featureDrag=null,adjustDrag=null,currentProjection=null;
+let editTool='brush',editColor=[56,42,54,255],editDrawing=false,editHistory=[],editFuture=[],editorReady=false;
+const editBuffer=document.createElement('canvas');editBuffer.width=editBuffer.height=128;
+let editView={x:0,y:0,w:128,h:128},referenceVisible=true;
+$('ex').oninput=()=>$('exo').textContent=$('ex').value;
+for(const id of ['deformHead','deformTorso','deformLeg','posePreserve','negativeSpace'])$(id).oninput=()=>{$(id+'o').textContent=$(id).value};
+$('deformPreset').onchange=()=>{
+ const p=$('deformPreset').value,vals=p==='cute'?[124,82,78,92,96]:p==='action'?[112,90,88,96,92]:p==='faithful'?[100,100,100,100,100]:[118,86,82,90,94];
+ ['deformHead','deformTorso','deformLeg','posePreserve','negativeSpace'].forEach((id,i)=>{$(id).value=vals[i];$(id+'o').textContent=vals[i]});
+ run();
+};
+$('flat').oninput=()=>$('flato').textContent=$('flat').value;
+$('identity').oninput=()=>$('identityo').textContent=$('identity').value;
+$('faceBudget').oninput=()=>$('faceBudgeto').textContent=$('faceBudget').value;
+$('hairBudget').oninput=()=>$('hairBudgeto').textContent=$('hairBudget').value;
+for(const id of ['headLocalStrength','localFaceStrength','localFringeStrength','localHairStrength','localEarStrength']){
+  $(id).oninput=()=>{$(id+'o').textContent=$(id).value;run()};
+}
+
+$('bodyBudget').oninput=()=>$('bodyBudgeto').textContent=$('bodyBudget').value;
+$('limbBudget').oninput=()=>$('limbBudgeto').textContent=$('limbBudget').value;
+$('accentBudget').oninput=()=>$('accentBudgeto').textContent=$('accentBudget').value;
+$('bgTolerance').oninput=()=>$('bgToleranceo').textContent=$('bgTolerance').value;
+$('alphaCut').oninput=()=>$('alphaCuto').textContent=$('alphaCut').value;
+$('edgeProtect').oninput=()=>$('edgeProtecto').textContent=$('edgeProtect').value;
+$('brushSize').oninput=()=>$('brushSizeo').textContent=$('brushSize').value;
+for(const id of ['headWidth','shoulderWidth','waistWidth','legWidth'])$(id).oninput=()=>{$(id+'o').textContent=$(id).value};
+for(const id of ['massStrength','boundaryStrength'])$(id).oninput=()=>{$(id+'o').textContent=$(id).value};
+for(const id of ['recognitionBudget','featureRadius','redrawStrength','criticStrength'])$(id).oninput=()=>{$(id+'o').textContent=$(id).value};
+$('addFeatureMode').onclick=()=>{featureMode=!featureMode;adjustMode=false;$('addFeatureMode').classList.toggle('activeTool',featureMode);$('adjustFeatureMode').classList.remove('activeTool');};
+$('adjustFeatureMode').onclick=()=>{adjustMode=!adjustMode;featureMode=false;$('adjustFeatureMode').classList.toggle('activeTool',adjustMode);$('addFeatureMode').classList.remove('activeTool');};
+$('clearFeatures').onclick=()=>{recognitionFeatures=[];drawInputFeatureOverlay();drawFeatureOverlay();run();};
+function setTool(t){activeTool=t;for(const id of ['toolFg','toolBg','toolLine'])$(id).classList.remove('activeTool');$(t==='fg'?'toolFg':t==='bg'?'toolBg':'toolLine').classList.add('activeTool')}
+$('toolFg').onclick=()=>setTool('fg');$('toolBg').onclick=()=>setTool('bg');$('toolLine').onclick=()=>setTool('line');
+$('resetMask').onclick=()=>{manualMaskEdits=null;run()};
+$('resetBlueprint').onclick=()=>{blueprintState={head:.22,shoulder:.31,waist:.53,knee:.77,foot:1};run()};
+$('invertMask').onclick=()=>{maskInverted=!maskInverted;run()};
+$('rerunMask').onclick=()=>run();
+const status=t=>{$('loadStatus').textContent=t};
+function loadURL(url,n,revoke=false){
+  status('画像を読み込み中…');
+  const im=new Image();
+  im.onload=()=>{
+    try{
+      original=im;name=n;manualMaskEdits=null;recognitionFeatures=[];blueprintState={head:.22,shoulder:.31,waist:.53,knee:.77,foot:1};drawSrc();drawInputFeatureOverlay();drawFeatureOverlay();run();status(`読み込み完了：${im.naturalWidth}×${im.naturalHeight}`);
+    }catch(err){console.error(err);status('画像処理中にエラー：'+err.message)}
+    if(revoke)URL.revokeObjectURL(url);
+  };
+  im.onerror=()=>{status('画像を開けません。PNG/JPEG/WEBPへ変換して再試行してください。');if(revoke)URL.revokeObjectURL(url)};
+  im.src=url;
+}
+$('file').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0];if(!f){status('画像が選択されていません');return}
+  name=f.name.replace(/\.[^.]+$/,'');
+  const ext=(f.name.split('.').pop()||'').toLowerCase();
+  if(['heic','heif'].includes(ext)){status('HEICは端末により読み込めません。写真アプリでPNG/JPEGとして保存して選択してください。')}
+  const url=URL.createObjectURL(f);loadURL(url,name,true);
+  e.target.value='';
+});
+function drawSrc(){const max=640,s=Math.min(1,max/Math.max(original.width,original.height));src.width=Math.round(original.width*s);src.height=Math.round(original.height*s);src.getContext('2d').drawImage(original,0,0,src.width,src.height);inputFeatureOverlay.width=src.width;inputFeatureOverlay.height=src.height;drawInputFeatureOverlay()}
+function getMask(){const c=document.createElement('canvas'),max=900,s=Math.min(1,max/Math.max(original.width,original.height));c.width=Math.round(original.width*s);c.height=Math.round(original.height*s);const x=c.getContext('2d');x.drawImage(original,0,0,c.width,c.height);const im=x.getImageData(0,0,c.width,c.height),d=im.data,w=c.width,h=c.height;
+let hasAlpha=false;for(let i=3;i<d.length;i+=4)if(d[i]<250){hasAlpha=true;break}
+if(hasAlpha){let m=new Uint8Array(w*h);for(let p=0;p<w*h;p++)m[p]=d[p*4+3]>+$('alphaCut').value?1:0;
+const ep=+$('edgeProtect').value;for(let r=0;r<ep;r++){const s=m.slice();for(let y=1;y<h-1;y++)for(let x0=1;x0<w-1;x0++){const p=y*w+x0;if(s[p])continue;let n=0;for(let yy=y-1;yy<=y+1;yy++)for(let xx=x0-1;xx<=x0+1;xx++)n+=s[yy*w+xx];if(n>=5)m[p]=1}}
+if(maskInverted)for(let p=0;p<m.length;p++)m[p]=m[p]?0:1;
+if(manualMaskEdits&&manualMaskEdits.length===m.length)for(let p=0;p<m.length;p++)if(manualMaskEdits[p]>=0)m[p]=manualMaskEdits[p];
+return{im,m,w,h}}
+const border=[];for(let xx=0;xx<w;xx+=Math.max(1,Math.floor(w/150))){border.push([d[xx*4],d[xx*4+1],d[xx*4+2]]);let i=((h-1)*w+xx)*4;border.push([d[i],d[i+1],d[i+2]])}
+for(let yy=0;yy<h;yy+=Math.max(1,Math.floor(h/150))){let i=(yy*w)*4;border.push([d[i],d[i+1],d[i+2]]);i=(yy*w+w-1)*4;border.push([d[i],d[i+1],d[i+2]])}
+const centers=[];for(const c0 of border){const q=c0.map(v=>Math.floor(v/4)*4);if(!centers.some(a=>Math.abs(a[0]-q[0])+Math.abs(a[1]-q[1])+Math.abs(a[2]-q[2])<5))centers.push(q)} 
+const seen=new Uint8Array(w*h),q=[];for(let xx=0;xx<w;xx++){q.push(xx,(h-1)*w+xx)}for(let yy=0;yy<h;yy++){q.push(yy*w,yy*w+w-1)}
+let qi=0;while(qi<q.length){const p=q[qi++];if(seen[p])continue;const i=p*4,r=d[i],g=d[i+1],b=d[i+2];let md=999;for(const c0 of centers)md=Math.min(md,Math.hypot(r-c0[0],g-c0[1],b-c0[2]));const neutral=Math.max(r,g,b)-Math.min(r,g,b)<10&&(r+g+b)/3>220;if(!(md<+$('bgTolerance').value||neutral))continue;seen[p]=1;const xx=p%w,yy=(p/w)|0;if(xx)q.push(p-1);if(xx<w-1)q.push(p+1);if(yy)q.push(p-w);if(yy<h-1)q.push(p+w)}
+let m=new Uint8Array(w*h);for(let p=0;p<w*h;p++)m[p]=seen[p]?0:1;
+const ep=+$('edgeProtect').value;for(let r=0;r<ep;r++){const s=m.slice();for(let y=1;y<h-1;y++)for(let x0=1;x0<w-1;x0++){const p=y*w+x0;if(s[p])continue;let n=0;for(let yy=y-1;yy<=y+1;yy++)for(let xx=x0-1;xx<=x0+1;xx++)n+=s[yy*w+xx];if(n>=5)m[p]=1}}
+if(maskInverted)for(let p=0;p<m.length;p++)m[p]=m[p]?0:1;
+if(manualMaskEdits&&manualMaskEdits.length===m.length)for(let p=0;p<m.length;p++)if(manualMaskEdits[p]>=0)m[p]=manualMaskEdits[p];
+return{im,m,w,h}
+}
+function model(a){const{m,w,h}=a;let minx=w,miny=h,maxx=-1,maxy=-1;for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(m[y*w+x]){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}const H=maxy-miny+1,cent=new Float32Array(H),ints=[];for(let iy=0;iy<H;iy++){const y=miny+iy,segs=[];let start=-1;for(let x=minx;x<=maxx+1;x++){const on=x<=maxx&&m[y*w+x];if(on&&start<0)start=x;if(!on&&start>=0){segs.push([start,x-1]);start=-1}}ints.push(segs);if(segs.length){let best=segs[0];for(const s of segs)if(s[1]-s[0]>best[1]-best[0])best=s;cent[iy]=(best[0]+best[1])/2}else cent[iy]=iy?cent[iy-1]:(minx+maxx)/2}return{...a,minx,miny,maxx,maxy,H,cent,ints}}
+function syMap(y,mode){if(mode==='faithful')return y;if(mode==='4'){if(y<.25)return y/.25*.22;if(y<.53)return .22+(y-.25)/.28*.31;return .53+(y-.53)/.47*.47}if(y<.33)return y/.33*.22;if(y<.64)return .22+(y-.33)/.31*.31;return .53+(y-.64)/.36*.47}
+function rscale(y,mode,e){if(mode==='faithful')return 1;if(y<.25)return 1+(mode==='4'?.18:.30)*e;if(y<.52)return 1+(mode==='4'?.09:.13)*e;if(y<.68)return 1+.07*e;if(y<.93)return 1+.10*e;return 1}
+
+function qcol(v,levels){const s=255/(levels-1);return Math.round(v/s)*s}
+
+function artistPass(ctx){
+  let im=ctx.getImageData(0,0,128,128),d=im.data;
+  const rounds=+$('flat').value, strength=+$('identity').value/100;
+  const faceB=+$('faceBudget').value/100, hairB=+$('hairBudget').value/100;
+  const bodyB=+$('bodyBudget').value/100, limbB=+$('limbBudget').value/100, accentB=+$('accentBudget').value/100;
+
+  const levels=+$('colors').value<=32?6:7;
+  const qcol=v=>Math.round(v/(255/(levels-1)))*(255/(levels-1));
+
+  for(let p=0;p<16384;p++){
+    let i=p*4;if(!d[i+3])continue;
+    d[i]=qcol(d[i]);d[i+1]=qcol(d[i+1]);d[i+2]=qcol(d[i+2]);
+  }
+
+  let minx=128,miny=128,maxx=-1,maxy=-1;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const i=(y*128+x)*4;
+    if(d[i+3]){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}
+  }
+  if(maxx<0){ctx.putImageData(im,0,0);return}
+
+  const H=maxy-miny+1, W=maxx-minx+1, cx=(minx+maxx)>>1;
+  const headEnd=miny+Math.round(H*.31), torsoEnd=miny+Math.round(H*.61);
+
+  // Region-aware cluster flattening. Lower budgets create larger, cleaner color blocks.
+  const s0=new Uint8ClampedArray(d);
+  const extraRounds={
+    head:Math.round((1-faceB)*2),
+    hair:Math.round((1-hairB)*3),
+    body:Math.round((1-bodyB)*4),
+    limb:Math.round((1-limbB)*4)
+  };
+
+  function localRound(regionFn, count){
+    for(let rr=0;rr<count;rr++){
+      const s=new Uint8ClampedArray(d);
+      for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+        const i=(y*128+x)*4;if(!s[i+3]||!regionFn(x,y))continue;
+        const map=new Map();
+        for(let yy=y-1;yy<=y+1;yy++)for(let xx=x-1;xx<=x+1;xx++){
+          const j=(yy*128+xx)*4;if(!s[j+3])continue;
+          const k=(s[j]<<16)|(s[j+1]<<8)|s[j+2];
+          map.set(k,(map.get(k)||0)+1);
+        }
+        let bk=0,bn=0;for(const [k,n] of map)if(n>bn){bn=n;bk=k}
+        if(bn>=4){d[i]=bk>>16;d[i+1]=(bk>>8)&255;d[i+2]=bk&255}
+      }
+    }
+  }
+
+  localRound((x,y)=>y<headEnd, rounds+extraRounds.head);
+  localRound((x,y)=>y>=headEnd&&y<torsoEnd&&Math.abs(x-cx)<W*.28, rounds+extraRounds.body);
+  localRound((x,y)=>y>=torsoEnd||Math.abs(x-cx)>=W*.28, rounds+extraRounds.limb);
+
+  // Face budget: directly allocate only the pixels that matter.
+  const fy=miny+Math.round(H*.17), fw=Math.max(10,Math.min(22,Math.round(W*.20)));
+  const fh=Math.max(12,Math.min(24,Math.round(H*.16)));
+  const x0=cx-(fw>>1), y0=fy-(fh>>1), ey=y0+Math.round(fh*.48), dx=Math.max(3,Math.round(fw*.22));
+  function put(x,y,r,g,b){if(x<0||x>127||y<0||y>127)return;const i=(y*128+x)*4;if(!d[i+3])return;d[i]=r;d[i+1]=g;d[i+2]=b}
+  if(strength>.2){
+    const er=Math.round(58+22*(1-strength)),eg=38,eb=54;
+    for(const ex of [cx-dx,cx+dx]){
+      put(ex,ey,er,eg,eb);
+      if(faceB>.45&&fw>=14)put(ex+(ex<cx?1:-1),ey,er,eg,eb);
+      if(faceB>.75&&fw>=18)put(ex,ey+1,er,eg,eb);
+      if(faceB>.90)put(ex+(ex<cx?1:-1),ey+1,210,208,220);
+    }
+    if(faceB>.35)put(cx,y0+Math.round(fh*.72),130,64,76);
+  }
+
+  // Hair budget: number of active ribbons and their density depend on budget.
+  const hb=miny+Math.round(H*.33);
+  const ribbonCount=hairB>.78?4:hairB>.48?3:2;
+  const ts=[.20,.40,.60,.80];
+  const spacing=hairB>.75?4:hairB>.45?6:8;
+  for(let y=miny+2;y<hb;y++){
+    let l=128,r=-1;
+    for(let x=minx;x<=maxx;x++){const i=(y*128+x)*4;if(d[i+3]){l=Math.min(l,x);r=Math.max(r,x)}}
+    if(r-l<8)continue;
+    for(let k=0;k<ribbonCount;k++){
+      const t=ts[k],x=Math.round(l+(r-l)*t+Math.sin(y*.18+k*2.2));
+      const i=(y*128+x)*4;if(!d[i+3])continue;
+      if((y+k)%spacing<2){
+        d[i]=Math.min(255,d[i]*1.14+6);
+        d[i+1]=Math.min(255,d[i+1]*1.14+6);
+        d[i+2]=Math.min(255,d[i+2]*1.14+8);
+      }
+    }
+  }
+
+  // Accent budget: keep only sparse high-contrast pixels around chest/head; suppress the rest.
+  const accY0=miny+Math.round(H*.18), accY1=miny+Math.round(H*.58);
+  const accKeep=Math.max(2,Math.round(accentB*10));
+  let candidates=[];
+  for(let y=accY0;y<accY1;y++)for(let x=minx;x<=maxx;x++){
+    const i=(y*128+x)*4;if(!d[i+3])continue;
+    const maxc=Math.max(d[i],d[i+1],d[i+2]),minc=Math.min(d[i],d[i+1],d[i+2]);
+    const sat=maxc-minc;
+    if(sat>75||maxc>225)candidates.push([sat+maxc*.15,x,y]);
+  }
+  candidates.sort((a,b)=>b[0]-a[0]);
+  const allowed=new Set(candidates.slice(0,accKeep*6).map(v=>v[2]*128+v[1]));
+
+  const beforeAccent=new Uint8ClampedArray(d);
+  for(let y=accY0;y<accY1;y++)for(let x=minx;x<=maxx;x++){
+    const p=y*128+x,i=p*4;if(!d[i+3]||allowed.has(p))continue;
+    const maxc=Math.max(d[i],d[i+1],d[i+2]),minc=Math.min(d[i],d[i+1],d[i+2]);
+    if(maxc-minc>90&&accentB<.65){
+      let rs=0,gs=0,bs=0,n=0;
+      for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){
+        if(xx<0||xx>127||yy<0||yy>127)continue;
+        const j=(yy*128+xx)*4;if(!beforeAccent[j+3])continue;
+        rs+=beforeAccent[j];gs+=beforeAccent[j+1];bs+=beforeAccent[j+2];n++;
+      }
+      if(n){d[i]=rs/n;d[i+1]=gs/n;d[i+2]=bs/n}
+    }
+  }
+
+  // Minimum-width policy for limbs: keep 2px continuity where possible.
+  if(limbB>.2){
+    const s=new Uint8ClampedArray(d);
+    for(let y=headEnd;y<127;y++)for(let x=1;x<127;x++){
+      const i=(y*128+x)*4;if(s[i+3])continue;
+      const l=s[(y*128+x-1)*4+3],r=s[(y*128+x+1)*4+3];
+      const u=s[((y-1)*128+x)*4+3],dn=s[((y+1)*128+x)*4+3];
+      if((l&&r)^(u&&dn)){
+        let rr=0,gg=0,bb=0,n=0;
+        for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){
+          const j=(yy*128+xx)*4;if(s[j+3]){rr+=s[j];gg+=s[j+1];bb+=s[j+2];n++}
+        }
+        if(n){d[i]=rr/n;d[i+1]=gg/n;d[i+2]=bb/n;d[i+3]=255}
+      }
+    }
+  }
+
+  // Selective outline.
+  const s=new Uint8ClampedArray(d);
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const i=(y*128+x)*4;if(!s[i+3])continue;let n=0;
+    for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){
+      if(xx<0||xx>127||yy<0||yy>127||!s[(yy*128+xx)*4+3])n++
+    }
+    if(n){
+      const regionBudget=y<headEnd?Math.max(faceB,hairB):y<torsoEnd?bodyB:limbB;
+      const f=n>=2?.50:(.58+.10*regionBudget);
+      d[i]=Math.round(s[i]*f);d[i+1]=Math.round(s[i+1]*f);d[i+2]=Math.round(s[i+2]*f+.5)
+    }
+  }
+
+  ctx.putImageData(im,0,0);
+}
+
+
+
+function drawMaskAndBlueprint(a){
+  lastMaskData=a;
+  const mc=maskView.getContext('2d'),mi=mc.createImageData(128,128);
+  const bc=blueprint.getContext('2d');bc.clearRect(0,0,128,128);bc.fillStyle='#070a12';bc.fillRect(0,0,128,128);
+  const bw=a.maxx-a.minx+1,bh=a.maxy-a.miny+1,scale=Math.min(116/bw,120/bh),ox=64-(a.minx+a.maxx)*.5*scale,oy=64-(a.miny+a.maxy)*.5*scale;
+  maskTransform={scale,ox,oy,w:a.w,h:a.h};let kept=0;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const sx=Math.round((x-ox)/scale),sy=Math.round((y-oy)/scale),on=sx>=0&&sx<a.w&&sy>=0&&sy<a.h&&a.m[sy*a.w+sx],i=(y*128+x)*4,v=on?255:0;
+    mi.data[i]=v;mi.data[i+1]=v;mi.data[i+2]=v;mi.data[i+3]=255;if(on)kept++;
+  }
+  mc.putImageData(mi,0,0);
+  const H=a.maxy-a.miny+1,lines={head:a.miny+H*blueprintState.head,shoulder:a.miny+H*blueprintState.shoulder,waist:a.miny+H*blueprintState.waist,knee:a.miny+H*blueprintState.knee,foot:a.miny+H*blueprintState.foot};
+  bc.save();bc.translate(ox,oy);bc.scale(scale,scale);bc.strokeStyle='#3dd6ff';bc.lineWidth=1/scale;bc.beginPath();
+  for(let iy=0;iy<a.H;iy++){const y=a.miny+iy,x=a.cent[iy];if(iy===0)bc.moveTo(x,y);else bc.lineTo(x,y)}bc.stroke();
+  const colors={head:'#ffd166',shoulder:'#ef476f',waist:'#9b5de5',knee:'#06d6a0',foot:'#f8f9fa'};
+  for(const [key,y] of Object.entries(lines)){bc.strokeStyle=colors[key];bc.lineWidth=2/scale;bc.beginPath();bc.moveTo(a.minx,y);bc.lineTo(a.maxx,y);bc.stroke();bc.fillStyle=colors[key];bc.beginPath();bc.arc(a.maxx+4/scale,y,3/scale,0,Math.PI*2);bc.fill()}
+  const masses=[[a.miny,lines.head,'#ffd166'],[lines.head,lines.waist,'#ef476f'],[lines.waist,a.maxy,'#06d6a0']];bc.globalAlpha=.20;
+  for(const [y0,y1,c] of masses){bc.fillStyle=c;bc.beginPath();let started=false;
+    for(let y=Math.round(y0);y<=Math.round(y1);y++){const iy=Math.max(0,Math.min(a.H-1,y-a.miny)),segs=a.ints[iy];if(!segs.length)continue;const l=Math.min(...segs.map(s=>s[0]));if(!started){bc.moveTo(l,y);started=true}else bc.lineTo(l,y)}
+    for(let y=Math.round(y1);y>=Math.round(y0);y--){const iy=Math.max(0,Math.min(a.H-1,y-a.miny)),segs=a.ints[iy];if(!segs.length)continue;bc.lineTo(Math.max(...segs.map(s=>s[1])),y)}
+    bc.closePath();bc.fill()
+  }bc.restore();
+  const coverage=kept/16384,warning=coverage<.06?'人物が削れすぎています':coverage>.72?'背景が多く残っています':'マスク範囲は妥当です';
+  $('maskMetrics').innerHTML=`<span>保持率</span><b>${Math.round(coverage*100)}%</b><span>判定</span><b class="${coverage>=.06&&coverage<=.72?'ok':'warn'}">${warning}</b><span>編集</span><b>マスク＋5基準線</b>`;
+}
+
+
+function editableSourceY(yn){
+  const headScale=+$('deformHead').value/100,torsoScale=+$('deformTorso').value/100,legScale=+$('deformLeg').value/100;
+  const sourceCuts=[0,.22,.31,.53,.77,1];
+  const raw=[.22*headScale,.09*torsoScale,.22*torsoScale,.24*legScale,.23*legScale];
+  const total=raw.reduce((s,v)=>s+v,0),target=[0];
+  let acc=0;for(const v of raw){acc+=v/total;target.push(acc)}
+  // Respect manually edited Blueprint lines by blending them with the deformation design.
+  const edited=[0,blueprintState.head,blueprintState.shoulder,blueprintState.waist,blueprintState.knee,blueprintState.foot];
+  const blend=.72;
+  for(let i=1;i<target.length-1;i++)target[i]=target[i]*blend+edited[i]*(1-blend);
+  target[target.length-1]=1;
+  for(let i=0;i<target.length-1;i++){
+    if(yn<=target[i+1]){
+      const t=(yn-target[i])/Math.max(.001,target[i+1]-target[i]);
+      return sourceCuts[i]+t*(sourceCuts[i+1]-sourceCuts[i]);
+    }
+  }
+  return 1;
+}
+function editableWidth(yn){
+  const hw=+$('headWidth').value/100,sw=+$('shoulderWidth').value/100,ww=+$('waistWidth').value/100,lw=+$('legWidth').value/100;
+  const headBoost=+$('deformHead').value/100,torso=+$('deformTorso').value/100,leg=+$('deformLeg').value/100;
+  const cuts=[0,.22,.31,.53,.77,1];
+  const vals=[hw*headBoost,hw*headBoost,sw*(1+(1-torso)*.20),ww*(1+(1-torso)*.12),lw*(1+(1-leg)*.16),lw];
+  for(let i=0;i<cuts.length-1;i++){
+    if(yn<=cuts[i+1]){
+      const t=(yn-cuts[i])/Math.max(.001,cuts[i+1]-cuts[i]);
+      // Smooth interpolation; no circles, boxes, or geometric body templates.
+      const s=t*t*(3-2*t);
+      return vals[i]+(vals[i+1]-vals[i])*s;
+    }
+  }
+  return vals[vals.length-1];
+}
+function canvasPoint(ev,c){const r=c.getBoundingClientRect();return{x:(ev.clientX-r.left)*128/r.width,y:(ev.clientY-r.top)*128/r.height}}
+function paintMaskAt(pt){
+  if(!lastMaskData||!maskTransform)return;
+  if(!manualMaskEdits||manualMaskEdits.length!==lastMaskData.m.length){manualMaskEdits=new Int8Array(lastMaskData.m.length);manualMaskEdits.fill(-1)}
+  const sx=(pt.x-maskTransform.ox)/maskTransform.scale,sy=(pt.y-maskTransform.oy)/maskTransform.scale,rad=+$('brushSize').value/maskTransform.scale;
+  for(let y=Math.floor(sy-rad);y<=Math.ceil(sy+rad);y++)for(let x=Math.floor(sx-rad);x<=Math.ceil(sx+rad);x++){
+    if(x<0||x>=lastMaskData.w||y<0||y>=lastMaskData.h)continue;
+    if((x-sx)**2+(y-sy)**2<=rad**2)manualMaskEdits[y*lastMaskData.w+x]=activeTool==='fg'?1:0;
+  }
+}
+maskView.addEventListener('pointerdown',e=>{if(activeTool==='line')return;painting=true;maskView.setPointerCapture(e.pointerId);paintMaskAt(canvasPoint(e,maskView))});
+maskView.addEventListener('pointermove',e=>{if(painting)paintMaskAt(canvasPoint(e,maskView))});
+maskView.addEventListener('pointerup',()=>{if(painting){painting=false;run()}});
+blueprint.addEventListener('pointerdown',e=>{
+  if(activeTool!=='line'||!lastMaskData||!maskTransform)return;
+  const pt=canvasPoint(e,blueprint),H=lastMaskData.maxy-lastMaskData.miny+1,ys={};
+  for(const k of ['head','shoulder','waist','knee','foot'])ys[k]=maskTransform.oy+(lastMaskData.miny+H*blueprintState[k])*maskTransform.scale;
+  let best=null,dist=999;for(const [k,y] of Object.entries(ys)){const d=Math.abs(pt.y-y);if(d<dist){dist=d;best=k}}
+  if(dist<12){draggedLine=best;blueprint.setPointerCapture(e.pointerId)}
+});
+blueprint.addEventListener('pointermove',e=>{
+  if(!draggedLine||!lastMaskData||!maskTransform)return;
+  const pt=canvasPoint(e,blueprint),H=lastMaskData.maxy-lastMaskData.miny+1,bounds={head:[.10,blueprintState.shoulder-.03],shoulder:[blueprintState.head+.03,blueprintState.waist-.04],waist:[blueprintState.shoulder+.04,blueprintState.knee-.06],knee:[blueprintState.waist+.06,.94],foot:[.95,1]};
+  let n=((pt.y-maskTransform.oy)/maskTransform.scale-lastMaskData.miny)/H;n=Math.max(bounds[draggedLine][0],Math.min(bounds[draggedLine][1],n));blueprintState[draggedLine]=n;drawMaskAndBlueprint(lastMaskData);
+});
+blueprint.addEventListener('pointerup',()=>{if(draggedLine){draggedLine=null;run()}});
+
+
+function colorDistance(a,b){const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return dr*dr+dg*dg+db*db}
+function regionDominantColors(data,maskFn,count){
+  const map=new Map();
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const i=(y*128+x)*4;if(!data[i+3]||!maskFn(x,y))continue;
+    const r=Math.round(data[i]/24)*24,g=Math.round(data[i+1]/24)*24,b=Math.round(data[i+2]/24)*24;
+    const k=(r<<16)|(g<<8)|b;map.set(k,(map.get(k)||0)+1);
+  }
+  return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,count).map(([k])=>[(k>>16)&255,(k>>8)&255,k&255]);
+}
+function makeRamp(base,levels){
+  const lum=.299*base[0]+.587*base[1]+.114*base[2], out=[];
+  const factors=levels===2?[.68,1.05]:levels===3?[.62,.92,1.16]:[.55,.78,1.0,1.20];
+  for(const f of factors){
+    const shift=f<1?[-4,-2,4]:[5,4,2];
+    out.push(base.map((v,i)=>Math.max(0,Math.min(255,Math.round(v*f+shift[i])))));
+  }
+  return out;
+}
+function applyMassRenderer(ctx){
+  const strength=+$('massStrength').value/100;if(strength<=0)return;
+  const levels=+$('massColors').value,boundary=+$('boundaryStrength').value/100,light=$('lightDir').value;
+  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d);
+  let minx=128,miny=128,maxx=-1,maxy=-1;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4;if(d[i+3]){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}}
+  if(maxx<0)return;
+  const H=maxy-miny+1,W=maxx-minx+1,cx=(minx+maxx)/2;
+  const yHead=miny+H*blueprintState.head,yShoulder=miny+H*blueprintState.shoulder,yWaist=miny+H*blueprintState.waist,yKnee=miny+H*blueprintState.knee;
+  const regions=[
+    {name:'head',fn:(x,y)=>y<=yHead,detail:Math.max(0.25,+$('faceBudget').value/100)},
+    {name:'upper',fn:(x,y)=>y>yHead&&y<=yWaist,detail:+$('bodyBudget').value/100},
+    {name:'lower',fn:(x,y)=>y>yWaist,detail:+$('limbBudget').value/100}
+  ];
+  for(const reg of regions){
+    let bases=regionDominantColors(src,reg.fn,4);
+    if(!bases.length)continue;
+    // Keep perceptually distinct bases only.
+    const distinct=[];for(const c of bases)if(!distinct.some(v=>colorDistance(v,c)<1200))distinct.push(c);
+    bases=distinct.length?distinct:bases.slice(0,1);
+    const ramps=bases.map(c=>makeRamp(c,levels));
+    for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+      const i=(y*128+x)*4;if(!src[i+3]||!reg.fn(x,y))continue;
+      const c=[src[i],src[i+1],src[i+2]];
+      let bi=0,bd=Infinity;for(let k=0;k<bases.length;k++){const dd=colorDistance(c,bases[k]);if(dd<bd){bd=dd;bi=k}}
+      let shade;
+      if(light==='flat') shade=Math.floor((levels-1)/2);
+      else{
+        const nx=(x-minx)/Math.max(1,W),ny=(y-miny)/Math.max(1,H);
+        const lit=light==='ul'?(1-nx)*.42+(1-ny)*.58:nx*.42+(1-ny)*.58;
+        // Preserve some source luminance, but force it into a few broad planes.
+        const lum=(.299*c[0]+.587*c[1]+.114*c[2])/255;
+        const score=.58*lit+.42*lum;
+        shade=Math.max(0,Math.min(levels-1,Math.floor(score*levels)));
+      }
+      const target=ramps[bi][shade];
+      const regionStrength=strength*(.72+.28*(1-reg.detail));
+      d[i]=Math.round(src[i]*(1-regionStrength)+target[0]*regionStrength);
+      d[i+1]=Math.round(src[i+1]*(1-regionStrength)+target[1]*regionStrength);
+      d[i+2]=Math.round(src[i+2]*(1-regionStrength)+target[2]*regionStrength);
+    }
+  }
+  // Explicit material/shape boundaries: strengthen only where neighboring colors differ strongly.
+  const mid=new Uint8ClampedArray(d);
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+    const i=(y*128+x)*4;if(!mid[i+3])continue;
+    let best=0;
+    for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){
+      const j=(yy*128+xx)*4;if(!mid[j+3])continue;
+      const dd=Math.sqrt((mid[i]-mid[j])**2+(mid[i+1]-mid[j+1])**2+(mid[i+2]-mid[j+2])**2);best=Math.max(best,dd);
+    }
+    if(best>58){
+      const f=1-boundary*.28;
+      d[i]=Math.round(mid[i]*f);d[i+1]=Math.round(mid[i+1]*f);d[i+2]=Math.round(mid[i+2]*f+.8);
+    }
+  }
+  // Remove checker/noise: isolated color pixels adopt dominant orthogonal neighbor.
+  const clean=new Uint8ClampedArray(d);
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+    const i=(y*128+x)*4;if(!clean[i+3])continue;
+    const own=(clean[i]<<16)|(clean[i+1]<<8)|clean[i+2],map=new Map();
+    for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){const j=(yy*128+xx)*4;if(!clean[j+3])continue;const k=(clean[j]<<16)|(clean[j+1]<<8)|clean[j+2];map.set(k,(map.get(k)||0)+1)}
+    const top=[...map.entries()].sort((a,b)=>b[1]-a[1])[0];
+    if(top&&top[1]>=3&&top[0]!==own){d[i]=top[0]>>16;d[i+1]=(top[0]>>8)&255;d[i+2]=top[0]&255}
+  }
+  ctx.putImageData(im,0,0);
+}
+
+
+
+const featureColors={face:'#ff9fbd',ear:'#ffd166',hairBack:'#6d9cff',hairFront:'#70d6ff',sleeve:'#ff70a6',weapon:'#f8f9fa',cape:'#9b5de5',wing:'#80ed99',tail:'#f8961e',accent:'#ffca3a'};
+const isLineFeature=t=>t==='weapon'||t==='tail';
+function srcPt(e){const r=inputFeatureOverlay.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))}}
+function outPt(e){const r=out.getBoundingClientRect();return{x:Math.max(0,Math.min(127,(e.clientX-r.left)*128/r.width)),y:Math.max(0,Math.min(127,(e.clientY-r.top)*128/r.height))}}
+function qRGB(r,g,b){return [Math.round(r/24)*24,Math.round(g/24)*24,Math.round(b/24)*24]}
+function analyzeSourceFeature(f){
+  if(!src.width||!src.height)return;
+  const c=src.getContext('2d'),im=c.getImageData(0,0,src.width,src.height),d=im.data,w=src.width,h=src.height;
+  const cx=f.sx*w,cy=f.sy*h,rx=Math.max(3,(f.srx||f.sr||.03)*w),ry=Math.max(3,(f.sry||f.sr||.03)*h);
+  let pts=[],colors=new Map(),lumMin=255,lumMax=0;
+  const x0=Math.max(1,Math.floor(cx-rx)),x1=Math.min(w-2,Math.ceil(cx+rx)),y0=Math.max(1,Math.floor(cy-ry)),y1=Math.min(h-2,Math.ceil(cy+ry));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const nx=(x-cx)/rx,ny=(y-cy)/ry;if(nx*nx+ny*ny>1)continue;
+    const i=(y*w+x)*4;if(d[i+3]<20)continue;const r=d[i],g=d[i+1],b=d[i+2],lum=.299*r+.587*g+.114*b;
+    const il=(y*w+x-1)*4,ir=(y*w+x+1)*4,iu=((y-1)*w+x)*4,id=((y+1)*w+x)*4;
+    const gx=Math.abs((d[ir]+d[ir+1]+d[ir+2])-(d[il]+d[il+1]+d[il+2]));
+    const gy=Math.abs((d[id]+d[id+1]+d[id+2])-(d[iu]+d[iu+1]+d[iu+2]));
+    const wt=1+Math.min(8,(gx+gy)/90);pts.push([x-cx,y-cy,wt]);lumMin=Math.min(lumMin,lum);lumMax=Math.max(lumMax,lum);
+    const q=qRGB(r,g,b).join(',');colors.set(q,(colors.get(q)||0)+1);
+  }
+  let sxx=0,syy=0,sxy=0,sw=0;for(const [x,y,wt] of pts){sxx+=x*x*wt;syy+=y*y*wt;sxy+=x*y*wt;sw+=wt}if(!sw)sw=1;sxx/=sw;syy/=sw;sxy/=sw;
+  const angle=.5*Math.atan2(2*sxy,sxx-syy),tr=sxx+syy,det=Math.sqrt(Math.max(0,(sxx-syy)*(sxx-syy)+4*sxy*sxy));
+  const l1=Math.max(.01,(tr+det)/2),l2=Math.max(.01,(tr-det)/2),aspect=Math.max(1,Math.min(8,Math.sqrt(l1/l2)));
+  const palette=[...colors.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(v=>v[0].split(',').map(Number));
+  f.structure={angle,aspect,palette,contrast:Math.round(lumMax-lumMin),samples:pts.length};
+}
+function drawInputFeatureOverlay(){
+ const c=inputFeatureOverlay.getContext('2d');c.clearRect(0,0,inputFeatureOverlay.width,inputFeatureOverlay.height);if(!inputFeatureOverlay.width)return;
+ c.font=Math.max(10,inputFeatureOverlay.width/55)+'px -apple-system';c.textAlign='center';c.textBaseline='middle';c.lineWidth=Math.max(2,inputFeatureOverlay.width/320);
+ recognitionFeatures.forEach((f,i)=>{c.strokeStyle=c.fillStyle=featureColors[f.type]||'#fff';const x=f.sx*inputFeatureOverlay.width,y=f.sy*inputFeatureOverlay.height;
+  if(f.ex!=null){const ex=f.ex*inputFeatureOverlay.width,ey=f.ey*inputFeatureOverlay.height;c.beginPath();c.moveTo(x,y);c.lineTo(ex,ey);c.stroke();c.beginPath();c.arc(x,y,4,0,Math.PI*2);c.arc(ex,ey,4,0,Math.PI*2);c.stroke();c.fillText(String(i+1),(x+ex)/2,(y+ey)/2)}
+  else{const rx=(f.srx||f.sr)*inputFeatureOverlay.width,ry=(f.sry||f.sr)*inputFeatureOverlay.height;c.save();c.translate(x,y);c.rotate(f.structure?.angle||0);c.beginPath();c.ellipse(0,0,rx,ry,0,0,Math.PI*2);c.stroke();if(f.structure){c.beginPath();c.moveTo(-rx*.8,0);c.lineTo(rx*.8,0);c.stroke()}c.restore();c.fillText(String(i+1),x,y)}})
+}
+function targetYForSource(s){let lo=0,hi=1;for(let i=0;i<20;i++){const m=(lo+hi)/2;if(editableSourceY(m)<s)lo=m;else hi=m}return(lo+hi)/2}
+function projectSourcePoint(a,nx,ny){
+ const sx=nx*a.w,sy=ny*a.h,sn=Math.max(0,Math.min(1,(sy-a.miny)/Math.max(1,a.H-1))),yn=targetYForSource(sn),idx=Math.max(0,Math.min(a.H-1,Math.round(sn*(a.H-1)))),sc=a.cent[idx],bw=a.maxx-a.minx+1,base=Math.min(1,92/bw);
+ let bc=0;for(const v of a.cent)bc+=v;bc/=a.cent.length;const mode=$('mode').value,e=+$('ex').value/100,oc=64+(sc-bc)*base*.72,scale=base*rscale(yn,mode,e)*editableWidth(yn);
+ return{x:oc+(sx-sc)*scale,y:3+yn*121,scale}
+}
+function resolvedAnchor(f){return !f.anchor||f.anchor==='auto'?defaultFeatureAnchor(f.type):f.anchor}
+function featureSide(f,a){
+ const sy=f.sy*a.h,sn=Math.max(0,Math.min(1,(sy-a.miny)/Math.max(1,a.H-1))),idx=Math.max(0,Math.min(a.H-1,Math.round(sn*(a.H-1))));
+ return f.sx*a.w<a.cent[idx]?-1:1;
+}
+function anchorPoint(a,f){
+ const kind=resolvedAnchor(f),side=featureSide(f,a);
+ const n={head:blueprintState.head*.58,shoulder:blueprintState.shoulder,hand:(blueprintState.shoulder+blueprintState.waist)*.64,back:(blueprintState.shoulder+blueprintState.waist)*.50,waist:blueprintState.waist,free:null}[kind];
+ if(n==null)return null;
+ const sn=editableSourceY(n),idx=Math.max(0,Math.min(a.H-1,Math.round(sn*(a.H-1)))),sc=a.cent[idx],bw=a.maxx-a.minx+1,base=Math.min(1,92/bw);
+ let bc=0;for(const v of a.cent)bc+=v;bc/=a.cent.length;
+ const mode=$('mode').value,e=+$('ex').value/100,oc=64+(sc-bc)*base*.72,scale=base*rscale(n,mode,e)*editableWidth(n);
+ const segs=a.ints[idx]||[];let spread=0;if(segs.length){const l=Math.min(...segs.map(s=>s[0])),r=Math.max(...segs.map(s=>s[1]));spread=(r-l)*scale*.42}
+ return{x:Math.max(0,Math.min(127,oc+(kind==='back'?0:side*spread))),y:3+n*121,kind,side}
+}
+function applyAnchor(f,a){
+ const ap=anchorPoint(a,f);f.anchorPoint=ap;if(!ap)return;
+ const s=+$('anchorStrength').value/100,dx=(ap.x-f.x)*s,dy=(ap.y-f.y)*s;
+ f.x+=dx;f.y+=dy;if(f.tx!=null){f.tx+=dx;f.ty+=dy}
+}
+function updateFeatureProjection(a){currentProjection=a;for(const f of recognitionFeatures){
+ const p=projectSourcePoint(a,f.sx,f.sy);f.x=Math.round(Math.max(0,Math.min(127,p.x+(f.ox||0))));f.y=Math.round(Math.max(0,Math.min(127,p.y+(f.oy||0))));
+ if(f.ex!=null){const q=projectSourcePoint(a,f.ex,f.ey);f.tx=Math.round(Math.max(0,Math.min(127,q.x+(f.ox||0))));f.ty=Math.round(Math.max(0,Math.min(127,q.y+(f.oy||0))));f.r=Math.max(2,Math.round(+$('featureRadius').value*.35+p.scale*.6))}
+ else{const qx=projectSourcePoint(a,Math.min(1,f.sx+(f.srx||f.sr)),f.sy),qy=projectSourcePoint(a,f.sx,Math.min(1,f.sy+(f.sry||f.sr)));f.rx=Math.max(2,Math.min(28,Math.round(Math.abs(qx.x-p.x))));f.ry=Math.max(2,Math.min(28,Math.round(Math.abs(qy.y-p.y))));f.r=Math.max(f.rx,f.ry)}
+ applyAnchor(f,a);
+}}
+function drawFeatureOverlay(){const c=featureOverlay.getContext('2d');c.clearRect(0,0,128,128);c.font='8px -apple-system';c.textAlign='center';c.textBaseline='middle';
+ recognitionFeatures.forEach((f,i)=>{c.strokeStyle=c.fillStyle=featureColors[f.type]||'#fff';c.lineWidth=1;
+ if(f.anchorPoint){c.save();c.globalAlpha=.60;c.setLineDash([2,2]);c.beginPath();c.moveTo(f.anchorPoint.x,f.anchorPoint.y);c.lineTo(f.x,f.y);c.stroke();c.setLineDash([]);c.fillRect(f.anchorPoint.x-1,f.anchorPoint.y-1,3,3);c.restore()}
+ if(f.tx!=null){c.beginPath();c.moveTo(f.x,f.y);c.lineTo(f.tx,f.ty);c.stroke();c.fillText(String(i+1),(f.x+f.tx)/2,(f.y+f.ty)/2)}else{c.save();c.translate(f.x,f.y);c.rotate(f.structure?.angle||0);c.beginPath();c.ellipse(0,0,f.rx||f.r,f.ry||f.r,0,0,Math.PI*2);c.stroke();c.restore();c.fillText(String(i+1),f.x,f.y)}});
+ const lc={back:0,body:0,front:0};for(const f of recognitionFeatures)lc[f.layer||defaultFeatureLayer(f.type)]++;
+ $('featureList').innerHTML=`<span>指定特徴</span><b>${recognitionFeatures.length}件　<span class="layerBadge layer-back">後 ${lc.back}</span><span class="layerBadge layer-body">体 ${lc.body}</span><span class="layerBadge layer-front">前 ${lc.front}</span></b>`;
+ const last=recognitionFeatures[recognitionFeatures.length-1];$('featureStats').innerHTML=last?.structure?`最新：<b>${last.type}</b>　主軸 <b>${Math.round(last.structure.angle*180/Math.PI)}°</b>　縦横比 <b>${last.structure.aspect.toFixed(1)}</b>　色差 <b>${last.structure.contrast}</b>`:'構造未抽出';
+}
+inputFeatureOverlay.addEventListener('pointerdown',e=>{if(!featureMode)return;const p=srcPt(e);featureDrag={type:$('featureType').value,start:p,current:p};inputFeatureOverlay.setPointerCapture(e.pointerId)});
+inputFeatureOverlay.addEventListener('pointermove',e=>{if(!featureDrag)return;featureDrag.current=srcPt(e);drawInputFeatureOverlay();const c=inputFeatureOverlay.getContext('2d'),s=featureDrag.start,p=featureDrag.current,x=s.x*inputFeatureOverlay.width,y=s.y*inputFeatureOverlay.height,ex=p.x*inputFeatureOverlay.width,ey=p.y*inputFeatureOverlay.height;c.strokeStyle=featureColors[featureDrag.type]||'#fff';c.lineWidth=2;c.beginPath();if(isLineFeature(featureDrag.type)){c.moveTo(x,y);c.lineTo(ex,ey)}else c.ellipse(x,y,Math.max(5,Math.abs(ex-x)),Math.max(5,Math.abs(ey-y)),0,0,Math.PI*2);c.stroke()});
+inputFeatureOverlay.addEventListener('pointerup',e=>{if(!featureDrag)return;const s=featureDrag.start,p=srcPt(e),type=featureDrag.type,budget=+$('recognitionBudget').value/100,layer=$('featureLayer').value,anchor=$('featureAnchor').value;let f;if(isLineFeature(type))f={type,sx:s.x,sy:s.y,ex:p.x,ey:p.y,budget,layer,anchor,ox:0,oy:0};else f={type,sx:s.x,sy:s.y,srx:Math.max(.008,Math.abs(p.x-s.x)),sry:Math.max(.008,Math.abs(p.y-s.y)),budget,layer,anchor,ox:0,oy:0};analyzeSourceFeature(f);recognitionFeatures.push(f);featureDrag=null;drawInputFeatureOverlay();run()});
+out.addEventListener('pointerdown',e=>{if(!adjustMode||!recognitionFeatures.length)return;const p=outPt(e);let best=-1,dist=999;recognitionFeatures.forEach((f,i)=>{const x=f.tx!=null?(f.x+f.tx)/2:f.x,y=f.ty!=null?(f.y+f.ty)/2:f.y,d=Math.hypot(p.x-x,p.y-y);if(d<dist){dist=d;best=i}});if(best>=0&&dist<24){adjustDrag={index:best,last:p};out.setPointerCapture(e.pointerId)}});
+out.addEventListener('pointermove',e=>{if(!adjustDrag)return;const p=outPt(e),f=recognitionFeatures[adjustDrag.index];f.ox=(f.ox||0)+p.x-adjustDrag.last.x;f.oy=(f.oy||0)+p.y-adjustDrag.last.y;adjustDrag.last=p;if(currentProjection){updateFeatureProjection(currentProjection);drawFeatureOverlay()}});
+out.addEventListener('pointerup',()=>{if(adjustDrag){adjustDrag=null;run()}});
+function sampleColor(src,x,y,r=3){let rr=0,gg=0,bb=0,n=0;for(let yy=Math.max(0,y-r);yy<=Math.min(127,y+r);yy++)for(let xx=Math.max(0,x-r);xx<=Math.min(127,x+r);xx++){const i=(yy*128+xx)*4;if(src[i+3]){rr+=src[i];gg+=src[i+1];bb+=src[i+2];n++}}return n?[rr/n,gg/n,bb/n]:[180,160,180]}
+function putPx(d,x,y,c,a=255){if(x<0||x>127||y<0||y>127)return;const i=(y*128+x)*4;d[i]=Math.max(0,Math.min(255,c[0]));d[i+1]=Math.max(0,Math.min(255,c[1]));d[i+2]=Math.max(0,Math.min(255,c[2]));d[i+3]=a}
+function featureRedraw(ctx,layerName='front',composite='source-over'){
+  const selected=recognitionFeatures.filter(f=>(f.layer||defaultFeatureLayer(f.type))===layerName);
+  if(!selected.length)return;
+  const baseImage=ctx.getImageData(0,0,128,128),src=new Uint8ClampedArray(baseImage.data);
+  const im=composite==='destination-over'?ctx.createImageData(128,128):baseImage;
+  const d=im.data,global=+$('redrawStrength').value/100,structure=+$('structureStrength').value/100,simplify=+$('shapeSimplify').value/100;
+  for(const f of selected){
+    const b=Math.max(.15,Math.min(1,f.budget))*global,rx=f.rx||f.r||5,ry=f.ry||f.r||5,ang=f.structure?.angle||0;
+    const sampled=sampleColor(src,f.x,f.y,Math.max(2,Math.round(Math.min(rx,ry)*.35))),pal=f.structure?.palette||[];
+    const base=pal[0]||sampled, dark=(pal[1]||base).map(v=>v*.52), light=(pal[2]||base).map(v=>Math.min(255,v*1.20+8));
+    const ca=Math.cos(ang),sa=Math.sin(ang),local=(u,v)=>[Math.round(f.x+u*ca-v*sa),Math.round(f.y+u*sa+v*ca)];
+    if(f.type==='ear'){
+      const len=Math.max(4,Math.round(rx*(.8+structure*.8))),thick=Math.max(1,Math.round(ry*(.25+(1-simplify)*.35)));
+      const sign=f.x<64?-1:1;for(let u=0;u<len;u++){const taper=Math.max(1,Math.round(thick*(1-u/len)));for(let v=-taper;v<=taper;v++){const [x,y]=local(sign*u,v);putPx(d,x,y,u>len-2?dark:(v===-taper?light:base))}}
+    }else if(f.type==='hairBack'||f.type==='hairFront'){
+      const ribbons=Math.max(2,Math.min(5,Math.round(2+b*2+(1-simplify)))),width=Math.max(1,Math.round(rx/(ribbons*2.4)));
+      for(let s=0;s<ribbons;s++){const off=(s-(ribbons-1)/2)*rx*.42;for(let k=-ry;k<=ry;k++){const curve=Math.sin((k/Math.max(1,ry))*Math.PI+s*.7)*rx*.10*structure;const [x,y]=local(off+curve,k);for(let t=0;t<width;t++)if((k+s+t)%Math.max(3,Math.round(7-structure*3))<2)putPx(d,x+t,y,(k+s)%7===0?light:base)}}
+    }else if(f.type==='sleeve'||f.type==='cape'){
+      for(let v=-ry;v<=ry;v++)for(let u=-rx;u<=rx;u++){const q=(u*u)/(rx*rx)+(v*v)/(ry*ry);if(q>1)continue;if(simplify>.5&&((u+v)%4===0)&&q<.75)continue;const [x,y]=local(u,v);putPx(d,x,y,v>ry*.25?dark:(u<-rx*.25?light:base))}
+    }else if(f.type==='weapon'){
+      const ex=f.tx!=null?f.tx:f.x+rx,ey=f.ty!=null?f.ty:f.y,dx=ex-f.x,dy=ey-f.y,len=Math.max(6,Math.round(Math.hypot(dx,dy))),nx=-dy/len,ny=dx/len,thick=Math.max(1,Math.round((1-simplify)*2+b));
+      for(let k=0;k<=len;k++){const t=k/len,x=f.x+dx*t,y=f.y+dy*t;for(let w=-thick;w<=thick;w++)putPx(d,Math.round(x+nx*w),Math.round(y+ny*w),w<0?light:(w>0?dark:base))}
+    }else if(f.type==='wing'){
+      const feathers=Math.max(3,Math.round(3+structure*3));for(let s=0;s<feathers;s++){const u0=-rx+s*(2*rx/(feathers-1));for(let k=0;k<ry;k++){const [x,y]=local(u0*(1-k/(ry*1.4)),k-ry*.2);putPx(d,x,y,k%5===0?dark:light)}}
+    }else if(f.type==='tail'){
+      const ex=f.tx!=null?f.tx:f.x,ey=f.ty!=null?f.ty:f.y+ry*2,dx=ex-f.x,dy=ey-f.y,len=Math.max(5,Math.round(Math.hypot(dx,dy)));for(let k=0;k<=len;k++){const t=k/len,x=Math.round(f.x+dx*t+Math.sin(t*Math.PI*2)*2*structure),y=Math.round(f.y+dy*t);putPx(d,x,y,k%4===0?light:base);if(b>.55)putPx(d,x+1,y,dark)}
+    }else{
+      const ring=simplify>.6?.62:.42;for(let v=-ry;v<=ry;v++)for(let u=-rx;u<=rx;u++){const q=(u*u)/(rx*rx)+(v*v)/(ry*ry);if(q<=1&&q>=ring&&((u+v)%3===0)){const [x,y]=local(u,v);putPx(d,x,y,q>.78?dark:light)}}
+    }
+  }
+  if(composite==='destination-over'){
+    const temp=document.createElement('canvas');temp.width=temp.height=128;temp.getContext('2d').putImageData(im,0,0);
+    ctx.save();ctx.globalCompositeOperation='destination-over';ctx.drawImage(temp,0,0);ctx.restore();
+  }else ctx.putImageData(im,0,0);
+}
+
+
+function protectedFeaturePixel(x,y){
+  const taper=+$('taperProtect').value/100;
+  for(const f of recognitionFeatures){
+    const rx=Math.max(3,f.rx||f.r||5),ry=Math.max(3,f.ry||f.r||5);
+    if(f.tx!=null){
+      const ax=f.x,ay=f.y,bx=f.tx,by=f.ty,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy||1;
+      const t=Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/l2));
+      const px=ax+dx*t,py=ay+dy*t;
+      if(Math.hypot(x-px,y-py)<=1.5+taper*1.6)return true;
+    }else{
+      const q=((x-f.x)*(x-f.x))/(rx*rx)+((y-f.y)*(y-f.y))/(ry*ry);
+      if(q<=1.05&&q>=.58)return true;
+    }
+    if(f.anchorPoint&&Math.hypot(x-f.anchorPoint.x,y-f.anchorPoint.y)<=2.2)return true;
+  }
+  return false;
+}
+
+
+function sourceFeatureContains(f,nx,ny){
+  if(f.ex!=null){
+    const ax=f.sx,ay=f.sy,bx=f.ex,by=f.ey,dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy||1;
+    const t=Math.max(0,Math.min(1,((nx-ax)*dx+(ny-ay)*dy)/l2));
+    return Math.hypot(nx-(ax+dx*t),ny-(ay+dy*t))<.025;
+  }
+  const rx=f.srx||f.sr||.04,ry=f.sry||f.sr||.04;
+  return ((nx-f.sx)*(nx-f.sx))/(rx*rx)+((ny-f.sy)*(ny-f.sy))/(ry*ry)<=1;
+}
+
+
+function headLocalRendererPass(ctx,a){
+  const master=+$('headLocalStrength').value/100;
+  if(master<=0||!a?.im)return;
+  const faceS=+$('localFaceStrength').value/100*master;
+  const fringeS=+$('localFringeStrength').value/100*master;
+  const hairS=+$('localHairStrength').value/100*master;
+  const earS=+$('localEarStrength').value/100*master;
+  const src=a.im.data,sw=a.w,sh=a.h,fg=a.m;
+  const out=ctx.getImageData(0,0,128,128),d=out.data;
+  const before=new Uint8ClampedArray(d);
+  const samples=[];
+  const syMax=Math.min(a.maxy,a.miny+Math.round(a.H*.38));
+  for(let sy=a.miny;sy<=syMax;sy++)for(let sx=a.minx;sx<=a.maxx;sx++){
+    const sp=sy*sw+sx;if(!fg[sp])continue;
+    const i=sp*4,r=src[i],g=src[i+1],b=src[i+2],lum=.299*r+.587*g+.114*b;
+    const p=projectSourcePoint(a,sx/sw,sy/sh),x=Math.round(p.x),y=Math.round(p.y);
+    if(x<0||x>127||y<0||y>127)continue;
+    const skin=r>90&&r>g+3&&r>b+5&&r-g<110&&r-b<135;
+    samples.push({sx,sy,x,y,r,g,b,lum,skin});
+  }
+  if(!samples.length)return;
+  const skin=samples.filter(v=>v.skin),hair=samples.filter(v=>!v.skin);
+  const xs=skin.length?skin.map(v=>v.x).sort((a,b)=>a-b):samples.map(v=>v.x).sort((a,b)=>a-b);
+  const ys=skin.length?skin.map(v=>v.y).sort((a,b)=>a-b):samples.map(v=>v.y).sort((a,b)=>a-b);
+  const q=(arr,t)=>arr[Math.min(arr.length-1,Math.max(0,Math.floor((arr.length-1)*t)))];
+  const faceL=q(xs,.12),faceR=q(xs,.88),faceT=q(ys,.08),faceB=q(ys,.94);
+  const faceCX=(faceL+faceR)/2,faceW=Math.max(4,faceR-faceL+1),faceH=Math.max(5,faceB-faceT+1);
+  const palette=[],seen=new Set();
+  for(let p=0;p<16384;p++){const i=p*4;if(!before[i+3])continue;const k=(before[i]<<16)|(before[i+1]<<8)|before[i+2];if(!seen.has(k)){seen.add(k);palette.push([before[i],before[i+1],before[i+2]])}}
+  const snap=(r,g,b)=>{let z=palette[0]||[r,g,b],bd=1e12;for(const c of palette){const dr=r-c[0],dg=g-c[1],db=b-c[2],dd=dr*dr+dg*dg+db*db;if(dd<bd){bd=dd;z=c}}return z};
+  const putBlend=(x,y,c,t)=>{if(x<0||x>127||y<0||y>127)return;const i=(y*128+x)*4;if(!d[i+3])return;const z=snap(d[i]*(1-t)+c[0]*t,d[i+1]*(1-t)+c[1]*t,d[i+2]*(1-t)+c[2]*t);d[i]=z[0];d[i+1]=z[1];d[i+2]=z[2]};
+
+  // 顔：入力由来の暗部を連結成分化し、左右の目と口候補だけを残す。
+  const dark=skin.filter(v=>v.lum<150&&v.y<faceT+faceH*.78);
+  const cells=new Map();
+  for(const v of dark){const k=v.x+','+v.y;if(!cells.has(k)||cells.get(k).lum>v.lum)cells.set(k,v)}
+  const comps=[];const used=new Set();
+  for(const [k,v] of cells){if(used.has(k))continue;const stack=[v],comp=[];used.add(k);while(stack.length){const n=stack.pop();comp.push(n);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const kk=(n.x+dx)+','+(n.y+dy);if(cells.has(kk)&&!used.has(kk)){used.add(kk);stack.push(cells.get(kk))}}}if(comp.length)comps.push(comp)}
+  const info=comps.map(c=>({c,n:c.length,x:c.reduce((s,v)=>s+v.x,0)/c.length,y:c.reduce((s,v)=>s+v.y,0)/c.length,lum:c.reduce((s,v)=>s+v.lum,0)/c.length}));
+  const eyeBand=info.filter(v=>v.y>faceT+faceH*.20&&v.y<faceT+faceH*.62&&v.n<=Math.max(18,faceW));
+  let bestPair=null,bestScore=1e9;
+  for(let i=0;i<eyeBand.length;i++)for(let j=i+1;j<eyeBand.length;j++){
+    const A=eyeBand[i],B=eyeBand[j],sep=Math.abs(A.x-B.x),dy=Math.abs(A.y-B.y),mid=(A.x+B.x)/2;
+    if(sep<faceW*.20||sep>faceW*.82)continue;
+    const score=dy*5+Math.abs(mid-faceCX)*2-Math.min(A.n,B.n)*.15;
+    if(score<bestScore){bestScore=score;bestPair=[A,B].sort((u,v)=>u.x-v.x)}
+  }
+  let faceMarks=0;const eyeColor=snap(55,38,52);
+  if(bestPair){for(const e of bestPair){const ex=Math.round(e.x),ey=Math.round(e.y);putBlend(ex,ey,eyeColor,faceS);if(faceW>=15)putBlend(ex+(ex<faceCX?1:-1),ey,eyeColor,faceS*.82);faceMarks++}}
+  const mouth=info.filter(v=>v.y>faceT+faceH*.60&&v.y<faceB&&Math.abs(v.x-faceCX)<faceW*.28).sort((a,b)=>a.lum-b.lum)[0];
+  if(mouth){putBlend(Math.round(mouth.x),Math.round(mouth.y),snap(130,62,76),faceS*.75);faceMarks++}
+
+  // 髪：投影密度から前髪・横髪・後ろ髪を分け、均一線ではなく塊ごとに色面を整理。
+  const density=new Uint16Array(16384),sumLum=new Float32Array(16384);
+  for(const v of hair){const p=v.y*128+v.x;density[p]++;sumLum[p]+=v.lum}
+  let fringe=0,side=0,back=0;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const p=y*128+x;if(!density[p])continue;const i=p*4;if(!d[i+3])continue;
+    const avg=sumLum[p]/density[p],insideFace=x>=faceL&&x<=faceR&&y>=faceT-2&&y<=faceB;
+    const isFringe=insideFace&&y<faceT+faceH*.58;
+    const isSide=!isFringe&&y<faceB+Math.round(faceH*.55)&&(x<faceL+faceW*.18||x>faceR-faceW*.18);
+    const t=isFringe?fringeS:hairS;
+    const edge=(x===0||x===127||y===0||y===127||!density[p-1]||!density[p+1]||!density[p-128]||!density[p+128]);
+    const base=[d[i],d[i+1],d[i+2]],old=.299*base[0]+.587*base[1]+.114*base[2]||1;
+    const target=edge?avg*.62:(avg>175?avg*1.08:avg*.90),sc=target/old;
+    putBlend(x,y,[Math.max(0,Math.min(255,base[0]*sc)),Math.max(0,Math.min(255,base[1]*sc)),Math.max(0,Math.min(255,base[2]*sc))],t);
+    if(isFringe)fringe++;else if(isSide)side++;else back++;
+  }
+
+  // 前髪の隙間：入力顔の目位置周辺だけ、髪で完全に塞がれた1pxを肌色へ戻す。
+  let gaps=0;
+  if(bestPair&&skin.length){
+    const skinColor=snap(...skin.sort((a,b)=>b.lum-a.lum)[Math.floor(skin.length*.35)].toString? [skin[Math.floor(skin.length*.35)].r,skin[Math.floor(skin.length*.35)].g,skin[Math.floor(skin.length*.35)].b]:[210,170,170]);
+    for(const e of bestPair){const ex=Math.round(e.x),ey=Math.round(e.y);for(let y=ey-1;y<=ey+1;y++)for(let x=ex-1;x<=ex+1;x++){const p=y*128+x;if(p<0||p>=16384||!density[p])continue;putBlend(x,y,skinColor,fringeS*.72);gaps++}}
+  }
+
+  // 耳：指定範囲がある場合だけ入力輪郭を強調。固定形状は生成しない。
+  let ears=0;
+  const earFeatures=recognitionFeatures.filter(f=>f.type==='ear');
+  for(const f of earFeatures){
+    for(const v of samples){if(!sourceFeatureContains(f,v.sx/sw,v.sy/sh))continue;const col=snap(v.r,v.g,v.b);putBlend(v.x,v.y,col,earS);ears++}
+  }
+  ctx.putImageData(out,0,0);
+  $('headLocalReport').innerHTML=`<span>顔記号</span><b>${faceMarks}</b><span>前髪 / 横髪 / 後ろ髪</span><b>${fringe} / ${side} / ${back}</b><span>目周辺の隙間</span><b>${gaps}</b><span>耳投影</span><b>${ears}</b>`;
+  return{faceMarks,fringe,side,back,gaps,ears};
+}
+
+function headDetailReprojection(ctx,a){
+  const strength=+$('headReproject').value/100,localColors=+$('headColors').value,contrast=+$('faceContrast').value/100;
+  if(strength<=0||!a?.im)return;
+  const current=ctx.getImageData(0,0,128,128),d=current.data;
+  let minx=128,miny=128,maxx=-1,maxy=-1;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){if(d[(y*128+x)*4+3]){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}}
+  if(maxx<0)return;
+  const bodyH=maxy-miny+1,headBottom=Math.min(maxy,miny+Math.round(bodyH*.25));
+  let tx0=128,tx1=-1,ty0=128,ty1=-1;
+  for(let y=miny;y<=headBottom;y++)for(let x=minx;x<=maxx;x++){if(d[(y*128+x)*4+3]){tx0=Math.min(tx0,x);tx1=Math.max(tx1,x);ty0=Math.min(ty0,y);ty1=Math.max(ty1,y)}}
+  if(tx1<tx0)return;
+
+  const sy0=a.miny,sy1=Math.min(a.maxy,a.miny+Math.round(a.H*.25));
+  let sx0=a.w,sx1=-1;
+  for(let y=sy0;y<=sy1;y++)for(let x=a.minx;x<=a.maxx;x++)if(a.m[y*a.w+x]){sx0=Math.min(sx0,x);sx1=Math.max(sx1,x)}
+  if(sx1<sx0)return;
+
+  const sourceCanvas=document.createElement('canvas');sourceCanvas.width=a.w;sourceCanvas.height=a.h;
+  sourceCanvas.getContext('2d').putImageData(a.im,0,0);
+  const patch=document.createElement('canvas');patch.width=tx1-tx0+1;patch.height=ty1-ty0+1;
+  const pc=patch.getContext('2d');pc.imageSmoothingEnabled=true;pc.imageSmoothingQuality='high';
+  pc.drawImage(sourceCanvas,sx0,sy0,sx1-sx0+1,sy1-sy0+1,0,0,patch.width,patch.height);
+  const pim=pc.getImageData(0,0,patch.width,patch.height),pd=pim.data;
+
+  // Build the existing global palette and a local head palette without dithering.
+  const palette=[],seen=new Set();
+  for(let p=0;p<16384;p++){const i=p*4;if(!d[i+3])continue;const k=(d[i]<<16)|(d[i+1]<<8)|d[i+2];if(!seen.has(k)){seen.add(k);palette.push([d[i],d[i+1],d[i+2]])}}
+  const samples=[];
+  for(let p=0;p<pd.length/4;p++){const i=p*4;if(pd[i+3]>20)samples.push([pd[i],pd[i+1],pd[i+2]])}
+  samples.sort((u,v)=>(u[0]+u[1]+u[2])-(v[0]+v[1]+v[2]));
+  const local=[];
+  for(let i=0;i<localColors&&samples.length;i++)local.push(samples[Math.min(samples.length-1,Math.round(i*(samples.length-1)/Math.max(1,localColors-1)))]);
+  const snap=(r,g,b,arr)=>{let best=arr[0]||[r,g,b],bd=1e15;for(const c of arr){const dr=r-c[0],dg=g-c[1],db=b-c[2],dd=dr*dr+dg*dg+db*db;if(dd<bd){bd=dd;best=c}}return best};
+
+  let painted=0,facePixels=0;
+  for(let py=0;py<patch.height;py++)for(let px=0;px<patch.width;px++){
+    const x=tx0+px,y=ty0+py,oi=(y*128+x)*4,pi=(py*patch.width+px)*4;
+    if(!d[oi+3]||pd[pi+3]<20)continue;
+    let r=pd[pi],g=pd[pi+1],b=pd[pi+2];
+    const lc=snap(r,g,b,local),gc=snap(lc[0],lc[1],lc[2],palette);
+    const br=Math.round(d[oi]*(1-strength)+gc[0]*strength);
+    const bg=Math.round(d[oi+1]*(1-strength)+gc[1]*strength);
+    const bb=Math.round(d[oi+2]*(1-strength)+gc[2]*strength);
+    const final=snap(br,bg,bb,palette);d[oi]=final[0];d[oi+1]=final[1];d[oi+2]=final[2];
+    painted++;
+  }
+
+  // Reinforce only actual dark face clusters in the central lower half of the head patch.
+  const cx=(tx0+tx1)/2,cy=ty0+(ty1-ty0)*.58;
+  const darkTarget=snap(58,38,52,palette);
+  for(let y=Math.round(cy-2);y<=Math.round(cy+3);y++)for(let x=Math.round(cx-(tx1-tx0)*.22);x<=Math.round(cx+(tx1-tx0)*.22);x++){
+    if(x<0||x>127||y<0||y>127)continue;const i=(y*128+x)*4;if(!d[i+3])continue;
+    const lum=.299*d[i]+.587*d[i+1]+.114*d[i+2];
+    if(lum<125&&contrast>.45){d[i]=darkTarget[0];d[i+1]=darkTarget[1];d[i+2]=darkTarget[2];facePixels++}
+  }
+
+  ctx.putImageData(current,0,0);
+  $('headReprojectReport').innerHTML=`<span>頭部転写</span><b>${painted}px</b><span>顔暗部補強</span><b>${facePixels}px</b><span>頭部色数</span><b>${local.length}</b>`;
+  return{painted,facePixels,localColors:local.length};
+}
+
+function sourceGuidedIdentityPass(ctx,a){
+  const fidelity=+$('sourceIdentity').value/100,groups=+$('hairGrouping').value,faceLine=+$('faceLineStrength').value/100;
+  if(fidelity<=0||!a?.im)return;
+  const src=a.im.data,sw=a.w,sh=a.h,fg=a.m;
+  const hairFeatures=recognitionFeatures.filter(f=>f.type==='hairBack'||f.type==='hairFront');
+  const faceFeatures=recognitionFeatures.filter(f=>f.type==='face');
+  const hairMask=new Uint8Array(16384),hairLum=new Float32Array(16384),hairCount=new Uint16Array(16384);
+  let projectedHair=0,sourceEyes=0,sourceFace=false;
+
+  // Use selected hair regions when available. Otherwise only use the actual upper foreground,
+  // never an ellipse or a generic hair template.
+  const yLimit=a.miny+Math.round(a.H*.36);
+  for(let sy=a.miny;sy<=Math.min(a.maxy,yLimit);sy++){
+    for(let sx=a.minx;sx<=a.maxx;sx++){
+      const sp=sy*sw+sx;if(!fg[sp])continue;
+      const nx=sx/sw,ny=sy/sh;
+      const inSelected=hairFeatures.length?hairFeatures.some(f=>sourceFeatureContains(f,nx,ny)):true;
+      if(!inSelected)continue;
+      const si=sp*4,r=src[si],g=src[si+1],b=src[si+2];
+      const warm=r>105&&r>g+4&&r>b+6&&r-g<95&&r-b<120;
+      if(warm)continue;
+      const p=projectSourcePoint(a,nx,ny),x=Math.round(p.x),y=Math.round(p.y);
+      if(x<0||x>127||y<0||y>127)continue;
+      const op=y*128+x;hairMask[op]=1;hairLum[op]+=.299*r+.587*g+.114*b;hairCount[op]++;projectedHair++;
+    }
+  }
+
+  // Row-run cleanup preserves the source contour while removing only single-pixel chatter.
+  const cleaned=hairMask.slice();
+  let contourFix=0;
+  for(let y=1;y<127;y++){
+    let runs=[],start=-1;
+    for(let x=0;x<=128;x++){
+      const on=x<128&&hairMask[y*128+x];
+      if(on&&start<0)start=x;
+      if(!on&&start>=0){runs.push([start,x-1]);start=-1}
+    }
+    for(const [l,r] of runs){
+      if(r-l===0){
+        const above=hairMask[(y-1)*128+l],below=hairMask[(y+1)*128+l];
+        if(!above&&!below){cleaned[y*128+l]=0;contourFix++}
+      }
+    }
+  }
+
+  // Palette from the actual projected hair luminance.
+  const values=[];
+  for(let p=0;p<16384;p++)if(cleaned[p]&&hairCount[p])values.push(hairLum[p]/hairCount[p]);
+  values.sort((x,y)=>x-y);
+  const q=(t)=>values.length?values[Math.min(values.length-1,Math.floor(values.length*t))]:150;
+  const darkV=q(.22),baseV=q(.55),lightV=q(.84);
+  const out=ctx.getImageData(0,0,128,128),d=out.data,orig=new Uint8ClampedArray(d);
+  const palette=[],seenPalette=new Set();
+  for(let p=0;p<16384;p++){const i=p*4;if(!orig[i+3])continue;const k=(orig[i]<<16)|(orig[i+1]<<8)|orig[i+2];if(!seenPalette.has(k)){seenPalette.add(k);palette.push([orig[i],orig[i+1],orig[i+2]])}}
+  const snap=(r,g,b)=>{let best=palette[0]||[r,g,b],bd=1e12;for(const c of palette){const dr=r-c[0],dg=g-c[1],db=b-c[2],dd=dr*dr+dg*dg+db*db;if(dd<bd){bd=dd;best=c}}return best};
+  let hairPainted=0;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const p=y*128+x;if(!cleaned[p])continue;
+    const i=p*4;
+    const lum=hairCount[p]?hairLum[p]/hairCount[p]:baseV;
+    const edge=![p-1,p+1,p-128,p+128].every(k=>k>=0&&k<16384&&cleaned[k]);
+    let target=edge?darkV:(lum>lightV?lightV:lum<darkV?darkV:baseV);
+    // Preserve hue from current/source-derived result; change value grouping only.
+    let rr=d[i],gg=d[i+1],bb=d[i+2];
+    if(!d[i+3]){rr=gg=bb=target;d[i+3]=255}
+    const oldLum=.299*rr+.587*gg+.114*bb||1,scale=target/oldLum;
+    const nr=Math.max(0,Math.min(255,Math.round(rr*(1-fidelity)+rr*scale*fidelity)));
+    const ng=Math.max(0,Math.min(255,Math.round(gg*(1-fidelity)+gg*scale*fidelity)));
+    const nb=Math.max(0,Math.min(255,Math.round(bb*(1-fidelity)+bb*scale*fidelity)));
+    const sc=snap(nr,ng,nb);d[i]=sc[0];d[i+1]=sc[1];d[i+2]=sc[2];
+    hairPainted++;
+  }
+
+  // Detect facial dark clusters from the actual input face region.
+  let faceCandidates=[];
+  const faceFeature=faceFeatures[0]||null;
+  const faceY0=a.miny+Math.round(a.H*.08),faceY1=a.miny+Math.round(a.H*.30);
+  for(let sy=faceY0;sy<=Math.min(a.maxy,faceY1);sy++)for(let sx=a.minx;sx<=a.maxx;sx++){
+    const sp=sy*sw+sx;if(!fg[sp])continue;const nx=sx/sw,ny=sy/sh;
+    if(faceFeature&&!sourceFeatureContains(faceFeature,nx,ny))continue;
+    const si=sp*4,r=src[si],g=src[si+1],b=src[si+2],lum=.299*r+.587*g+.114*b;
+    const warm=r>90&&r>g+2&&r>b+4&&r-g<105&&r-b<130;
+    if(warm&&lum<145)faceCandidates.push({sx,sy,nx,ny,lum});
+  }
+  if(faceCandidates.length){
+    sourceFace=true;
+    // Split around the median x and select the darkest compact candidate on each side.
+    const med=faceCandidates.map(v=>v.sx).sort((a,b)=>a-b)[Math.floor(faceCandidates.length/2)];
+    const sides=[faceCandidates.filter(v=>v.sx<med),faceCandidates.filter(v=>v.sx>=med)];
+    const eyePoints=[];
+    for(const side of sides){
+      if(!side.length)continue;
+      side.sort((a,b)=>a.lum-b.lum);
+      const best=side.slice(0,Math.min(20,side.length));
+      const nx=best.reduce((s,v)=>s+v.nx,0)/best.length,ny=best.reduce((s,v)=>s+v.ny,0)/best.length;
+      eyePoints.push(projectSourcePoint(a,nx,ny));
+    }
+    const eyeTarget=[58,38,52],eyePalette=[],eyeSeen=new Set();
+  for(let p=0;p<16384;p++){const i=p*4;if(!src[i+3])continue;const k=(src[i]<<16)|(src[i+1]<<8)|src[i+2];if(!eyeSeen.has(k)){eyeSeen.add(k);eyePalette.push([src[i],src[i+1],src[i+2]])}}
+  let eyeColor=eyeTarget,bestEye=1e12;
+  for(const c of eyePalette){const dr=c[0]-eyeTarget[0],dg=c[1]-eyeTarget[1],db=c[2]-eyeTarget[2],dd=dr*dr+dg*dg+db*db;if(dd<bestEye){bestEye=dd;eyeColor=c}};
+    for(const p of eyePoints){
+      const x=Math.round(p.x),y=Math.round(p.y);
+      for(const [dx,dy] of [[0,0],[faceLine>.65?1:0,0]]){
+        const xx=x+dx,yy=y+dy;if(xx<0||xx>127||yy<0||yy>127)continue;const i=(yy*128+xx)*4;
+        if(d[i+3]){d[i]=eyeColor[0];d[i+1]=eyeColor[1];d[i+2]=eyeColor[2];sourceEyes++}
+      }
+    }
+  }
+
+  // Broken highlight groups: do not draw evenly spaced geometric ribbons.
+  let highlights=0;
+  if(groups>1&&hairPainted){
+    const step=Math.max(3,Math.round(11-groups));
+    for(let y=2;y<126;y++){
+      let row=[];
+      for(let x=1;x<127;x++)if(cleaned[y*128+x])row.push(x);
+      if(row.length<8||y%step!==0)continue;
+      const l=row[0],r=row[row.length-1],segments=Math.min(groups,Math.max(2,Math.floor(row.length/8)));
+      for(let s=0;s<segments;s++){
+        const x=Math.round(l+(s+.5)*(r-l)/segments+Math.sin(y*.31+s*1.7));
+        const i=(y*128+x)*4;if(!cleaned[y*128+x]||!d[i+3])continue;
+        const hc=snap(Math.min(255,Math.round(d[i]*1.13+5)),Math.min(255,Math.round(d[i+1]*1.13+5)),Math.min(255,Math.round(d[i+2]*1.13+6)));
+        d[i]=hc[0];d[i+1]=hc[1];d[i+2]=hc[2];highlights++;
+      }
+    }
+  }
+  ctx.putImageData(out,0,0);
+  $('sourceIdentityReport').innerHTML=`<span>入力髪投影</span><b>${projectedHair}</b><span>髪再構成</span><b>${hairPainted}</b><span>輪郭整理</span><b>${contourFix}</b><span>入力由来の目</span><b>${sourceEyes}</b>`;
+  return{projectedHair,hairPainted,contourFix,sourceEyes,sourceFace,highlights};
+}
+
+
+function fringeAndTipRhythmPass(ctx,a){
+  const eyeExposure=+$('eyeExposure').value/100,fringeS=+$('fringeCleanup').value/100,tipS=+$('tipRhythm').value/100;
+  const face=recognitionFeatures.find(f=>f.type==='face');
+  const frontHair=recognitionFeatures.filter(f=>f.type==='hairFront');
+  const backHair=recognitionFeatures.filter(f=>f.type==='hairBack');
+  if(!face&&!frontHair.length&&!backHair.length){
+    $('fringeTipReport').innerHTML='<span>前髪/毛先</span><b>特徴未指定</b>';return;
+  }
+
+  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d);
+  let fringeRemoved=0,eyeRecovered=0,tipRemoved=0,tipKept=0,tipAdded=0;
+
+  // Estimate face projection.
+  let fx=64,fy=28,frx=10,fry=12;
+  if(face){
+    fx=face.x;fy=face.y;frx=face.rx||face.r||10;fry=face.ry||face.r||12;
+  }else{
+    const bbox=editorAlphaBBox?editorAlphaBBox():null;
+    if(bbox){fx=(bbox[0]+bbox[2])/2;fy=bbox[1]+(bbox[3]-bbox[1])*.16;frx=(bbox[2]-bbox[0])*.10;fry=(bbox[3]-bbox[1])*.09}
+  }
+
+  // Eye line from source-guided face candidates, fallback to face-relative.
+  const eyeY=Math.round(fy-fry*.08),leftEyeX=Math.round(fx-frx*.32),rightEyeX=Math.round(fx+frx*.32);
+  const eyeXs=[leftEyeX,rightEyeX];
+
+  // 1) Fringe cleanup around eye line.
+  // Remove only hair-colored pixels directly covering both eye cores.
+  if(fringeS>.05){
+    for(const ex of eyeXs){
+      for(let y=eyeY-1;y<=eyeY+1;y++)for(let x=ex-1;x<=ex+1;x++){
+        if(x<1||x>126||y<1||y>126)continue;
+        const i=(y*128+x)*4;if(!d[i+3])continue;
+        let isFront=false;
+        for(const f of frontHair){
+          const rx=f.rx||f.r||6,ry=f.ry||f.r||6;
+          if(((x-f.x)*(x-f.x))/(rx*rx)+((y-f.y)*(y-f.y))/(ry*ry)<=1.2){isFront=true;break}
+        }
+        if(!isFront&&frontHair.length)continue;
+        const r=d[i],g=d[i+1],b=d[i+2],warm=r>100&&r>g+4&&r>b+6&&r-g<95&&r-b<120;
+        if(warm)continue;
+        const distance=Math.hypot(x-ex,y-eyeY);
+        const keepProb=eyeExposure-(distance*.12);
+        if(keepProb>.45&&fringeS>.35){
+          // Pull nearest skin-like neighbor, otherwise clear.
+          let best=null;
+          for(let yy=y-2;yy<=y+2;yy++)for(let xx=x-2;xx<=x+2;xx++){
+            if(xx<0||xx>127||yy<0||yy>127)continue;
+            const j=(yy*128+xx)*4;if(!src[j+3])continue;
+            const rr=src[j],gg=src[j+1],bb=src[j+2],skin=rr>100&&rr>gg+4&&rr>bb+6&&rr-gg<95&&rr-bb<120;
+            if(skin){best=[rr,gg,bb];break}
+          }
+          if(best){d[i]=best[0];d[i+1]=best[1];d[i+2]=best[2];eyeRecovered++}
+          else d[i+3]=0;
+          fringeRemoved++;
+        }
+      }
+    }
+  }
+
+  // Restore eye clusters after fringe cleanup.
+  const eyeTarget=[58,38,52],eyePalette=[],eyeSeen=new Set();
+  for(let p=0;p<16384;p++){const i=p*4;if(!src[i+3])continue;const k=(src[i]<<16)|(src[i+1]<<8)|src[i+2];if(!eyeSeen.has(k)){eyeSeen.add(k);eyePalette.push([src[i],src[i+1],src[i+2]])}}
+  let eyeColor=eyeTarget,bestEye=1e12;
+  for(const c of eyePalette){const dr=c[0]-eyeTarget[0],dg=c[1]-eyeTarget[1],db=c[2]-eyeTarget[2],dd=dr*dr+dg*dg+db*db;if(dd<bestEye){bestEye=dd;eyeColor=c}};
+  for(const ex of eyeXs){
+    const width=eyeExposure>.78?2:1;
+    for(let k=0;k<width;k++){
+      const x=ex+(ex<fx?k:-k),y=eyeY,i=(y*128+x)*4;
+      if(x>=0&&x<128&&y>=0&&y<128&&d[i+3]){
+        d[i]=eyeColor[0];d[i+1]=eyeColor[1];d[i+2]=eyeColor[2];eyeRecovered++;
+      }
+    }
+  }
+
+  // 2) Hair tip rhythm. Detect terminal hair pixels near selected hair features.
+  const hairFeatures=[...frontHair,...backHair];
+  const terminals=[];
+  const on=(x,y)=>x>=0&&x<128&&y>=0&&y<128&&d[(y*128+x)*4+3];
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+    const i=(y*128+x)*4;if(!d[i+3])continue;
+    let inHair=false;
+    for(const f of hairFeatures){
+      const rx=f.rx||f.r||6,ry=f.ry||f.r||6;
+      if(((x-f.x)*(x-f.x))/(rx*rx)+((y-f.y)*(y-f.y))/(ry*ry)<=1.25){inHair=true;break}
+    }
+    if(!inHair)continue;
+    const r=d[i],g=d[i+1],b=d[i+2],warm=r>100&&r>g+4&&r>b+6&&r-g<95&&r-b<120;
+    if(warm)continue;
+    const orth=[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(p=>on(p[0],p[1])).length;
+    if(orth===1)terminals.push({x,y});
+  }
+
+  // Sort tips left-to-right and alternate long/medium/short cadence.
+  terminals.sort((a,b)=>a.x-b.x||a.y-b.y);
+  const cadence=[2,1,3,1,2];
+  const keepSet=new Set();
+  for(let i=0;i<terminals.length;i++){
+    const t=terminals[i],target=cadence[i%cadence.length];
+    if(i===0||i===terminals.length-1||target>=2||tipS<.55){
+      keepSet.add(t.y*128+t.x);tipKept++;
+      // extend selected strong tips by 1px following local outward direction
+      if(tipS>.68&&target===3){
+        let dx=t.x<fx?-1:1,dy=t.y>fy?1:0;
+        const nx=t.x+dx,ny=t.y+dy,ni=(ny*128+nx)*4,si=(t.y*128+t.x)*4;
+        if(nx>=0&&nx<128&&ny>=0&&ny<128&&!d[ni+3]){
+          d[ni]=d[si];d[ni+1]=d[si+1];d[ni+2]=d[si+2];d[ni+3]=255;tipAdded++;
+        }
+      }
+    }
+  }
+  for(const t of terminals){
+    const p=t.y*128+t.x;if(keepSet.has(p))continue;
+    if(tipS>.45&&!protectedFeaturePixel(t.x,t.y)){
+      d[p*4+3]=0;tipRemoved++;
+    }
+  }
+
+  ctx.putImageData(im,0,0);
+  $('fringeTipReport').innerHTML=`<span>前髪整理</span><b>${fringeRemoved}</b><span>目の復元</span><b>${eyeRecovered}</b><span>毛先 保持/除去/追加</span><b>${tipKept}/${tipRemoved}/${tipAdded}</b>`;
+  return{fringeRemoved,eyeRecovered,tipKept,tipRemoved,tipAdded};
+}
+
+function identityMassPass(ctx){
+  const hairS=+$('hairMassStrength').value/100, faceS=+$('faceStrength').value/100, impression=$('faceImpression').value;
+  if(hairS<=0&&faceS<=0)return;
+  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d);
+  let minx=128,miny=128,maxx=-1,maxy=-1;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){const i=(y*128+x)*4;if(src[i+3]){minx=Math.min(minx,x);maxx=Math.max(maxx,x);miny=Math.min(miny,y);maxy=Math.max(maxy,y)}}
+  if(maxx<0)return;
+  const H=maxy-miny+1,W=maxx-minx+1,cx=(minx+maxx)>>1,headBottom=Math.min(maxy,miny+Math.round(H*.34));
+
+  // Find a compact face candidate using warm pixels near the head center.
+  let sx=0,sy=0,n=0;
+  for(let y=miny+2;y<=headBottom;y++)for(let x=Math.max(minx,cx-Math.round(W*.24));x<=Math.min(maxx,cx+Math.round(W*.24));x++){
+    const i=(y*128+x)*4;if(!src[i+3])continue;const r=src[i],g=src[i+1],b=src[i+2];
+    if(r>105&&r>g+4&&r>b+6&&r-g<95&&r-b<120){sx+=x;sy+=y;n++}
+  }
+  const fx=n?Math.round(sx/n):cx, fy=n?Math.round(sy/n):miny+Math.round(H*.16);
+  const fw=Math.max(10,Math.min(22,Math.round(W*.20))),fh=Math.max(12,Math.min(25,Math.round(H*.17)));
+
+  // Hair mass: unify upper silhouette into 3 large value groups and reinforce the outer mass.
+  let hairPixels=0,hairChanged=0;
+  if(hairS>.05){
+    const values=[];
+    for(let y=miny;y<=headBottom;y++)for(let x=minx;x<=maxx;x++){
+      const i=(y*128+x)*4;if(!src[i+3])continue;
+      const r=src[i],g=src[i+1],b=src[i+2];
+      const warm=r>105&&r>g+4&&r>b+6&&r-g<95&&r-b<120;
+      if(!warm){values.push([r,g,b]);hairPixels++}
+    }
+    let base=[160,150,170];
+    if(values.length){
+      values.sort((a,b)=>(a[0]+a[1]+a[2])-(b[0]+b[1]+b[2]));
+      base=values[Math.floor(values.length*.55)];
+    }
+    const shadow=base.map(v=>Math.max(0,Math.round(v*.58))),light=base.map(v=>Math.min(255,Math.round(v*1.18+8)));
+    for(let y=miny;y<=headBottom;y++){
+      let l=128,r=-1;
+      for(let x=minx;x<=maxx;x++){const i=(y*128+x)*4;if(src[i+3]){const rr=src[i],gg=src[i+1],bb=src[i+2];const warm=rr>105&&rr>gg+4&&rr>bb+6&&rr-gg<95&&rr-bb<120;if(!warm){l=Math.min(l,x);r=Math.max(r,x)}}}
+      if(r-l<5)continue;
+      for(let x=l;x<=r;x++){
+        const i=(y*128+x)*4;if(!src[i+3])continue;
+        const rr=src[i],gg=src[i+1],bb=src[i+2],warm=rr>105&&rr>gg+4&&rr>bb+6&&rr-gg<95&&rr-bb<120;if(warm)continue;
+        const t=(x-l)/Math.max(1,r-l), edge=Math.min(t,1-t);
+        let c=base;
+        if(edge<.12+hairS*.05)c=shadow;
+        else if((Math.sin(y*.22+t*9)+Math.sin(y*.09-t*5))>1.05)c=light;
+        else if((x+y)%7===0&&hairS>.65)c=light;
+        d[i]=Math.round(d[i]*(1-hairS)+c[0]*hairS);d[i+1]=Math.round(d[i+1]*(1-hairS)+c[1]*hairS);d[i+2]=Math.round(d[i+2]*(1-hairS)+c[2]*hairS);hairChanged++;
+      }
+    }
+  }
+
+  // Face impression: direct pixel clusters, no pasted facial asset.
+  let facialPixels=0;
+  if(faceS>.05){
+    const eyeY=fy-Math.round(fh*.08),dx=Math.max(3,Math.round(fw*.22));
+    const dark=[62,42,54],mouth=[126,62,73],brow=[84,58,66];
+    let eyeLen=1,eyeDrop=0,browTilt=0,mouthOffset=Math.round(fh*.25);
+    if(impression==='cute'){eyeLen=2;eyeDrop=1;mouthOffset=Math.round(fh*.29)}
+    if(impression==='cool'){eyeLen=2;browTilt=-1;mouthOffset=Math.round(fh*.25)}
+    if(impression==='sleepy'){eyeLen=2;eyeDrop=1;browTilt=1;mouthOffset=Math.round(fh*.22)}
+    if(impression==='neutral'){eyeLen=1;mouthOffset=Math.round(fh*.26)}
+    const put=(x,y,c)=>{if(x<0||x>127||y<0||y>127)return;const i=(y*128+x)*4;if(!d[i+3])return;d[i]=c[0];d[i+1]=c[1];d[i+2]=c[2];facialPixels++};
+    for(const ex of [fx-dx,fx+dx]){
+      for(let k=0;k<eyeLen;k++)put(ex+(ex<fx?k:-k),eyeY+eyeDrop,dark);
+      if(faceS>.75)put(ex,eyeY+eyeDrop+1,dark);
+      if(faceS>.55)put(ex,eyeY-2+browTilt*(ex<fx?-1:1),brow);
+    }
+    const my=fy+mouthOffset;
+    put(fx,my,mouth);if(faceS>.80)put(fx+1,my,mouth);
+  }
+  ctx.putImageData(im,0,0);
+  $('identityReport').innerHTML=`<span>髪Mass画素</span><b>${hairChanged}</b><span>顔再描画</span><b>${facialPixels}</b><span>印象</span><b>${impression}</b>`;
+}
+
+function contourGrammar(ctx){
+  const strength=+$('contourStrength').value/100,rhythm=+$('stepRhythm').value/100;
+  if(strength<=0){$('contourReport').innerHTML='<span>輪郭整理</span><b>OFF</b>';return}
+  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d);
+  const on=(data,x,y)=>x>=0&&x<128&&y>=0&&y<128&&data[(y*128+x)*4+3]>0;
+  let spikes=0,notches=0,rhythmFix=0,preserved=0;
+
+  // Pass 1: remove only exposed one-pixel spikes that are not identity features.
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+    const i=(y*128+x)*4;if(!src[i+3])continue;
+    let orth=0,diag=0;
+    for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]])if(on(src,x+dx,y+dy))orth++;
+    for(const [dx,dy] of [[-1,-1],[1,-1],[-1,1],[1,1]])if(on(src,x+dx,y+dy))diag++;
+    if(orth<=1&&diag<=2){
+      if(protectedFeaturePixel(x,y)){preserved++;continue}
+      if(strength>.35){d[i+3]=0;spikes++}
+    }
+  }
+
+  // Pass 2: fill concave one-pixel notches only where three orthogonal neighbors agree.
+  const mid=new Uint8ClampedArray(d);
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+    const i=(y*128+x)*4;if(mid[i+3])continue;
+    const ns=[[x-1,y],[x+1,y],[x,y-1],[x,y+1]].filter(p=>on(mid,p[0],p[1]));
+    if(ns.length===3&&strength>.46){
+      let rr=0,gg=0,bb=0;
+      for(const [xx,yy] of ns){const j=(yy*128+xx)*4;rr+=mid[j];gg+=mid[j+1];bb+=mid[j+2]}
+      d[i]=rr/3;d[i+1]=gg/3;d[i+2]=bb/3;d[i+3]=255;notches++;
+    }
+  }
+
+  // Pass 3: regularize 1-1-1 stair noise into 1-2 rhythm without touching protected tips.
+  const cur=new Uint8ClampedArray(d);
+  if(rhythm>.2){
+    for(let y=2;y<126;y++)for(let x=2;x<126;x++){
+      if(!on(cur,x,y)||protectedFeaturePixel(x,y))continue;
+      const edgeRight=!on(cur,x+1,y),edgeDown=!on(cur,x,y+1);
+      if(edgeRight&&on(cur,x,y-1)&&!on(cur,x+1,y-1)&&on(cur,x-1,y+1)&&!on(cur,x,y+1)){
+        if(((x+y)&1)===0&&rhythm>.55){
+          const srcI=(y*128+x)*4,dstI=((y+1)*128+x)*4;
+          d[dstI]=cur[srcI];d[dstI+1]=cur[srcI+1];d[dstI+2]=cur[srcI+2];d[dstI+3]=255;rhythmFix++;
+        }
+      }else if(edgeDown&&on(cur,x-1,y)&&!on(cur,x-1,y+1)&&on(cur,x+1,y-1)&&!on(cur,x+1,y)){
+        if(((x+y)&1)===1&&rhythm>.55){
+          const srcI=(y*128+x)*4,dstI=(y*128+x+1)*4;
+          d[dstI]=cur[srcI];d[dstI+1]=cur[srcI+1];d[dstI+2]=cur[srcI+2];d[dstI+3]=255;rhythmFix++;
+        }
+      }
+    }
+  }
+
+  // Pass 4: selective outline refresh after silhouette edits.
+  const shaped=new Uint8ClampedArray(d);
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){
+    const i=(y*128+x)*4;if(!shaped[i+3])continue;
+    let exposed=0;
+    for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]])if(!on(shaped,x+dx,y+dy))exposed++;
+    if(exposed){
+      const factor=exposed>=2?.54:.68;
+      d[i]=Math.round(shaped[i]*factor);
+      d[i+1]=Math.round(shaped[i+1]*factor);
+      d[i+2]=Math.round(shaped[i+2]*factor+.5);
+    }
+  }
+  ctx.putImageData(im,0,0);
+  $('contourReport').innerHTML=`<span>突起除去 / 凹み補完</span><b>${spikes} / ${notches}</b><span>段差調整</span><b>${rhythmFix}</b><span>特徴先端保護</span><b>${preserved}</b>`;
+  return{spikes,notches,rhythmFix,preserved};
+}
+
+function pixelCritic(ctx,applyFix=true){
+  const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d),alpha=p=>src[p*4+3]>0;
+  let isolated=0,holes=0,banding=0,jag=0,colors=new Set(),opaque=0;
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){const p=y*128+x,i=p*4;if(alpha(p)){opaque++;colors.add((src[i]<<16)|(src[i+1]<<8)|src[i+2]);let n=0;for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]])if(alpha(yy*128+xx))n++;if(n===0){isolated++;if(applyFix&&+$('criticStrength').value>35){d[i+3]=0}}
+      const l=alpha(p-1),r=alpha(p+1),u=alpha(p-128),dn=alpha(p+128);if((l&&r&&!u&&!dn)||(u&&dn&&!l&&!r))jag++;
+      const c1=Math.abs(src[i]-src[i-4])+Math.abs(src[i+1]-src[i-3])+Math.abs(src[i+2]-src[i-2]);const c2=Math.abs(src[i]-src[i+4])+Math.abs(src[i+1]-src[i+5])+Math.abs(src[i+2]-src[i+6]);if(c1<9&&c2<9&&((x+y)%2===0))banding++;
+    }else{let n=0;for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]])if(alpha(yy*128+xx))n++;if(n===4){holes++;if(applyFix&&+$('criticStrength').value>45){let rr=0,gg=0,bb=0;for(const [xx,yy] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]){const j=(yy*128+xx)*4;rr+=src[j];gg+=src[j+1];bb+=src[j+2]}putPx(d,x,y,[rr/4,gg/4,bb/4])}}}
+  }
+  if(applyFix)ctx.putImageData(im,0,0);
+  const penalty=isolated*2.2+holes*1.8+Math.min(25,jag*.03)+Math.min(20,banding*.006)+Math.max(0,colors.size-40)*.7;
+  const score=Math.max(0,Math.round(100-penalty));
+  $('criticScore').textContent=`${score}/100`;$('criticScore').className='score '+(score>=80?'ok':score>=60?'warn':'bad');
+  $('criticReport').innerHTML=`<span>孤立ドット</span><b>${isolated}</b><span>1px穴</span><b>${holes}</b><span>ジャギ候補</span><b>${jag}</b><span>バンディング候補</span><b>${banding}</b><span>使用色</span><b>${colors.size}</b>`;
+  return {score,isolated,holes,jag,banding,colors:colors.size,opaque};
+}
+
+
+function alphaComponents(data){
+ const on=new Uint8Array(16384),seen=new Uint8Array(16384),sizes=[];for(let p=0;p<16384;p++)on[p]=data[p*4+3]?1:0;
+ for(let p=0;p<16384;p++){if(!on[p]||seen[p])continue;let q=[p],qi=0,n=0;seen[p]=1;
+  while(qi<q.length){const v=q[qi++],x=v%128,y=(v/128)|0;n++;for(const u of [v-1,v+1,v-128,v+128]){if(u<0||u>=16384)continue;const ux=u%128,uy=(u/128)|0;if(Math.abs(ux-x)+Math.abs(uy-y)!==1)continue;if(on[u]&&!seen[u]){seen[u]=1;q.push(u)}}}sizes.push(n)}
+ return sizes.sort((a,b)=>b-a)
+}
+function evaluateArtistQuality(ctx){
+ const d=ctx.getImageData(0,0,128,128).data,colors=new Set();let isolated=0,holes=0;
+ for(let y=1;y<127;y++)for(let x=1;x<127;x++){const p=y*128+x,i=p*4,n=[p-1,p+1,p-128,p+128].filter(u=>d[u*4+3]).length;if(d[i+3]){colors.add((d[i]<<16)|(d[i+1]<<8)|d[i+2]);if(n===0)isolated++}else if(n===4)holes++}
+ const comps=alphaComponents(d),small=comps.slice(1).filter(n=>n<12).length;let detached=0;
+ for(const f of recognitionFeatures){if(!f.anchorPoint)continue;if(Math.hypot(f.x-f.anchorPoint.x,f.y-f.anchorPoint.y)>Math.max(7,(f.r||6)*1.25))detached++}
+ let roughEdges=0;
+ for(let y=1;y<127;y++)for(let x=1;x<127;x++){const p=y*128+x,i=p*4;if(!d[i+3])continue;const n=[p-1,p+1,p-128,p+128].filter(u=>d[u*4+3]).length;if(n===1&&!protectedFeaturePixel(x,y))roughEdges++}
+ const score=Math.max(0,Math.round(100-isolated*2-holes*1.2-small*3-detached*8-roughEdges*.45-Math.max(0,colors.size-40)*.7));
+ const pass=score>=82&&detached===0&&small<=2&&colors.size<=48,cls=pass?'qualityPass':score>=68?'qualityWarn':'qualityFail';
+ $('qualityMeter').style.width=score+'%';
+ $('qualityGate').innerHTML=`<span>総合</span><b class="${cls}">${score}/100 ${pass?'合格':'要改善'}</b><span>接続不良</span><b>${detached}</b><span>小分断</span><b>${small}</b><span>荒い突起</span><b>${roughEdges}</b><span>孤立 / 穴</span><b>${isolated} / ${holes}</b><span>使用色</span><b>${colors.size}</b>`;
+}
+
+
+
+function setEditTool(t){
+  editTool=t;
+  for(const id of ['editBrush','editCluster','editErase','editPick'])$(id).classList.remove('toolActive');
+  $(t==='brush'?'editBrush':t==='cluster'?'editCluster':t==='erase'?'editErase':'editPick').classList.add('toolActive');
+}
+$('editBrush').onclick=()=>setEditTool('brush');
+$('editCluster').onclick=()=>setEditTool('cluster');
+$('editErase').onclick=()=>setEditTool('erase');
+$('editPick').onclick=()=>setEditTool('pick');
+$('editSize').oninput=()=>$('editSizeo').textContent=$('editSize').value;
+$('refOpacity').oninput=()=>{$('refOpacityo').textContent=$('refOpacity').value;renderEditor()};
+$('showReference').onclick=()=>{referenceVisible=!referenceVisible;$('showReference').textContent=referenceVisible?'参照を隠す':'参照を表示';renderEditor()};
+
+function setFocus(type){
+  const bbox=editorAlphaBBox();
+  if(type==='full'||!bbox)editView={x:0,y:0,w:128,h:128};
+  else{
+    const [x0,y0,x1,y1]=bbox,H=y1-y0+1,W=x1-x0+1;
+    if(type==='head')editView={x:Math.max(0,x0-Math.round(W*.08)),y:Math.max(0,y0-3),w:Math.min(128,Math.round(W*1.16)),h:Math.min(128,Math.round(H*.42))};
+    if(type==='upper')editView={x:Math.max(0,x0-Math.round(W*.06)),y:Math.max(0,y0+Math.round(H*.18)),w:Math.min(128,Math.round(W*1.12)),h:Math.min(128,Math.round(H*.48))};
+    if(type==='lower')editView={x:Math.max(0,x0-Math.round(W*.06)),y:Math.max(0,y0+Math.round(H*.50)),w:Math.min(128,Math.round(W*1.12)),h:Math.min(128,Math.round(H*.50))};
+    editView.x=Math.min(editView.x,128-editView.w);editView.y=Math.min(editView.y,128-editView.h);
+  }
+  for(const id of ['focusFull','focusHead','focusUpper','focusLower'])$(id).classList.remove('focusActive');
+  $(type==='full'?'focusFull':type==='head'?'focusHead':type==='upper'?'focusUpper':'focusLower').classList.add('focusActive');
+  renderEditor();
+}
+$('focusFull').onclick=()=>setFocus('full');
+$('focusHead').onclick=()=>setFocus('head');
+$('focusUpper').onclick=()=>setFocus('upper');
+$('focusLower').onclick=()=>setFocus('lower');
+
+function editorAlphaBBox(){
+  const d=editBuffer.getContext('2d').getImageData(0,0,128,128).data;
+  let x0=128,y0=128,x1=-1,y1=-1;
+  for(let y=0;y<128;y++)for(let x=0;x<128;x++){if(d[(y*128+x)*4+3]){x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}}
+  return x1<0?null:[x0,y0,x1,y1];
+}
+function editorPoint(e){
+  const r=editor.getBoundingClientRect();
+  const vx=(e.clientX-r.left)*editView.w/r.width,vy=(e.clientY-r.top)*editView.h/r.height;
+  return{x:Math.max(0,Math.min(127,Math.floor(editView.x+vx))),y:Math.max(0,Math.min(127,Math.floor(editView.y+vy)))};
+}
+function snapshotBuffer(){return editBuffer.getContext('2d').getImageData(0,0,128,128)}
+function pushEditHistory(){
+  editHistory.push(snapshotBuffer());
+  if(editHistory.length>30)editHistory.shift();
+  editFuture=[];
+}
+function updateSwatch(){$('editSwatch').style.background=`rgba(${editColor[0]},${editColor[1]},${editColor[2]},${editColor[3]/255})`}
+
+function renderEditor(){
+  if(!editorReady)return;
+  const c=editor.getContext('2d');c.clearRect(0,0,128,128);c.imageSmoothingEnabled=false;
+  const op=+$('refOpacity').value/100;
+  if(referenceVisible&&op>0&&original){
+    c.save();c.globalAlpha=op;
+    c.drawImage(src,editView.x,editView.y,editView.w,editView.h,0,0,128,128);
+    c.restore();
+  }
+  c.drawImage(editBuffer,editView.x,editView.y,editView.w,editView.h,0,0,128,128);
+}
+function loadEditorFromOutput(resetHistory=true){
+  const b=editBuffer.getContext('2d');b.clearRect(0,0,128,128);b.drawImage(out,0,0);
+  editorReady=true;editView={x:0,y:0,w:128,h:128};
+  if(resetHistory){editHistory=[];editFuture=[]}
+  rebuildPalette();renderEditor();updateEditStats();
+}
+$('copyAuto').onclick=()=>loadEditorFromOutput(true);
+$('editUndo').onclick=()=>{
+  if(!editHistory.length)return;
+  editFuture.push(snapshotBuffer());editBuffer.getContext('2d').putImageData(editHistory.pop(),0,0);
+  rebuildPalette();renderEditor();updateEditStats();
+};
+$('editRedo').onclick=()=>{
+  if(!editFuture.length)return;
+  editHistory.push(snapshotBuffer());editBuffer.getContext('2d').putImageData(editFuture.pop(),0,0);
+  rebuildPalette();renderEditor();updateEditStats();
+};
+
+function paintEditor(pt){
+  const c=editBuffer.getContext('2d'),s=+$('editSize').value;
+  if(editTool==='pick'){
+    const p=c.getImageData(pt.x,pt.y,1,1).data;editColor=[p[0],p[1],p[2],p[3]];updateSwatch();setEditTool('brush');return;
+  }
+  c.save();c.imageSmoothingEnabled=false;
+  if(editTool==='erase'){c.globalCompositeOperation='destination-out';c.fillStyle='#000'}
+  else c.fillStyle=`rgba(${editColor[0]},${editColor[1]},${editColor[2]},${editColor[3]/255})`;
+  if(editTool==='cluster'){
+    const w=Math.max(2,s),h=Math.max(2,Math.round(s*.75)+1);
+    c.fillRect(pt.x-Math.floor(w/2),pt.y-Math.floor(h/2),w,h);
+    if(s>=3)c.fillRect(pt.x-Math.floor(w/2)-1,pt.y,1,1);
+  }else c.fillRect(pt.x-Math.floor(s/2),pt.y-Math.floor(s/2),s,s);
+  c.restore();renderEditor();
+}
+editor.addEventListener('pointerdown',e=>{if(!editorReady)return;pushEditHistory();editDrawing=true;editor.setPointerCapture(e.pointerId);paintEditor(editorPoint(e))});
+editor.addEventListener('pointermove',e=>{if(editDrawing)paintEditor(editorPoint(e))});
+editor.addEventListener('pointerup',()=>{if(!editDrawing)return;editDrawing=false;rebuildPalette();updateEditStats()});
+
+function rebuildPalette(){
+  if(!editorReady)return;
+  const d=editBuffer.getContext('2d').getImageData(0,0,128,128).data,map=new Map();
+  for(let p=0;p<16384;p++){const i=p*4;if(!d[i+3])continue;const key=(d[i]<<16)|(d[i+1]<<8)|d[i+2];map.set(key,(map.get(key)||0)+1)}
+  const colors=[...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,14);
+  $('paletteBar').innerHTML='';
+  for(const [key] of colors){const r=key>>16,g=(key>>8)&255,b=key&255,btn=document.createElement('button');btn.style.background=`rgb(${r},${g},${b})`;btn.title=`${r},${g},${b}`;btn.onclick=()=>{editColor=[r,g,b,255];updateSwatch();setEditTool('brush')};$('paletteBar').appendChild(btn)}
+}
+function safeFinishPass(){
+  if(!editorReady)return;
+  pushEditHistory();
+  const c=editBuffer.getContext('2d'),im=c.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d);
+  let removed=0,filled=0,merged=0;
+  const on=(a,x,y)=>x>=0&&x<128&&y>=0&&y<128&&a[(y*128+x)*4+3]>0;
+  for(let y=1;y<127;y++)for(let x=1;x<127;x++){
+    const p=y*128+x,i=p*4,ns=[[x-1,y],[x+1,y],[x,y-1],[x,y+1]];
+    const opaque=ns.filter(([xx,yy])=>on(src,xx,yy));
+    if(src[i+3]&&opaque.length===0&&!protectedFeaturePixel(x,y)){d[i+3]=0;removed++}
+    else if(!src[i+3]&&opaque.length===4){
+      let rr=0,gg=0,bb=0;for(const [xx,yy] of opaque){const j=(yy*128+xx)*4;rr+=src[j];gg+=src[j+1];bb+=src[j+2]}
+      d[i]=rr/4;d[i+1]=gg/4;d[i+2]=bb/4;d[i+3]=255;filled++;
+    }else if(src[i+3]&&opaque.length>=3){
+      const cnt=new Map();for(const [xx,yy] of opaque){const j=(yy*128+xx)*4,k=(src[j]<<16)|(src[j+1]<<8)|src[j+2];cnt.set(k,(cnt.get(k)||0)+1)}
+      let bk=0,bn=0;for(const [k,n] of cnt)if(n>bn){bk=k;bn=n}
+      const cur=(src[i]<<16)|(src[i+1]<<8)|src[i+2];
+      if(bn>=3&&cur!==bk){d[i]=bk>>16;d[i+1]=(bk>>8)&255;d[i+2]=bk&255;merged++}
+    }
+  }
+  c.putImageData(im,0,0);rebuildPalette();renderEditor();updateEditStats();
+  $('finishGuide').innerHTML=`<span>安全仕上げ</span><b>孤立除去 ${removed}</b><span>穴補完</span><b>${filled}</b><span>色面統合</span><b>${merged}</b><span>次</span><b>顔・髪を確認</b>`;
+}
+$('safeFinish').onclick=safeFinishPass;
+
+function updateEditStats(){
+  if(!editorReady)return;
+  const d=editBuffer.getContext('2d').getImageData(0,0,128,128).data,colors=new Set();let opaque=0;
+  for(let p=0;p<16384;p++)if(d[p*4+3]){opaque++;colors.add((d[p*4]<<16)|(d[p*4+1]<<8)|d[p*4+2])}
+  $('editStats').innerHTML=`<span>不透明ドット</span><b>${opaque}</b><span>使用色</span><b>${colors.size}</b><span>履歴</span><b>${editHistory.length}</b><span>表示</span><b>${editView.w}×${editView.h}</b>`;
+}
+updateSwatch();
+
+function run(){if(!original)return;const a=model(getMask());drawMaskAndBlueprint(a);updateFeatureProjection(a);drawInputFeatureOverlay();drawFeatureOverlay();const ctx=out.getContext('2d'),o=ctx.createImageData(128,128),od=o.data,d=a.im.data,mode=$('mode').value,e=+$('ex').value/100,bw=a.maxx-a.minx+1,base=Math.min(1,92/bw);let baseC=0;for(const v of a.cent)baseC+=v;baseC/=a.cent.length;
+for(let ty=3;ty<=124;ty++){const yn=(ty-3)/121,idx=Math.max(0,Math.min(a.H-1,Math.round(editableSourceY(yn)*(a.H-1)))),sy=a.miny+idx,sc=a.cent[idx],oc=64+(sc-baseC)*base*(+$('posePreserve').value/100),scale=base*rscale(yn,mode,e)*editableWidth(yn);for(const seg of a.ints[idx]){let ta=Math.round(oc+(seg[0]-sc)*scale),tb=Math.round(oc+(seg[1]-sc)*scale);if(tb<ta){const t=ta;ta=tb;tb=t}ta=Math.max(0,ta);tb=Math.min(127,tb);
+    const gapProtect=+$('negativeSpace').value/100;
+    if(gapProtect>.75&&seg[1]-seg[0]>=2&&tb-ta<1)tb=Math.min(127,ta+1);
+    for(let tx=ta;tx<=tb;tx++){const sx=Math.round(sc+(tx-oc)/scale);if(sx<0||sx>=a.w)continue;const si=(sy*a.w+sx)*4,di=(ty*128+tx)*4;if(a.m[sy*a.w+sx]){od[di]=d[si];od[di+1]=d[si+1];od[di+2]=d[si+2];od[di+3]=255}}}}
+ctx.putImageData(o,0,0);applyMassRenderer(ctx);featureRedraw(ctx,'back','destination-over');artistPass(ctx);featureRedraw(ctx,'body','source-over');featureRedraw(ctx,'front','source-over');headDetailReprojection(ctx,a);sourceGuidedIdentityPass(ctx,a);headLocalRendererPass(ctx,a);fringeAndTipRhythmPass(ctx,a);identityMassPass(ctx);contourGrammar(ctx);pixelCritic(ctx,true);evaluateArtistQuality(ctx);if(!editorReady||editHistory.length===0)loadEditorFromOutput(true);o=ctx.getImageData(0,0,128,128);const sctx=sil.getContext('2d');sctx.clearRect(0,0,128,128);sctx.fillStyle='#070a12';sctx.fillRect(0,0,128,128);const sim=sctx.createImageData(128,128);let fill=0,minx=128,maxx=0;for(let p=0;p<16384;p++)if(o.data[p*4+3]){fill++;const x=p%128;minx=Math.min(minx,x);maxx=Math.max(maxx,x);sim.data[p*4]=80;sim.data[p*4+1]=225;sim.data[p*4+2]=255;sim.data[p*4+3]=255}sctx.putImageData(sim,0,0);const dh=+$('deformHead').value,dt=+$('deformTorso').value,dl=+$('deformLeg').value;
+$('deformReport').innerHTML=`<span>設計</span><b>${$('deformPreset').selectedOptions[0].text}</b><span>頭/胴/脚</span><b>${dh}/${dt}/${dl}</b><span>ポーズ/隙間</span><b>${$('posePreserve').value}/${$('negativeSpace').value}</b>`;
+$('metrics').innerHTML=`<span>不透明ドット</span><b>${fill}</b><span>使用幅</span><b>${maxx-minx+1}px</b><span>方式</span><b>Source-Silhouette Deform→Head Reprojection→Face/Hair→Contour→Quality Gate</b>`}
+$('run').onclick=run;
+function dl(c,n){const a=document.createElement('a');a.download=n;a.href=c.toDataURL('image/png');a.click()}
+$('png').onclick=()=>dl(editorReady?editBuffer:out,name+'_128_phase5_7.png');$('saveMask').onclick=()=>dl(maskView,name+'_mask.png');$('saveBlueprint').onclick=()=>dl(blueprint,name+'_blueprint.png');$('big').onclick=()=>{const c=document.createElement('canvas');c.width=c.height=512;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(editorReady?editBuffer:out,0,0,512,512);dl(c,name+'_128_phase5_7_4x.png')};
+status('画像を選択してください');
+</script></body></html>
