@@ -77,6 +77,15 @@ canvas{max-width:100%;image-rendering:pixelated} #out,#sil,#maskView,#blueprint{
 <div class="field"><label>形状単純化</label><input id="shapeSimplify" type="range" min="0" max="100" value="58"><output id="shapeSimplifyo">58</output></div>
 <div id="featureList" class="featureList"><span>指定特徴</span><b>0件</b></div><div id="featureStats" class="featureStats">構造未抽出</div>
 <p class="hint featureHelp">入力画像上でドラッグします。範囲から主軸・縦横比・主要3色を抽出し、Blueprint変形後も構造を保ちます。武器・尻尾は始点→終点と太さを記録します。</p>
+<h3>Face Structure Rig</h3>
+<div class="field"><label>顔構造</label><select id="faceRigPreset"><option value="frontSoft" selected>正面・柔らかい</option><option value="frontCool">正面・凛々しい</option><option value="threeLeft">斜め左</option><option value="threeRight">斜め右</option><option value="profile">横顔</option></select><output></output></div>
+<div class="field"><label>顔幅</label><input id="faceRigWidth" type="range" min="70" max="125" value="94"><output id="faceRigWidtho">94</output></div>
+<div class="field"><label>目線高さ</label><input id="faceRigEyeLine" type="range" min="30" max="68" value="47"><output id="faceRigEyeLineo">47</output></div>
+<div class="field"><label>目の間隔</label><input id="faceRigEyeGap" type="range" min="45" max="135" value="88"><output id="faceRigEyeGapo">88</output></div>
+<div class="field"><label>顎の圧縮</label><input id="faceRigJaw" type="range" min="60" max="115" value="82"><output id="faceRigJawo">82</output></div>
+<div class="field"><label>入力特徴保持</label><input id="faceRigSource" type="range" min="0" max="100" value="86"><output id="faceRigSourceo">86</output></div>
+<div id="faceRigReport" class="contourLegend"><span>顔構造リグ</span><b>未評価</b></div>
+<p class="hint featureHelp">完成顔を貼り付けません。顔向き・目線・顎・耳接続だけを有限リグで安定させ、目・口・輪郭の候補は入力画像から取得します。</p>
 <h3>Phase6 Head Local Renderer</h3>
 <div class="field"><label>局所再構築</label><input id="headLocalStrength" type="range" min="0" max="100" value="82"><output id="headLocalStrengtho">82</output></div>
 <div class="field"><label>顔Renderer</label><input id="localFaceStrength" type="range" min="0" max="100" value="86"><output id="localFaceStrengtho">86</output></div>
@@ -167,6 +176,10 @@ $('hairBudget').oninput=()=>$('hairBudgeto').textContent=$('hairBudget').value;
 for(const id of ['headLocalStrength','localFaceStrength','localFringeStrength','localHairStrength','localEarStrength']){
   $(id).oninput=()=>{$(id+'o').textContent=$(id).value;run()};
 }
+for(const id of ['faceRigWidth','faceRigEyeLine','faceRigEyeGap','faceRigJaw','faceRigSource']){
+  $(id).oninput=()=>{$(id+'o').textContent=$(id).value;run()};
+}
+$('faceRigPreset').onchange=()=>run();
 
 $('bodyBudget').oninput=()=>$('bodyBudgeto').textContent=$('bodyBudget').value;
 $('limbBudget').oninput=()=>$('limbBudgeto').textContent=$('limbBudget').value;
@@ -1116,8 +1129,26 @@ function fringeAndTipRhythmPass(ctx,a){
   return{fringeRemoved,eyeRecovered,tipKept,tipRemoved,tipAdded};
 }
 
+function getFaceRig(){
+  const preset=$('faceRigPreset')?.value||'frontSoft';
+  const rigs={
+    frontSoft:{yaw:0,eyeScale:1,brow:0,mouth:0,jaw:.96},
+    frontCool:{yaw:0,eyeScale:.92,brow:-1,mouth:-.02,jaw:.90},
+    threeLeft:{yaw:-.22,eyeScale:.94,brow:0,mouth:0,jaw:.92},
+    threeRight:{yaw:.22,eyeScale:.94,brow:0,mouth:0,jaw:.92},
+    profile:{yaw:.46,eyeScale:.82,brow:0,mouth:0,jaw:.88}
+  };
+  const r={...rigs[preset]};
+  r.width=(+$('faceRigWidth')?.value||94)/100;
+  r.eyeLine=(+$('faceRigEyeLine')?.value||47)/100;
+  r.eyeGap=(+$('faceRigEyeGap')?.value||88)/100;
+  r.jaw*=((+$('faceRigJaw')?.value||82)/100);
+  r.source=(+$('faceRigSource')?.value||86)/100;
+  return r;
+}
+
 function identityMassPass(ctx){
-  const hairS=+$('hairMassStrength').value/100, faceS=+$('faceStrength').value/100, impression=$('faceImpression').value;
+  const hairS=+$('hairMassStrength').value/100, faceS=+$('faceStrength').value/100, impression=$('faceImpression').value, rig=getFaceRig();
   if(hairS<=0&&faceS<=0)return;
   const im=ctx.getImageData(0,0,128,128),d=im.data,src=new Uint8ClampedArray(d);
   let minx=128,miny=128,maxx=-1,maxy=-1;
@@ -1131,8 +1162,10 @@ function identityMassPass(ctx){
     const i=(y*128+x)*4;if(!src[i+3])continue;const r=src[i],g=src[i+1],b=src[i+2];
     if(r>105&&r>g+4&&r>b+6&&r-g<95&&r-b<120){sx+=x;sy+=y;n++}
   }
-  const fx=n?Math.round(sx/n):cx, fy=n?Math.round(sy/n):miny+Math.round(H*.16);
-  const fw=Math.max(10,Math.min(22,Math.round(W*.20))),fh=Math.max(12,Math.min(25,Math.round(H*.17)));
+  const rawFx=n?Math.round(sx/n):cx, rawFy=n?Math.round(sy/n):miny+Math.round(H*.16);
+  const fx=Math.round(rawFx*(rig.source)+(cx+W*rig.yaw*.12)*(1-rig.source));
+  const fy=Math.round(rawFy*rig.source+(miny+H*.10+H*.17*rig.eyeLine)*(1-rig.source));
+  const fw=Math.max(10,Math.min(24,Math.round(W*.20*rig.width))),fh=Math.max(11,Math.min(25,Math.round(H*.17*(.88+rig.jaw*.14))));
 
   // Hair mass: unify upper silhouette into 3 large value groups and reinforce the outer mass.
   let hairPixels=0,hairChanged=0;
@@ -1170,7 +1203,7 @@ function identityMassPass(ctx){
   // Face impression: direct pixel clusters, no pasted facial asset.
   let facialPixels=0;
   if(faceS>.05){
-    const eyeY=fy-Math.round(fh*.08),dx=Math.max(3,Math.round(fw*.22));
+    const eyeY=Math.round(fy-fh*.34+fh*rig.eyeLine),dx=Math.max(2,Math.round(fw*.22*rig.eyeGap));
     const dark=[62,42,54],mouth=[126,62,73],brow=[84,58,66];
     let eyeLen=1,eyeDrop=0,browTilt=0,mouthOffset=Math.round(fh*.25);
     if(impression==='cute'){eyeLen=2;eyeDrop=1;mouthOffset=Math.round(fh*.29)}
@@ -1178,6 +1211,7 @@ function identityMassPass(ctx){
     if(impression==='sleepy'){eyeLen=2;eyeDrop=1;browTilt=1;mouthOffset=Math.round(fh*.22)}
     if(impression==='neutral'){eyeLen=1;mouthOffset=Math.round(fh*.26)}
     const put=(x,y,c)=>{if(x<0||x>127||y<0||y>127)return;const i=(y*128+x)*4;if(!d[i+3])return;d[i]=c[0];d[i+1]=c[1];d[i+2]=c[2];facialPixels++};
+    const yawShift=Math.round(fw*rig.yaw*.30), nearScale=rig.yaw===0?1:1.08, farScale=rig.yaw===0?1:(Math.abs(rig.yaw)>.4?.35:.72);
     for(const ex of [fx-dx,fx+dx]){
       for(let k=0;k<eyeLen;k++)put(ex+(ex<fx?k:-k),eyeY+eyeDrop,dark);
       if(faceS>.75)put(ex,eyeY+eyeDrop+1,dark);
@@ -1187,6 +1221,7 @@ function identityMassPass(ctx){
     put(fx,my,mouth);if(faceS>.80)put(fx+1,my,mouth);
   }
   ctx.putImageData(im,0,0);
+  $('faceRigReport').innerHTML=`<span>顔向き</span><b>${rig.yaw===0?'正面':rig.yaw<0?'左':'右'}</b><span>顔幅/目間隔</span><b>${Math.round(rig.width*100)}/${Math.round(rig.eyeGap*100)}</b><span>入力保持</span><b>${Math.round(rig.source*100)}%</b>`;
   $('identityReport').innerHTML=`<span>髪Mass画素</span><b>${hairChanged}</b><span>顔再描画</span><b>${facialPixels}</b><span>印象</span><b>${impression}</b>`;
 }
 
