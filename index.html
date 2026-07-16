@@ -54,18 +54,66 @@ function transformParams(size=512){const rot=+$('rotate').value*Math.PI/180,z=+$
 function drawInto(ctx,size){ctx.clearRect(0,0,size,size);if(!img)return;const {rot,scale}=transformParams(size);ctx.save();ctx.translate(size/2+panX*size/512,size/2+panY*size/512);ctx.rotate(rot);ctx.drawImage(img,-img.width*scale/2,-img.height*scale/2,img.width*scale,img.height*scale);ctx.restore()}
 function drawSource(){drawInto(sctx,512)}
 function setCrop(type){if(!img)return;const z=type==='side'?150:145;$('zoom').value=z;$('zoom').dispatchEvent(new Event('input'));panY=10;panX=type==='front'?150:type==='side'?0:-150;drawSource()}
-function process(){if(!img){status('先に画像を読み込んでください。','warn');return}status('再構築中…');requestAnimationFrame(()=>{const design=+$('designRes').value,output=+$('outputSize').value;const hi=document.createElement('canvas');hi.width=hi.height=512;const hc=hi.getContext('2d',{willReadFrequently:true});drawInto(hc,512);let a=hc.getImageData(0,0,512,512);a=removeBG(a,$('bg').value);a=resizeArea(a,design,design);a=flattenAlpha(a);let silhouette=makeSilhouette(a,+$('edge').value);let flat=regionSmooth(a,+$('simplify').value);flat=shadeCompress(flat,+$('shade').value);flat=quantize(flat,+$('colors').value,+$('sat').value);let detail=detailLayer(a,+$('detailAmt').value);let final=merge(flat,silhouette,detail,$('outline').value,+$('edge').value);final=cleanup(final,+$('cleanup').value);final=contourRhythm(final,+$('rhythm').value);if(output!==design)final=nearestResize(final,output,output);results={final,silhouette:nearestResize(silhouette,output,output),flat:nearestResize(flat,output,output),detail:nearestResize(detail,output,output)};out.width=out.height=output;show();status(`完了：${design}pxで再設計 → ${output}×${output}px出力。`,'good')})}
+function process(){if(!img){status('先に画像を読み込んでください。','warn');return}status('再構築中…');requestAnimationFrame(()=>{const design=+$('designRes').value,output=+$('outputSize').value;const hi=document.createElement('canvas');hi.width=hi.height=512;const hc=hi.getContext('2d',{willReadFrequently:true});drawInto(hc,512);let a=hc.getImageData(0,0,512,512);a=removeBG(a,$('bg').value);a=resizeAreaPremultiplied(a,design,design);a=flattenAlpha(a);let silhouette=makeSilhouette(a,+$('edge').value);let flat=regionSmooth(a,+$('simplify').value);flat=shadeCompress(flat,+$('shade').value);flat=quantize(flat,+$('colors').value,+$('sat').value);let detail=detailLayer(a,+$('detailAmt').value);let final=merge(flat,silhouette,detail,$('outline').value,+$('edge').value);final=cleanup(final,+$('cleanup').value);final=contourRhythm(final,+$('rhythm').value);if(output!==design)final=nearestResize(final,output,output);results={final,silhouette:nearestResize(silhouette,output,output),flat:nearestResize(flat,output,output),detail:nearestResize(detail,output,output)};out.width=out.height=output;show();status(`完了：${design}pxで再設計 → ${output}×${output}px出力。`,'good')})}
 function idx(x,y,w){return(y*w+x)*4}function lum(d,i){return .2126*d[i]+.7152*d[i+1]+.0722*d[i+2]}
-function removeBG(im,mode){if(mode==='keep')return im;const d=im.data,w=im.width,h=im.height;let bg;if(mode==='light')bg=[255,255,255];else if(mode==='dark')bg=[0,0,0];else{const pts=[[2,2],[w-3,2],[2,h-3],[w-3,h-3]];bg=[0,0,0];for(const [x,y] of pts){let i=idx(x,y,w);bg[0]+=d[i]/4;bg[1]+=d[i+1]/4;bg[2]+=d[i+2]/4}}for(let i=0;i<d.length;i+=4){const dist=Math.hypot(d[i]-bg[0],d[i+1]-bg[1],d[i+2]-bg[2]);if(dist<22)d[i+3]=0;else if(dist<60)d[i+3]=Math.round(d[i+3]*(dist-22)/38)}return im}
+function colorDist(d,i,bg){const dr=d[i]-bg[0],dg=d[i+1]-bg[1],db=d[i+2]-bg[2];return Math.sqrt(dr*dr+dg*dg+db*db)}
+function removeBG(im,mode){
+  if(mode==='keep')return im;
+  const d=im.data,w=im.width,h=im.height;
+  let bg;
+  if(mode==='light')bg=[255,255,255];
+  else if(mode==='dark')bg=[0,0,0];
+  else{
+    const pts=[];
+    const m=Math.max(3,Math.floor(Math.min(w,h)*.025));
+    for(let y=0;y<m;y++)for(let x=0;x<m;x++)pts.push(idx(x,y,w),idx(w-1-x,y,w),idx(x,h-1-y,w),idx(w-1-x,h-1-y,w));
+    bg=[0,0,0];
+    for(const i of pts){bg[0]+=d[i];bg[1]+=d[i+1];bg[2]+=d[i+2]}
+    bg=bg.map(v=>v/pts.length);
+  }
+  const seedTol=mode==='auto'?58:72;
+  const softTol=mode==='auto'?88:105;
+  const seen=new Uint8Array(w*h),q=new Int32Array(w*h),mask=new Uint8Array(w*h);
+  let qh=0,qt=0;
+  const push=(x,y)=>{if(x<0||y<0||x>=w||y>=h)return;const n=y*w+x;if(seen[n])return;const i=n*4;if(d[i+3]===0||colorDist(d,i,bg)<=seedTol){seen[n]=1;q[qt++]=n}};
+  for(let x=0;x<w;x++){push(x,0);push(x,h-1)}
+  for(let y=1;y<h-1;y++){push(0,y);push(w-1,y)}
+  while(qh<qt){const n=q[qh++],x=n%w,y=(n/w)|0;mask[n]=255;push(x+1,y);push(x-1,y);push(x,y+1);push(x,y-1)}
+  const out=new Uint8ClampedArray(d);
+  for(let n=0;n<w*h;n++){
+    const i=n*4;if(mask[n]){out[i+3]=0;continue}
+    const dist=colorDist(d,i,bg);
+    if(dist<softTol){
+      let touches=false,x=n%w,y=(n/w)|0;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy;if(xx>=0&&yy>=0&&xx<w&&yy<h&&mask[yy*w+xx]){touches=true;break}}
+      if(touches)out[i+3]=Math.max(0,Math.min(255,Math.round(255*(dist-seedTol)/(softTol-seedTol))));
+    }
+  }
+  return new ImageData(out,w,h)
+}
+function resizeAreaPremultiplied(im,nw,nh){const w=im.width,h=im.height,sd=im.data,od=new Uint8ClampedArray(nw*nh*4);for(let y=0;y<nh;y++)for(let x=0;x<nw;x++){const x0=x*w/nw,x1=(x+1)*w/nw,y0=y*h/nh,y1=(y+1)*h/nh;let r=0,g=0,b=0,a=0,ws=0;for(let yy=Math.floor(y0);yy<Math.ceil(y1);yy++)for(let xx=Math.floor(x0);xx<Math.ceil(x1);xx++){if(xx<0||yy<0||xx>=w||yy>=h)continue;const wx=Math.max(0,Math.min(x1,xx+1)-Math.max(x0,xx)),wy=Math.max(0,Math.min(y1,yy+1)-Math.max(y0,yy)),wt=wx*wy,j=idx(xx,yy,w),aa=sd[j+3]/255;r+=sd[j]*aa*wt;g+=sd[j+1]*aa*wt;b+=sd[j+2]*aa*wt;a+=aa*wt;ws+=wt}let i=idx(x,y,nw),alpha=ws?a/ws:0;if(alpha>0){od[i]=r/(a||1);od[i+1]=g/(a||1);od[i+2]=b/(a||1)}od[i+3]=Math.round(alpha*255)}return new ImageData(od,nw,nh)}
 function resizeArea(im,nw,nh){const w=im.width,h=im.height,sd=im.data,od=new Uint8ClampedArray(nw*nh*4);for(let y=0;y<nh;y++)for(let x=0;x<nw;x++){const x0=x*w/nw,x1=(x+1)*w/nw,y0=y*h/nh,y1=(y+1)*h/nh;let r=0,g=0,b=0,a=0,ws=0;for(let yy=Math.floor(y0);yy<Math.ceil(y1);yy++)for(let xx=Math.floor(x0);xx<Math.ceil(x1);xx++){if(xx<0||yy<0||xx>=w||yy>=h)continue;const wx=Math.max(0,Math.min(x1,xx+1)-Math.max(x0,xx)),wy=Math.max(0,Math.min(y1,yy+1)-Math.max(y0,yy)),wt=wx*wy,j=idx(xx,yy,w);r+=sd[j]*wt;g+=sd[j+1]*wt;b+=sd[j+2]*wt;a+=sd[j+3]*wt;ws+=wt}let i=idx(x,y,nw);od[i]=r/ws;od[i+1]=g/ws;od[i+2]=b/ws;od[i+3]=a/ws}return new ImageData(od,nw,nh)}
 function nearestResize(im,nw,nh){const od=new Uint8ClampedArray(nw*nh*4),d=im.data;for(let y=0;y<nh;y++)for(let x=0;x<nw;x++){let sx=Math.min(im.width-1,Math.floor(x*im.width/nw)),sy=Math.min(im.height-1,Math.floor(y*im.height/nh)),s=idx(sx,sy,im.width),i=idx(x,y,nw);od.set(d.slice(s,s+4),i)}return new ImageData(od,nw,nh)}
 function flattenAlpha(im){const d=im.data;for(let i=0;i<d.length;i+=4)d[i+3]=d[i+3]>110?255:0;return im}
-function makeSilhouette(im,str){const d=im.data,w=im.width,h=im.height,o=new Uint8ClampedArray(d.length),thr=16+(100-str)*.55;for(let y=0;y<h;y++)for(let x=0;x<w;x++){let i=idx(x,y,w);if(!d[i+3])continue;let edge=false,L=lum(d,i);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){let xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=w||yy>=h){edge=true;break}let j=idx(xx,yy,w);if(!d[j+3]||Math.abs(L-lum(d,j))>thr){edge=true;break}}o[i]=o[i+1]=o[i+2]=Math.max(18,Math.min(95,L*.35));o[i+3]=edge?255:0}return new ImageData(o,w,h)}
+function makeSilhouette(im,str){
+  const d=im.data,w=im.width,h=im.height,o=new Uint8ClampedArray(d.length);
+  const alphaCut=110, thickness=str>88?2:1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=idx(x,y,w);if(d[i+3]<alphaCut)continue;
+    let edge=false;
+    for(let yy=-thickness;yy<=thickness&&!edge;yy++)for(let xx=-thickness;xx<=thickness;xx++){
+      if(!xx&&!yy)continue;const nx=x+xx,ny=y+yy;
+      if(nx<0||ny<0||nx>=w||ny>=h||d[idx(nx,ny,w)+3]<alphaCut){edge=true;break}
+    }
+    if(edge){const L=lum(d,i);o[i]=Math.max(34,Math.min(92,L*.33));o[i+1]=Math.max(22,Math.min(72,L*.25));o[i+2]=Math.max(20,Math.min(66,L*.22));o[i+3]=255}
+  }
+  return new ImageData(o,w,h)
+}
 function regionSmooth(im,amt){const d=im.data,w=im.width,h=im.height,passes=Math.round(amt/28),o=new Uint8ClampedArray(d);let cur=o;for(let p=0;p<passes;p++){let next=new Uint8ClampedArray(cur);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let i=idx(x,y,w);if(!cur[i+3])continue;let rs=[],gs=[],bs=[];for(let yy=-1;yy<=1;yy++)for(let xx=-1;xx<=1;xx++){let j=idx(x+xx,y+yy,w);if(cur[j+3]){rs.push(cur[j]);gs.push(cur[j+1]);bs.push(cur[j+2])}}rs.sort((a,b)=>a-b);gs.sort((a,b)=>a-b);bs.sort((a,b)=>a-b);next[i]=rs[rs.length>>1];next[i+1]=gs[gs.length>>1];next[i+2]=bs[bs.length>>1]}cur=next}return new ImageData(cur,w,h)}
 function shadeCompress(im,steps){const d=im.data;for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;let L=lum(d,i),q=Math.round(L/255*(steps-1))/(steps-1)*255,f=L? q/L:1;d[i]=Math.min(255,d[i]*f);d[i+1]=Math.min(255,d[i+1]*f);d[i+2]=Math.min(255,d[i+2]*f)}return im}
 function quantize(im,count,sat){const d=im.data,p=[];for(let i=0;i<d.length;i+=4)if(d[i+3])p.push([d[i],d[i+1],d[i+2]]);if(!p.length)return im;let boxes=[p];while(boxes.length<count){let bi=-1,range=-1,ch=0;for(let b=0;b<boxes.length;b++){if(boxes[b].length<2)continue;for(let k=0;k<3;k++){let vals=boxes[b].map(c=>c[k]),r=Math.max(...vals)-Math.min(...vals);if(r>range){range=r;bi=b;ch=k}}}if(bi<0)break;let box=boxes.splice(bi,1)[0].sort((a,b)=>a[ch]-b[ch]),m=box.length>>1;boxes.push(box.slice(0,m),box.slice(m))}let pal=boxes.map(b=>[0,1,2].map(k=>Math.round(b.reduce((s,c)=>s+c[k],0)/b.length)));let out=new Uint8ClampedArray(d.length),s=sat/100;for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;let best=pal[0],bd=1e12;for(const c of pal){let dr=d[i]-c[0],dg=d[i+1]-c[1],db=d[i+2]-c[2],dd=dr*dr+dg*dg+db*db;if(dd<bd){bd=dd;best=c}}let g=.2126*best[0]+.7152*best[1]+.0722*best[2];out[i]=g+(best[0]-g)*s;out[i+1]=g+(best[1]-g)*s;out[i+2]=g+(best[2]-g)*s;out[i+3]=255}return new ImageData(out,im.width,im.height)}
 function detailLayer(im,amt){const d=im.data,w=im.width,h=im.height,o=new Uint8ClampedArray(d.length),g=amt/100;for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let i=idx(x,y,w);if(!d[i+3])continue;for(let k=0;k<3;k++){let avg=0,n=0;for(let yy=-1;yy<=1;yy++)for(let xx=-1;xx<=1;xx++){let j=idx(x+xx,y+yy,w);if(d[j+3]){avg+=d[j+k];n++}}let delta=(d[i+k]-avg/n)*g;o[i+k]=128+delta*2}o[i+3]=Math.min(180,Math.abs(lum(o,i)-128)*4)}return new ImageData(o,w,h)}
-function merge(flat,sil,det,outlineMode,edgeAmt){let f=flat.data,s=sil.data,d=det.data,o=new Uint8ClampedArray(f.length);for(let i=0;i<f.length;i+=4){if(!f[i+3])continue;let e=s[i+3]/255*(edgeAmt/100),dd=d[i+3]/255;for(let k=0;k<3;k++){let v=f[i+k]+(d[i+k]-128)*dd*.28;if(e>0&&outlineMode!=='none'){let c=outlineMode==='brown'?[54,31,26][k]:s[i+k];v=v*(1-e*.9)+c*(e*.9)}o[i+k]=Math.max(0,Math.min(255,v))}o[i+3]=255}return new ImageData(o,flat.width,flat.height)}
+function merge(flat,sil,det,outlineMode,edgeAmt){let f=flat.data,s=sil.data,d=det.data,o=new Uint8ClampedArray(f.length);for(let i=0;i<f.length;i+=4){if(!f[i+3])continue;let e=s[i+3]/255*Math.min(1,edgeAmt/92),dd=d[i+3]/255;for(let k=0;k<3;k++){let v=f[i+k]+(d[i+k]-128)*dd*.28;if(e>0&&outlineMode!=='none'){let c=outlineMode==='brown'?[54,31,26][k]:s[i+k];v=v*(1-e*.82)+c*(e*.82)}o[i+k]=Math.max(0,Math.min(255,v))}o[i+3]=255}return new ImageData(o,flat.width,flat.height)}
 function cleanup(im,level){let d=new Uint8ClampedArray(im.data),w=im.width,h=im.height;for(let p=0;p<level;p++){let n=new Uint8ClampedArray(d);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let i=idx(x,y,w);if(!d[i+3])continue;let near=[];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){let j=idx(x+dx,y+dy,w);if(d[j+3])near.push(j)}if(near.length<2){n[i+3]=0;continue}let same=near.filter(j=>Math.abs(d[j]-d[i])+Math.abs(d[j+1]-d[i+1])+Math.abs(d[j+2]-d[i+2])<45);if(!same.length){let j=near[0];n[i]=d[j];n[i+1]=d[j+1];n[i+2]=d[j+2]}}d=n}return new ImageData(d,w,h)}
 function contourRhythm(im,amt){if(amt<10)return im;const d=new Uint8ClampedArray(im.data),w=im.width,h=im.height,o=new Uint8ClampedArray(d);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let i=idx(x,y,w);if(!d[i+3])continue;let a=d[idx(x-1,y,w)+3],b=d[idx(x+1,y,w)+3],c=d[idx(x,y-1,w)+3],e=d[idx(x,y+1,w)+3];if((!a&&!c&&b&&e)||(!b&&!c&&a&&e)||(!a&&!e&&b&&c)||(!b&&!e&&a&&c)){if(((x+y)%3)===0&&amt>55)o[i+3]=0}}return new ImageData(o,w,h)}
 function show(){const im=results[view];if(!im)return;octx.putImageData(im,0,0);$('outLabel').textContent={final:'完成',silhouette:'輪郭',flat:'色面',detail:'Detail'}[view]}
