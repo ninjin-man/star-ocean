@@ -17,6 +17,17 @@
   </header>
 
   <main>
+    <section class="source-card" aria-label="入力画像">
+      <div class="section-title source-title">
+        <div><p class="eyebrow">STEP 1 / SOURCE PNG</p><h2>画像を読み込む</h2></div>
+        <span id="sourceBadge" class="source-badge empty">未読込</span>
+      </div>
+      <p class="source-guide">最初にパーツ分解するPNG画像を選択してください。最大128×128、透過PNG対応です。</p>
+      <label class="wide-button primary file-button source-file-button">PNG画像を選択<input id="fileInput" type="file" accept="image/png,image/*"></label>
+      <button id="sampleBtn" class="wide-button muted">動作確認用サンプルを表示</button>
+      <p id="loadState" class="load-state" role="status" aria-live="polite">画像を選択すると下のキャンバスに表示されます。</p>
+    </section>
+
     <section class="status-card" aria-label="分解状況">
       <div><span>未分類</span><strong id="unassignedCount">0</strong></div>
       <div><span>割当済み</span><strong id="assignedCount">0</strong></div>
@@ -45,7 +56,11 @@
         </div>
       </div>
       <div id="viewport" class="viewport">
-        <canvas id="editorCanvas" width="256" height="384" aria-label="マスク編集キャンバス"></canvas>
+        <canvas id="editorCanvas" width="512" height="512" aria-label="マスク編集キャンバス"></canvas>
+        <div id="emptyCanvas" class="empty-canvas">
+          <strong>キャンバス準備完了</strong>
+          <span>上の「PNG画像を選択」から画像を読み込んでください</span>
+        </div>
       </div>
       <p id="toolFeedback" class="tool-feedback" aria-live="polite">ペン：1ドットずつ選択パーツへ割り当てます。</p>
       <p class="canvas-note">1本指で描画・2本指で移動と拡大。元画像の透明部分には描けません。</p>
@@ -68,7 +83,6 @@
     </section>
 
     <section class="io-card">
-      <label class="wide-button file-button">PNGを読み込む<input id="fileInput" type="file" accept="image/png"></label>
       <button id="exportBtn" class="wide-button primary">分解ZIPを書き出す</button>
       <button id="resetBtn" class="wide-button danger">マスクを全消去</button>
       <p id="saveState" class="save-state">端末内に自動保存済み</p>

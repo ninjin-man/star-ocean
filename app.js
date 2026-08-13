@@ -8,17 +8,28 @@
   const DEFAULT_PARTS = ['輪郭','髪','顔','胴体・服','前腕','後腕','下半身','装備'];
   const state = {
     width: 0, height: 0, rgba: null, alpha: null, sourceCanvas: document.createElement('canvas'), sourceName: 'バッツ戦闘待機',
+    hasSource: false,
     assignments: null, parts: DEFAULT_PARTS.map((name,i)=>({id:i,name,color:COLORS[i]})), activePart: 0,
     tool: 'pen', zoom: 16, sourceOpacity: 1, maskVisible: true, selectedOnly: false, grid: true,
     undo: [], redo: [], drawing: false, gesture: null, pointers: new Map(), saveTimer: 0
   };
-  const STORAGE_KEY = 'pixel-mask-part-editor-v01';
+  const STORAGE_KEY = 'pixel-mask-part-editor-v03';
+
+  function setLoadState(message, error=false){$('loadState').textContent=message;$('loadState').classList.toggle('error',error);}
+  function setSourceReady(ready){state.hasSource=ready;$('emptyCanvas').classList.toggle('hidden',ready);$('sourceBadge').textContent=ready?'読込済み':'未読込';$('sourceBadge').classList.toggle('empty',!ready);$('exportBtn').disabled=!ready;}
+
+  function initEmptyCanvas(){
+    state.width=32;state.height=32;state.sourceName='画像未読込';state.sourceCanvas.width=32;state.sourceCanvas.height=32;
+    state.rgba=new Uint8ClampedArray(32*32*4);state.alpha=new Uint8Array(32*32);state.assignments=MODEL.createAssignments(state.alpha);
+    state.undo=[];state.redo=[];setSourceReady(false);fitCanvas();render();renderParts();updateStats();
+  }
 
   function loadImage(src, name, restoredAssignments) {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         if (img.naturalWidth > 128 || img.naturalHeight > 128) return reject(new Error('128×128以下のPNGを使用してください'));
+        if (!img.naturalWidth || !img.naturalHeight) return reject(new Error('画像サイズを取得できませんでした'));
         state.width = img.naturalWidth; state.height = img.naturalHeight; state.sourceName = name;
         state.sourceCanvas.width = state.width; state.sourceCanvas.height = state.height;
         const sctx = state.sourceCanvas.getContext('2d', { willReadFrequently:true });
@@ -27,7 +38,7 @@
         state.alpha = new Uint8Array(state.width*state.height);
         for(let i=0;i<state.alpha.length;i++) state.alpha[i]=state.rgba[i*4+3];
         state.assignments = restoredAssignments && restoredAssignments.length===state.alpha.length ? Int16Array.from(restoredAssignments) : MODEL.createAssignments(state.alpha);
-        state.undo=[]; state.redo=[]; fitCanvas(); render(); renderParts(); updateStats(); resolve();
+        state.undo=[]; state.redo=[];setSourceReady(true);fitCanvas(); render(); renderParts(); updateStats();setLoadState(`${name} を読み込みました（${state.width} × ${state.height}）`);resolve();
       };
       img.onerror = () => reject(new Error('PNGを読み込めませんでした'));
       img.src = src;
@@ -43,6 +54,11 @@
     if (!state.rgba) return;
     const z=state.zoom; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#9b979f'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(!state.hasSource){
+      ctx.strokeStyle='rgba(51,47,56,.35)';ctx.lineWidth=1;ctx.beginPath();
+      for(let x=0;x<=state.width;x++){ctx.moveTo(x*z+.5,0);ctx.lineTo(x*z+.5,canvas.height)}
+      for(let y=0;y<=state.height;y++){ctx.moveTo(0,y*z+.5);ctx.lineTo(canvas.width,y*z+.5)}ctx.stroke();return;
+    }
     if(state.sourceOpacity>0){ctx.globalAlpha=state.sourceOpacity;ctx.drawImage(state.sourceCanvas,0,0,canvas.width,canvas.height);ctx.globalAlpha=1;}
     if(state.maskVisible){
       for(let i=0;i<state.assignments.length;i++){
@@ -96,7 +112,16 @@
   $('addPartBtn').onclick=()=>{const name=prompt('追加するパーツ名');if(!name)return;state.parts.push({id:state.parts.length,name:name.trim(),color:COLORS[state.parts.length%COLORS.length]});state.activePart=state.parts.length-1;renderParts();scheduleSave();};
   $('renamePartBtn').onclick=()=>{const p=state.parts[state.activePart],name=prompt('パーツ名',p.name);if(!name)return;p.name=name.trim();renderParts();scheduleSave();};
   $('resetBtn').onclick=()=>{if(!confirm('すべてのマスク割当を未分類へ戻しますか？'))return;snapshot();state.assignments=MODEL.createAssignments(state.alpha);render();updateStats();scheduleSave();};
-  $('fileInput').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const src=await fileToDataURL(f);await loadImage(src,f.name);scheduleSave();});
+  $('fileInput').addEventListener('change',async e=>{
+    const f=e.target.files[0];if(!f)return;
+    try{
+      setLoadState(`${f.name} を読み込み中…`);
+      if(f.type && !f.type.startsWith('image/'))throw new Error('画像ファイルを選択してください');
+      const src=await fileToDataURL(f);await loadImage(src,f.name);scheduleSave();setTimeout(()=>$('centerBtn').click(),30);
+    }catch(error){setLoadState(`読み込み失敗：${error.message}`,true);alert(`画像を読み込めませんでした。\n${error.message}`);}
+    finally{e.target.value='';}
+  });
+  $('sampleBtn').onclick=async()=>{try{setLoadState('動作確認用サンプルを読み込み中…');await loadImage('assets/bartz_battle_native_16x24.png','バッツ戦闘待機');scheduleSave();setTimeout(()=>$('centerBtn').click(),30);}catch(error){setLoadState(`サンプル読込失敗：${error.message}`,true);}};
   $('helpBtn').onclick=()=>$('helpDialog').showModal();$('closeHelp').onclick=()=>$('helpDialog').close();$('previewBtn').onclick=showPreview;$('closePreview').onclick=()=>$('previewDialog').close();
 
   function drawSourceTo(c, assignedOnly){c.width=state.width;c.height=state.height;const cctx=c.getContext('2d'),out=cctx.createImageData(state.width,state.height);for(let i=0;i<state.assignments.length;i++){const keep=!assignedOnly||state.assignments[i]>=0;if(keep)for(let k=0;k<4;k++)out.data[i*4+k]=state.rgba[i*4+k];}cctx.putImageData(out,0,0);}
@@ -113,6 +138,12 @@
   function crc32(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0;}
   async function makeZip(entries){const enc=new TextEncoder(),local=[],central=[];let offset=0;for(const[name,blob]of entries){const n=enc.encode(name),data=new Uint8Array(await blob.arrayBuffer()),crc=crc32(data),lh=new Uint8Array(30+n.length),dv=new DataView(lh.buffer);dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint32(14,crc,true);dv.setUint32(18,data.length,true);dv.setUint32(22,data.length,true);dv.setUint16(26,n.length,true);lh.set(n,30);local.push(lh,data);const ch=new Uint8Array(46+n.length),cd=new DataView(ch.buffer);cd.setUint32(0,0x02014b50,true);cd.setUint16(4,20,true);cd.setUint16(6,20,true);cd.setUint32(16,crc,true);cd.setUint32(20,data.length,true);cd.setUint32(24,data.length,true);cd.setUint16(28,n.length,true);cd.setUint32(42,offset,true);ch.set(n,46);central.push(ch);offset+=lh.length+data.length;}const centralSize=central.reduce((s,x)=>s+x.length,0),end=new Uint8Array(22),ed=new DataView(end.buffer);ed.setUint32(0,0x06054b50,true);ed.setUint16(8,entries.length,true);ed.setUint16(10,entries.length,true);ed.setUint32(12,centralSize,true);ed.setUint32(16,offset,true);return new Blob([...local,...central,end],{type:'application/zip'});}
 
-  async function init(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(saved?.source){state.parts=saved.parts||state.parts;state.activePart=Math.min(saved.activePart||0,state.parts.length-1);await loadImage(saved.source,saved.sourceName||'復元画像',saved.assignments);}else await loadImage('assets/bartz_battle_native_16x24.png','バッツ戦闘待機');setTimeout(()=>$('centerBtn').click(),50);}catch(e){console.error(e);await loadImage('assets/bartz_battle_native_16x24.png','バッツ戦闘待機');}}
+  async function init(){
+    initEmptyCanvas();
+    try{
+      const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
+      if(saved?.source){state.parts=saved.parts||state.parts;state.activePart=Math.min(saved.activePart||0,state.parts.length-1);setLoadState('前回の画像を復元中…');await loadImage(saved.source,saved.sourceName||'復元画像',saved.assignments);setTimeout(()=>$('centerBtn').click(),50);}
+    }catch(e){console.error(e);initEmptyCanvas();setLoadState('前回データを復元できませんでした。PNG画像を選択してください。',true);}
+  }
   init();
 })();
