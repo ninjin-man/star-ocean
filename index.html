@@ -1,126 +1,111 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Sprite Studio - Body Gold Master MVP</title>
-<style>
-:root{color-scheme:dark;--bg:#101216;--panel:#191d24;--line:#303744;--text:#f2f4f8;--muted:#aab2c0;--ok:#7bd88f;--warn:#ffd166;--bad:#ff7b7b;--accent:#8ab4ff}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-header{position:sticky;top:0;z-index:4;padding:14px 16px;background:rgba(16,18,22,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
-h1{font-size:18px;margin:0}header p{font-size:12px;color:var(--muted);margin:5px 0 0}.wrap{max-width:860px;margin:auto;padding:14px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}.panel h2{font-size:15px;margin:0 0 10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:680px){.grid{grid-template-columns:1fr}}
-.drop{display:block;border:1px dashed #596273;border-radius:12px;padding:16px;text-align:center;background:#13171d;cursor:pointer}.drop input{display:none}.drop strong{display:block}.drop span{display:block;font-size:12px;color:var(--muted);margin-top:5px}
-.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.control{padding:10px;background:#13171d;border-radius:10px}.control label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:7px}.control input[type=range]{width:100%}.control select{width:100%;padding:8px;background:#0f1217;color:var(--text);border:1px solid var(--line);border-radius:8px}
-button{width:100%;border:0;border-radius:10px;padding:12px 14px;font-size:15px;font-weight:700;background:var(--accent);color:#081225;margin-top:10px}button.secondary{background:#262d38;color:var(--text);border:1px solid var(--line)}button:disabled{opacity:.45}
-.canvasBox{background:#0b0d11;border-radius:10px;overflow:hidden;display:grid;place-items:center;min-height:250px;background-image:linear-gradient(45deg,#171a20 25%,transparent 25%),linear-gradient(-45deg,#171a20 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#171a20 75%),linear-gradient(-45deg,transparent 75%,#171a20 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0}
-canvas{max-width:100%;height:auto;image-rendering:pixelated}.caption{text-align:center;color:var(--muted);font-size:12px;margin-top:7px}.status{display:flex;gap:8px;align-items:center;padding:10px;border-radius:10px;background:#12161c}.dot{width:10px;height:10px;border-radius:50%;background:var(--warn)}.status.ok .dot{background:var(--ok)}.status.bad .dot{background:var(--bad)}.status div:last-child{font-size:13px}
-.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{background:#12161c;border-radius:9px;padding:9px}.metric b{display:block;font-size:16px}.metric span{font-size:11px;color:var(--muted)}.log{white-space:pre-wrap;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;background:#0d1015;border-radius:10px;padding:10px;max-height:220px;overflow:auto;color:#cbd2dd}
-.small{font-size:12px;color:var(--muted);line-height:1.6}.badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#28303b;color:#cfd7e4;font-size:11px;margin:2px}.fileList{display:grid;gap:7px;margin-top:10px}.fileRow{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#12161c;border-radius:9px;padding:9px;font-size:12px}.fileRow b{font-weight:650}.fileRow span{color:var(--muted)}.fileRow.ok span{color:var(--ok)}.fileRow.warn span{color:var(--warn)}.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px}.toolbar button{margin-top:0}.anchorToggle{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:var(--muted)}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#17151c">
+  <title>Pixel Mask Part Editor</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><h1>Sprite Studio — Body Gold Master MVP</h1><p>AI非搭載・ローカル完結。AI生成素体を128×128の実ドット絵へ決定論的に変換します。</p></header>
-<main class="wrap">
-<section class="panel">
-<h2>1. AI Package v1.0を読み込む</h2>
-<label class="drop"><input id="packageInput" type="file" multiple accept="image/png,application/json,.json"><strong>AI Packageの4ファイルを選択</strong><span>body_base.png / anchors.json / palette.json / meta.json</span></label>
-<div class="fileList" id="fileList"></div>
-<p class="small">iPhoneでは「ファイルを選択」から4ファイルをまとめて選べます。ZIP展開後のファイルを指定してください。画像単体でも試験変換できますが、欠落情報は検査レポートへ残ります。</p>
-<div class="toolbar"><button id="clearBtn" class="secondary" type="button">読込をリセット</button><button id="templateBtn" class="secondary" type="button">JSON雛形を書き出す</button></div>
-<label class="anchorToggle"><input id="showAnchors" type="checkbox" checked>アンカー位置をプレビューに表示</label>
-</section>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">SPRITE STUDIO / MANUAL MASK</p>
+      <h1>Pixel Mask Part Editor</h1>
+    </div>
+    <button id="helpBtn" class="icon-button" aria-label="使い方">?</button>
+  </header>
 
-<section class="panel">
-<h2>2. 変換設定</h2>
-<div class="controls">
-<div class="control"><label><span>透過しきい値</span><output id="alphaOut">24</output></label><input id="alphaThreshold" type="range" min="0" max="160" value="24"></div>
-<div class="control"><label><span>色統合強度</span><output id="mergeOut">18</output></label><input id="mergeThreshold" type="range" min="0" max="48" value="18"></div>
-<div class="control"><label><span>孤立点除去</span><output id="islandOut">1</output></label><input id="islandPasses" type="range" min="0" max="3" value="1"></div>
-<div class="control"><label><span>輪郭整理</span><output id="contourOut">1</output></label><input id="contourPasses" type="range" min="0" max="3" value="1"></div>
-<div class="control"><label><span>最大色数</span><output id="colorsOut">48</output></label><input id="maxColors" type="range" min="8" max="64" value="48"></div>
-<div class="control"><label><span>縮小方式</span></label><select id="sampling"><option value="nearest">Nearest（推奨）</option><option value="majority">領域代表色</option></select></div>
-</div>
-<button id="runBtn" disabled>素体をGold Master化</button>
-</section>
+  <main>
+    <section class="status-card" aria-label="分解状況">
+      <div><span>未分類</span><strong id="unassignedCount">0</strong></div>
+      <div><span>割当済み</span><strong id="assignedCount">0</strong></div>
+      <div><span>重複</span><strong id="overlapCount">0</strong></div>
+      <div><span>再合成差</span><strong id="diffCount">0</strong></div>
+    </section>
 
-<section class="panel"><h2>3. 入力品質</h2><div id="qualityStatus" class="status"><span class="dot"></span><div>画像を選択してください。</div></div><div id="metrics" class="metrics" style="margin-top:10px"></div></section>
+    <section class="toolbar" aria-label="編集ツール">
+      <button class="tool active" data-tool="pen">ペン</button>
+      <button class="tool" data-tool="fill">同色塗り</button>
+      <button class="tool" data-tool="eyedrop">同色スポイト</button>
+      <button class="tool" data-tool="erase">未分類へ</button>
+      <button class="tool" data-tool="pick">パーツ取得</button>
+    </section>
 
-<section class="grid">
-<div class="panel"><h2>入力</h2><div class="canvasBox"><canvas id="sourceCanvas" width="128" height="128"></canvas></div><div class="caption" id="sourceCaption">未読込</div></div>
-<div class="panel"><h2>Gold Master候補</h2><div class="canvasBox"><canvas id="outputCanvas" width="128" height="128"></canvas></div><div class="caption" id="outputCaption">128×128 / 未生成</div></div>
-</section>
+    <section class="canvas-card">
+      <div class="canvas-head">
+        <div>
+          <strong id="imageName">バッツ戦闘待機</strong>
+          <small id="imageSize">16 × 24</small>
+        </div>
+        <div class="zoom-controls">
+          <button id="zoomOut" aria-label="縮小">−</button>
+          <output id="zoomLabel">16×</output>
+          <button id="zoomIn" aria-label="拡大">＋</button>
+        </div>
+      </div>
+      <div id="viewport" class="viewport">
+        <canvas id="editorCanvas" width="256" height="384" aria-label="マスク編集キャンバス"></canvas>
+      </div>
+      <p id="toolFeedback" class="tool-feedback" aria-live="polite">ペン：1ドットずつ選択パーツへ割り当てます。</p>
+      <p class="canvas-note">1本指で描画・2本指で移動と拡大。元画像の透明部分には描けません。</p>
+    </section>
 
-<section class="panel"><h2>4. 検査結果</h2><div id="badges"></div><div id="log" class="log">未実行</div><button id="pngBtn" class="secondary" disabled>Gold Master PNGを書き出す</button><button id="reportBtn" class="secondary" disabled>検査レポートJSONを書き出す</button></section>
-</main>
-<script>
-'use strict';
-const $=id=>document.getElementById(id);
-const REQUIRED=['body_base.png','anchors.json','palette.json','meta.json'];
-const TARGET={head_top:{x:64,y:5},chin:{x:64,y:28},neck:{x:64,y:31},shoulder_l:{x:44,y:34},shoulder_r:{x:84,y:34},chest:{x:64,y:45},waist:{x:64,y:61},hip:{x:64,y:72},hand_l:{x:28,y:65},hand_r:{x:100,y:65},knee_l:{x:53,y:96},knee_r:{x:75,y:96},foot_l:{x:53,y:122},foot_r:{x:75,y:122}};
-const state={image:null,files:{},anchors:null,palette:null,meta:null,package:null,report:null,sourceFile:null};
-const src=$('sourceCanvas'),out=$('outputCanvas'),sctx=src.getContext('2d',{willReadFrequently:true}),octx=out.getContext('2d',{willReadFrequently:true});
-sctx.imageSmoothingEnabled=false;octx.imageSmoothingEnabled=false;
-for(const [id,outId] of [['alphaThreshold','alphaOut'],['mergeThreshold','mergeOut'],['islandPasses','islandOut'],['contourPasses','contourOut'],['maxColors','colorsOut']]) $(id).addEventListener('input',e=>$(outId).textContent=e.target.value);
+    <section class="display-card">
+      <label><span>元画像</span><input id="sourceOpacity" type="range" min="0" max="100" value="100"></label>
+      <label class="switch"><input id="maskVisible" type="checkbox" checked><span>色マスクを表示</span></label>
+      <label class="switch"><input id="selectedOnly" type="checkbox"><span>選択パーツだけ表示</span></label>
+      <label class="switch"><input id="gridVisible" type="checkbox" checked><span>グリッド</span></label>
+    </section>
 
-function readImage(file){return new Promise((resolve,reject)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);resolve(im)};im.onerror=()=>{URL.revokeObjectURL(u);reject(new Error('画像を読み込めません'))};im.src=u})}
-function baseName(name){return name.split('/').pop().toLowerCase()}
-function pickFile(files,names){for(const f of files){if(names.includes(baseName(f.name)))return f}return null}
-$('packageInput').addEventListener('change',async e=>loadPackage([...e.target.files]));
-$('clearBtn').addEventListener('click',resetAll);
-$('showAnchors').addEventListener('change',renderSource);
-$('templateBtn').addEventListener('click',()=>downloadTemplates());
+    <section class="parts-card">
+      <div class="section-title">
+        <div><p class="eyebrow">ACTIVE PART</p><h2>パーツ</h2></div>
+        <button id="addPartBtn" class="sub-button">＋ 追加</button>
+      </div>
+      <div id="partsList" class="parts-list"></div>
+      <button id="renamePartBtn" class="wide-button muted">選択中の名前を変更</button>
+    </section>
 
-async function loadPackage(files){
- resetAll(false); for(const f of files)state.files[baseName(f.name)]=f;
- const body=pickFile(files,['body_base.png','body.png','body_base.webp','body_base.jpg','body_base.jpeg']);
- if(body){try{state.image=await readImage(body);state.sourceFile=body}catch(err){alert(err.message)}}
- for(const [key,name] of [['anchors','anchors.json'],['palette','palette.json'],['meta','meta.json'],['package','package.json']]){
-   const f=pickFile(files,[name]);if(!f)continue;try{state[key]=JSON.parse(await f.text())}catch{state[key]=null}
- }
- validatePackage();renderFileList();renderSource();
- if(state.image){state.report=inspectInput(state.image);renderQuality(state.report);$('runBtn').disabled=false}else{$('qualityStatus').className='status bad';$('qualityStatus').lastElementChild.textContent='body_base.pngがありません。'}
-}
-function resetAll(clearInput=true){state.image=null;state.files={};state.anchors=null;state.palette=null;state.meta=null;state.package=null;state.report=null;state.sourceFile=null;sctx.clearRect(0,0,128,128);octx.clearRect(0,0,128,128);$('sourceCaption').textContent='未読込';$('outputCaption').textContent='128×128 / 未生成';$('metrics').innerHTML='';$('badges').innerHTML='';$('log').textContent='未実行';$('runBtn').disabled=true;$('pngBtn').disabled=true;$('reportBtn').disabled=true;if(clearInput)$('packageInput').value='';renderFileList()}
-function validatePackage(){
- const issues=[];
- if(state.anchors){const a=normalizedAnchors(state.anchors);for(const k of ['head_top','shoulder_l','shoulder_r','hip','foot_l','foot_r'])if(!a[k])issues.push(`anchors.json: ${k}不足`);const size=state.anchors.image;if(size&&state.image&&(size.width!==state.image.naturalWidth||size.height!==state.image.naturalHeight))issues.push('anchors.jsonの画像寸法が不一致')}
- if(state.palette){const pal=extractPalette(state.palette);if(!pal.length)issues.push('palette.jsonに有効色がありません');if(pal.length>48)issues.push('palette.jsonが48色を超えています')}
- if(state.meta){if(state.meta.view&&state.meta.view!=='front')issues.push('meta.json: front以外');if(state.meta.pose&&state.meta.pose!=='neutral_standing')issues.push('meta.json: neutral_standing以外')}
- state.packageIssues=issues;
-}
-function renderFileList(){const rows=[['body_base.png',!!state.image],['anchors.json',!!state.anchors],['palette.json',!!state.palette],['meta.json',!!state.meta],['package.json',!!state.package,'推奨']];$('fileList').innerHTML=rows.map(([n,ok,opt])=>`<div class="fileRow ${ok?'ok':'warn'}"><b>${n}</b><span>${ok?'読込済み':opt||'不足'}</span></div>`).join('')}
-function renderSource(){sctx.clearRect(0,0,128,128);if(!state.image)return;drawContain(state.image,sctx,128,128);if($('showAnchors').checked&&state.anchors)drawAnchorOverlay(sctx,state.image,state.anchors);$('sourceCaption').textContent=`${state.image.naturalWidth}×${state.image.naturalHeight} / ${state.sourceFile.name}`}
-function drawContain(im,ctx,w,h){ctx.clearRect(0,0,w,h);const scale=Math.min(w/im.naturalWidth,h/im.naturalHeight),dw=Math.max(1,Math.round(im.naturalWidth*scale)),dh=Math.max(1,Math.round(im.naturalHeight*scale)),dx=Math.floor((w-dw)/2),dy=Math.floor((h-dh)/2);ctx.imageSmoothingEnabled=false;ctx.drawImage(im,dx,dy,dw,dh)}
-function drawAnchorOverlay(ctx,im,json){const a=normalizedAnchors(json),scale=Math.min(128/im.naturalWidth,128/im.naturalHeight),dx=(128-im.naturalWidth*scale)/2,dy=(128-im.naturalHeight*scale)/2;ctx.save();ctx.fillStyle='#ff3366';ctx.font='5px sans-serif';for(const [k,p] of Object.entries(a)){const x=dx+p.x*scale,y=dy+p.y*scale;ctx.fillRect(Math.round(x)-1,Math.round(y)-1,3,3);ctx.fillText(k,Math.round(x)+2,Math.round(y)-2)}ctx.restore()}
-function inspectInput(im){const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(im,0,0);const d=x.getImageData(0,0,c.width,c.height).data;let visible=0,semi=0,minX=c.width,minY=c.height,maxX=-1,maxY=-1;const colors=new Set();for(let y=0;y<c.height;y++)for(let xx=0;xx<c.width;xx++){const i=(y*c.width+xx)*4,a=d[i+3];if(a>8){visible++;if(a<247)semi++;minX=Math.min(minX,xx);maxX=Math.max(maxX,xx);minY=Math.min(minY,y);maxY=Math.max(maxY,y);if(colors.size<20000)colors.add(`${d[i]>>3},${d[i+1]>>3},${d[i+2]>>3}`)}}const total=c.width*c.height,bw=maxX>=0?maxX-minX+1:0,bh=maxY>=0?maxY-minY+1:0,occ=visible/total,centerX=maxX>=0?(minX+maxX+1)/2/c.width:.5,centerY=maxY>=0?(minY+maxY+1)/2/c.height:.5;let grade='ok',notes=[];if(!visible){grade='bad';notes.push('前景がありません')}if(occ<.05||occ>.92){grade='bad';notes.push('キャラクター占有率が規格外')}if(Math.abs(centerX-.5)>.13){grade=grade==='bad'?'bad':'warn';notes.push('左右中心がずれています')}if(Math.abs(centerY-.5)>.15){grade=grade==='bad'?'bad':'warn';notes.push('上下中心がずれています')}if(semi/Math.max(1,visible)>.25){grade=grade==='bad'?'bad':'warn';notes.push('半透明ピクセルが多い')}return{width:c.width,height:c.height,visible,occupancy:occ,semiRatio:semi/Math.max(1,visible),colorBuckets:colors.size,bounds:{x:minX,y:minY,w:bw,h:bh},center:{x:centerX,y:centerY},grade,notes}}
-function renderQuality(r){const complete=REQUIRED.every(n=>state.files[n]);if(!complete&&r.grade==='ok')r.grade='warn';$('qualityStatus').className='status '+(r.grade==='ok'?'ok':r.grade==='bad'?'bad':'');$('qualityStatus').lastElementChild.textContent=r.grade==='ok'?'Package完全・処理可能です。':r.grade==='warn'?'不足情報を記録して試験処理できます。':'入力条件を満たしていません。';const m=[['入力',`${r.width}×${r.height}`],['占有率',`${(r.occupancy*100).toFixed(1)}%`],['半透明',`${(r.semiRatio*100).toFixed(1)}%`],['概算色群',r.colorBuckets],['Package',complete?'4/4':'不完全'],['アンカー',state.anchors?Object.keys(normalizedAnchors(state.anchors)).length:'0']];$('metrics').innerHTML=m.map(v=>`<div class="metric"><b>${v[1]}</b><span>${v[0]}</span></div>`).join('');renderBadges([...r.notes,...(state.packageIssues||[]),...(complete?['AI Package v1.0 complete']:['不足ファイルあり'])])}
-function renderBadges(list){$('badges').innerHTML=(list.length?list:['基本条件OK']).map(x=>`<span class="badge">${escapeHtml(String(x))}</span>`).join('')}
-function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function normalizedAnchors(json){const src=json&&json.anchors?json.anchors:{};const aliases={headTop:'head_top',shoulderL:'shoulder_l',shoulderR:'shoulder_r',handL:'hand_l',handR:'hand_r',kneeL:'knee_l',kneeR:'knee_r',footL:'foot_l',footR:'foot_r'};const out={};for(const [k,v] of Object.entries(src)){const key=aliases[k]||k;if(Array.isArray(v)&&v.length>=2)out[key]={x:+v[0],y:+v[1]};else if(v&&Number.isFinite(+v.x)&&Number.isFinite(+v.y))out[key]={x:+v.x,y:+v.y}}return out}
-function extractPalette(json){const list=Array.isArray(json)?json:(Array.isArray(json.palette)?json.palette:[]);return list.map(hexToRgb).filter(Boolean)}
+    <section class="io-card">
+      <label class="wide-button file-button">PNGを読み込む<input id="fileInput" type="file" accept="image/png"></label>
+      <button id="exportBtn" class="wide-button primary">分解ZIPを書き出す</button>
+      <button id="resetBtn" class="wide-button danger">マスクを全消去</button>
+      <p id="saveState" class="save-state">端末内に自動保存済み</p>
+    </section>
+  </main>
 
-$('runBtn').addEventListener('click',()=>{if(!state.image)return;const cfg={alpha:+$('alphaThreshold').value,merge:+$('mergeThreshold').value,islands:+$('islandPasses').value,contour:+$('contourPasses').value,maxColors:+$('maxColors').value,sampling:$('sampling').value};const result=compileBody(state.image,cfg);octx.putImageData(result.image,0,0);if($('showAnchors').checked)drawTargetAnchors(octx);const missing=REQUIRED.filter(n=>!state.files[n]);state.report={schemaVersion:'1.0',compiler:'Sprite Studio Body Gold Master MVP',input:{filename:state.sourceFile.name,width:state.image.naturalWidth,height:state.image.naturalHeight,packageComplete:missing.length===0,missingFiles:missing,packageIssues:state.packageIssues||[]},inspection:state.report,settings:cfg,output:result.stats,anchors:{received:!!state.anchors,count:Object.keys(normalizedAnchors(state.anchors)).length,profile:(state.anchors&&state.anchors.profile)||null},palette:{received:!!state.palette,requested:extractPalette(state.palette||{}).length},metadataAccepted:!!state.meta,generatedAt:new Date().toISOString()};$('outputCaption').textContent=`128×128 / ${result.stats.colors}色 / ${result.stats.alignment}`;$('log').textContent=result.log.join('\n');renderBadges(result.badges);$('pngBtn').disabled=false;$('reportBtn').disabled=false});
-function drawTargetAnchors(ctx){ctx.save();ctx.fillStyle='#00d8ff';for(const p of Object.values(TARGET))ctx.fillRect(p.x-1,p.y-1,3,3);ctx.restore()}
-function compileBody(im,cfg){const work=document.createElement('canvas');work.width=128;work.height=128;const x=work.getContext('2d',{willReadFrequently:true});x.imageSmoothingEnabled=false;let alignment='bounds';if(state.anchors&&anchorAlign(im,x,state.anchors))alignment='anchors';else{const source=getTrimmedImage(im,cfg.alpha);if(cfg.sampling==='majority')drawMajority(source,x,128,128);else drawFitted(source,x,128,128)}let data=x.getImageData(0,0,128,128);binaryAlpha(data,cfg.alpha);unpremultiplyEdges(data);for(let i=0;i<cfg.islands;i++)data=removeIslands(data,128,128);for(let i=0;i<cfg.contour;i++)data=cleanContour(data,128,128);let palette=extractPalette(state.palette||{});if(!palette.length)palette=buildPalette(data,cfg.maxColors,cfg.merge);palette=palette.slice(0,Math.min(48,cfg.maxColors));applyPalette(data,palette);binaryAlpha(data,cfg.alpha);const stats={...countStats(data,palette),alignment};const log=[`[1] package validation: ${REQUIRED.filter(n=>state.files[n]).length}/4`,`[2] alignment: ${alignment}`,`[3] canvas normalize: 128x128`,`[4] alpha normalize: threshold ${cfg.alpha}`,`[5] isolated pixel passes: ${cfg.islands}`,`[6] contour cleanup passes: ${cfg.contour}`,`[7] palette source: ${state.palette?'package':'auto'}`,`[8] palette compile: ${stats.colors}/${Math.min(48,cfg.maxColors)} colors`,`[9] semi-transparent pixels: ${stats.semiPixels}`,`[10] occupied pixels: ${stats.opaquePixels}`];const badges=[alignment==='anchors'?'アンカー位置合わせ':'輪郭Bounds位置合わせ',stats.semiPixels===0?'AA/半透明なし':'半透明残存',stats.colors<=48?'48色以内':'色数超過',stats.opaquePixels>250?'前景あり':'前景不足'];return{image:data,stats,log,badges}}
-function anchorAlign(im,ctx,json){const a=normalizedAnchors(json),head=a.head_top,fl=a.foot_l,fr=a.foot_r;if(!head||!fl||!fr)return false;const foot={x:(fl.x+fr.x)/2,y:(fl.y+fr.y)/2},srcH=foot.y-head.y;if(srcH<=1)return false;const targetFoot={x:(TARGET.foot_l.x+TARGET.foot_r.x)/2,y:(TARGET.foot_l.y+TARGET.foot_r.y)/2},targetH=targetFoot.y-TARGET.head_top.y,scale=targetH/srcH;const tx=TARGET.head_top.x-head.x*scale,ty=TARGET.head_top.y-head.y*scale;ctx.clearRect(0,0,128,128);ctx.setTransform(scale,0,0,scale,tx,ty);ctx.drawImage(im,0,0);ctx.setTransform(1,0,0,1,0,0);return true}
-function getTrimmedImage(im,alpha){const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(im,0,0);const d=x.getImageData(0,0,c.width,c.height).data;let minX=c.width,minY=c.height,maxX=-1,maxY=-1;for(let y=0;y<c.height;y++)for(let xx=0;xx<c.width;xx++){if(d[(y*c.width+xx)*4+3]>alpha){minX=Math.min(minX,xx);maxX=Math.max(maxX,xx);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}}if(maxX<0)return{canvas:c,x:0,y:0,w:c.width,h:c.height};const pad=Math.max(1,Math.round(Math.max(maxX-minX,maxY-minY)*.025));minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(c.width-1,maxX+pad);maxY=Math.min(c.height-1,maxY+pad);return{canvas:c,x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1}}
-function drawFitted(s,ctx,w,h){ctx.clearRect(0,0,w,h);const target={x:10,y:4,w:108,h:120},scale=Math.min(target.w/s.w,target.h/s.h),dw=Math.max(1,Math.round(s.w*scale)),dh=Math.max(1,Math.round(s.h*scale)),dx=Math.round(target.x+(target.w-dw)/2),dy=Math.round(target.y+(target.h-dh)/2);ctx.drawImage(s.canvas,s.x,s.y,s.w,s.h,dx,dy,dw,dh)}
-function drawMajority(s,ctx,w,h){drawFitted(s,ctx,w,h);const d=ctx.getImageData(0,0,w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;if(d.data[i+3]===0)continue;for(let c=0;c<3;c++)d.data[i+c]=Math.round(d.data[i+c]/8)*8}ctx.putImageData(d,0,0)}
-function binaryAlpha(img,t){const d=img.data;for(let i=0;i<d.length;i+=4){if(d[i+3]<=t){d[i]=d[i+1]=d[i+2]=d[i+3]=0}else d[i+3]=255}}
-function unpremultiplyEdges(img){const d=img.data;for(let i=0;i<d.length;i+=4)if(d[i+3]===0)d[i]=d[i+1]=d[i+2]=0}
-function removeIslands(img,w,h){const src=img.data,out=new ImageData(new Uint8ClampedArray(src),w,h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4;if(src[i+3]===0)continue;let n=0;for(let yy=-1;yy<=1;yy++)for(let xx=-1;xx<=1;xx++)if(xx||yy)n+=src[((y+yy)*w+x+xx)*4+3]>0?1:0;if(n<=1)out.data[i]=out.data[i+1]=out.data[i+2]=out.data[i+3]=0}return out}
-function cleanContour(img,w,h){const s=img.data,o=new ImageData(new Uint8ClampedArray(s),w,h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=(y*w+x)*4,a=s[i+3]>0;let ortho=0,diag=0;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])ortho+=s[((y+dy)*w+x+dx)*4+3]>0?1:0;for(const [dx,dy] of [[1,1],[-1,1],[1,-1],[-1,-1]])diag+=s[((y+dy)*w+x+dx)*4+3]>0?1:0;if(a&&ortho===0&&diag<=1)o.data[i+3]=0;else if(!a&&ortho>=3){const cols=[];for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const j=((y+dy)*w+x+dx)*4;if(s[j+3])cols.push([s[j],s[j+1],s[j+2]])}if(cols.length){for(let c=0;c<3;c++)o.data[i+c]=Math.round(cols.reduce((q,v)=>q+v[c],0)/cols.length);o.data[i+3]=255}}}return o}
-function buildPalette(img,maxColors,merge){const d=img.data,map=new Map();for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;const q=[Math.min(255,Math.round(d[i]/8)*8),Math.min(255,Math.round(d[i+1]/8)*8),Math.min(255,Math.round(d[i+2]/8)*8)],k=q.join(',');map.set(k,(map.get(k)||0)+1)}let colors=[...map].map(([k,n])=>({rgb:k.split(',').map(Number),n})).sort((a,b)=>b.n-a.n),chosen=[];for(const c of colors){let best=Infinity;for(const p of chosen)best=Math.min(best,colorDist(c.rgb,p));if(best<=merge)continue;chosen.push(c.rgb);if(chosen.length>=Math.min(48,maxColors))break}return chosen.length?chosen:[[0,0,0]]}
-function applyPalette(img,pal){const d=img.data;for(let i=0;i<d.length;i+=4){if(!d[i+3])continue;let bi=0,bd=Infinity;for(let p=0;p<pal.length;p++){const dist=colorDist([d[i],d[i+1],d[i+2]],pal[p]);if(dist<bd){bd=dist;bi=p}}d[i]=pal[bi][0];d[i+1]=pal[bi][1];d[i+2]=pal[bi][2]}}
-function colorDist(a,b){const dr=a[0]-b[0],dg=a[1]-b[1],db=a[2]-b[2];return dr*dr*.3+dg*dg*.59+db*db*.11}
-function hexToRgb(h){if(Array.isArray(h)&&h.length>=3)return h.slice(0,3).map(Number);if(typeof h!=='string')return null;const m=h.trim().match(/^#?([0-9a-f]{6})$/i);return m?[parseInt(m[1].slice(0,2),16),parseInt(m[1].slice(2,4),16),parseInt(m[1].slice(4,6),16)]:null}
-function countStats(img,pal){let opaque=0,semi=0;for(let i=3;i<img.data.length;i+=4){if(img.data[i])opaque++;if(img.data[i]>0&&img.data[i]<255)semi++}return{colors:pal.length,opaquePixels:opaque,semiPixels:semi,width:128,height:128}}
-function downloadCanvas(canvas,name){canvas.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},'image/png')}
-function downloadText(text,name,type='application/json'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-function downloadTemplates(){const t={schemaVersion:'1.0',coordinateSpace:'source_pixels',image:{width:512,height:512},profile:'female_standard_front_v1',anchors:{head_top:{x:256,y:21},shoulder_l:{x:178,y:157},shoulder_r:{x:334,y:157},hip:{x:256,y:301},foot_l:{x:220,y:487},foot_r:{x:292,y:487}}};downloadText(JSON.stringify(t,null,2),'anchors.template.json')}
-$('pngBtn').addEventListener('click',()=>{const c=document.createElement('canvas');c.width=128;c.height=128;c.getContext('2d').putImageData(octx.getImageData(0,0,128,128),0,0);downloadCanvas(c,'body_gold_master_128.png')});
-$('reportBtn').addEventListener('click',()=>downloadText(JSON.stringify(state.report,null,2),'inspection_report.json'));
-renderFileList();
-</script>
+  <footer class="bottom-bar">
+    <button id="undoBtn">↶<span>戻す</span></button>
+    <button id="redoBtn">↷<span>進む</span></button>
+    <button id="centerBtn">◎<span>中央</span></button>
+    <button id="previewBtn">◫<span>再合成</span></button>
+  </footer>
+
+  <dialog id="helpDialog">
+    <h2>最短の使い方</h2>
+    <ol>
+      <li>パーツ名を選びます。</li>
+      <li>画像の該当ドットを指で塗ります。</li>
+      <li>同色スポイトは、触れた色と上下左右につながる完全同色領域を選択パーツへ一括登録します。</li>
+      <li>未分類が0になるまで繰り返します。</li>
+      <li>再合成を確認してZIPを書き出します。</li>
+    </ol>
+    <p>1ピクセルは常に1パーツだけに所属します。別パーツで塗ると自動的に移動します。</p>
+    <button id="closeHelp" class="wide-button primary">閉じる</button>
+  </dialog>
+
+  <dialog id="previewDialog">
+    <h2>再合成確認</h2>
+    <div class="preview-grid">
+      <figure><canvas id="sourcePreview"></canvas><figcaption>原画</figcaption></figure>
+      <figure><canvas id="recomposePreview"></canvas><figcaption>再合成</figcaption></figure>
+    </div>
+    <p id="previewMessage"></p>
+    <button id="closePreview" class="wide-button primary">閉じる</button>
+  </dialog>
+
+  <script src="model.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
