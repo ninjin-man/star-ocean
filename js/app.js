@@ -1,49 +1,118 @@
-(()=>{'use strict';
-const $=id=>document.getElementById(id),W=128,H=128,idx=(x,y)=>(y*W+x)*4,inside=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
-const state={tool:'pen',color:0,active:0,layers:[],undo:[],redo:[],grid:true,reference:null,palette:['#171522','#443c58','#71698c','#a9a4c5','#e8e5f2','#8e4f49','#d47f72','#f0b09d','#10281f','#1c503c','#3d7c58','#9fc39a','#d7e7c8','#6a3c12','#ba781a','#e7b832','#ffe181','#203128','#426548','#ffffff']};
-const C={r:$('reference'),c:$('composite'),e:$('editor'),g:$('grid'),o:$('out128'),p:$('outPreview')};
-function log(s){$('status').textContent=`${new Date().toLocaleTimeString('ja-JP',{hour12:false})} ${s}\n`+$('status').textContent}
-function blank(name){return{name,visible:true,data:new Uint8ClampedArray(W*H*4)}}
-function hex(h){return[h.slice(1,3),h.slice(3,5),h.slice(5,7)].map(x=>parseInt(x,16)).concat(255)}
-function put(l,x,y,c){if(!inside(x,y))return;l.data.set(c,idx(x,y))}
-function get(l,x,y){return Array.from(l.data.slice(idx(x,y),idx(x,y)+4))}
-function poly(l,pts,c){const cv=document.createElement('canvas');cv.width=W;cv.height=H;const x=cv.getContext('2d');x.imageSmoothingEnabled=false;x.fillStyle=c;x.beginPath();x.moveTo(...pts[0]);for(let i=1;i<pts.length;i++)x.lineTo(...pts[i]);x.closePath();x.fill();const d=x.getImageData(0,0,W,H).data;for(let i=0;i<d.length;i+=4)if(d[i+3])l.data.set(d.slice(i,i+4),i)}
-function rect(l,x,y,w,h,c){for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)put(l,xx,yy,hex(c))}
-function ellipse(l,cx,cy,rx,ry,c){for(let y=Math.floor(cy-ry);y<=cy+ry;y++)for(let x=Math.floor(cx-rx);x<=cx+rx;x++){const q=((x-cx)/rx)**2+((y-cy)/ry)**2;if(q<=1)put(l,x,y,hex(c))}}
-function outlineLayer(src,name,color='#201823'){const o=blank(name),m=new Uint8Array(W*H);for(let i=0;i<m.length;i++)m[i]=src.data[i*4+3]?1:0;for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++)if(m[y*W+x]){if(!m[y*W+x-1]||!m[y*W+x+1]||!m[(y-1)*W+x]||!m[(y+1)*W+x])put(o,x,y,hex(color))}return o}
-function makeTemplate(){const cute=$('styleSel').value==='cute',hs=+$('headScale').value/100,hw=+$('hairScale').value/100,ss=+$('sleeveScale').value/100,bs=+$('bodyScale').value/100;
-const shadow=blank('影');ellipse(shadow,64,119,24,4,'#1a2323');
-const back=blank('後ろ髪');poly(back,[[42,18],[31,34],[27,74],[34,104],[49,112],[54,69],[74,69],[79,112],[94,104],[101,74],[97,34],[86,18]],'#71698c');poly(back,[[47,23],[39,40],[37,82],[48,101],[53,60]],'#a9a4c5');poly(back,[[81,23],[89,40],[91,82],[80,101],[75,60]],'#443c58');
-const legs=blank('脚');const bw=Math.round(9*bs);rect(legs,55,82,bw,30,'#d7e7c8');rect(legs,65,82,bw,30,'#c1d9b9');rect(legs,54,91,bw,22,'#6f9a78');rect(legs,66,91,bw,22,'#5f876b');
-const boots=blank('靴');poly(boots,[[53,109],[63,109],[63,118],[49,118],[49,114]],'#203128');poly(boots,[[66,109],[76,109],[80,114],[80,118],[65,118]],'#203128');rect(boots,52,111,10,2,'#e7b832');rect(boots,67,111,10,2,'#e7b832');
-const torso=blank('胴衣装');const tw=Math.round(28*bs),tx=64-Math.floor(tw/2);poly(torso,[[tx,52],[128-tx,52],[75,84],[53,84]],'#1c503c');poly(torso,[[56,55],[72,55],[75,82],[53,82]],'#3d7c58');rect(torso,62,54,4,29,'#203128');
-const sleeves=blank('袖');const sx=Math.round(18*ss);poly(sleeves,[[48,54],[35,58],[28-sx/4,79],[34,92],[48,81]],'#d7e7c8');poly(sleeves,[[80,54],[93,58],[100+sx/4,79],[94,92],[80,81]],'#d7e7c8');poly(sleeves,[[42,61],[34,70],[36,84],[47,75]],'#9fc39a');poly(sleeves,[[86,61],[94,70],[92,84],[81,75]],'#9fc39a');
-const arms=blank('腕・手');ellipse(arms,35,88,5,6,'#f0b09d');ellipse(arms,93,88,5,6,'#f0b09d');rect(arms,33,81,4,8,'#d47f72');rect(arms,91,81,4,8,'#d47f72');
-const ears=blank('耳');poly(ears,[[44,34],[26,40],[44,47]],'#f0b09d');poly(ears,[[84,34],[102,40],[84,47]],'#f0b09d');poly(ears,[[43,37],[31,40],[43,43]],'#d47f72');poly(ears,[[85,37],[97,40],[85,43]],'#d47f72');
-const face=blank('顔');ellipse(face,64,37,Math.round(18*hs),Math.round(20*hs),'#f0b09d');ellipse(face,64,43,15,13,'#f0b09d');
-const eyes=blank('目・口');const eyeY=cute?37:38;rect(eyes,54,eyeY,6,3,'#10281f');rect(eyes,68,eyeY,6,3,'#10281f');put(eyes,56,eyeY,hex('#ffffff'));put(eyes,70,eyeY,hex('#ffffff'));rect(eyes,61,47,6,1,'#8e4f49');
-const front=blank('前髪');poly(front,[[45,21],[51,14],[64,11],[77,14],[84,22],[80,34],[74,27],[70,37],[64,25],[58,38],[53,27],[47,34]],'#a9a4c5');poly(front,[[52,17],[64,12],[75,17],[70,21],[58,21]],'#e8e5f2');
-const ornament=blank('装飾');rect(ornament,60,52,8,3,'#e7b832');rect(ornament,62,56,4,18,'#e7b832');rect(ornament,54,66,5,3,'#ffe181');rect(ornament,69,66,5,3,'#ffe181');ellipse(ornament,64,50,3,3,'#3d7c58');
-let ls=[shadow,back,legs,boots,torso,sleeves,arms,ears,face,eyes,front,ornament];
-const merged=blank('輪郭参照');for(const l of ls)for(let i=0;i<merged.data.length;i+=4)if(l.data[i+3])merged.data.set(l.data.slice(i,i+4),i);const ol=outlineLayer(merged,'輪郭','#201823');ls.splice(1,0,ol);return ls}
-function composite(ls=state.layers){const d=new Uint8ClampedArray(W*H*4);for(const l of ls){if(!l.visible)continue;for(let i=0;i<d.length;i+=4)if(l.data[i+3])d.set(l.data.slice(i,i+4),i)}return d}
-function drawCanvas(cv,data,w,h){cv.width=w;cv.height=h;const x=cv.getContext('2d');x.clearRect(0,0,w,h);const t=document.createElement('canvas');t.width=W;t.height=H;t.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(data),W,H),0,0);x.imageSmoothingEnabled=false;x.drawImage(t,0,0,w,h)}
-function render(){const d=composite();drawCanvas(C.c,d,W,H);drawCanvas(C.o,d,128,128);drawCanvas(C.p,d,256,256);renderGrid();renderLayers()}
-function renderGrid(){const x=C.g.getContext('2d');x.clearRect(0,0,W,H);if(!state.grid)return;x.strokeStyle='rgba(255,255,255,.12)';x.lineWidth=.25;for(let i=0;i<=W;i+=8){x.beginPath();x.moveTo(i,0);x.lineTo(i,H);x.stroke();x.beginPath();x.moveTo(0,i);x.lineTo(W,i);x.stroke()}}
-function renderLayers(){const box=$('layers');box.innerHTML='';[...state.layers].reverse().forEach((l,ri)=>{const i=state.layers.length-1-ri,b=document.createElement('div');b.className='layer'+(i===state.active?' active':'');b.innerHTML=`<button>${l.visible?'●':'○'}</button><span>${l.name}</span><button>選択</button>`;b.children[0].onclick=e=>{e.stopPropagation();l.visible=!l.visible;render()};b.children[2].onclick=()=>{state.active=i;renderLayers()};box.appendChild(b)})}
-function renderPalette(){const b=$('palette');b.innerHTML='';state.palette.forEach((c,i)=>{const s=document.createElement('button');s.className='sw'+(i===state.color?' active':'');s.style.background=c;s.onclick=()=>{state.color=i;renderPalette()};b.appendChild(s)})}
-function snap(){state.undo.push(state.layers.map(l=>({name:l.name,visible:l.visible,data:new Uint8ClampedArray(l.data)})));if(state.undo.length>30)state.undo.shift();state.redo=[]}
-function restore(v){state.layers=v.map(l=>({name:l.name,visible:l.visible,data:new Uint8ClampedArray(l.data)}));state.active=Math.min(state.active,state.layers.length-1);render()}
-function flood(l,x,y,c){const t=get(l,x,y);if(t.every((v,i)=>v===c[i]))return;const q=[[x,y]],seen=new Uint8Array(W*H);while(q.length){const[a,b]=q.pop();if(!inside(a,b))continue;const k=b*W+a;if(seen[k])continue;seen[k]=1;const g=get(l,a,b);if(!g.every((v,i)=>v===t[i]))continue;put(l,a,b,c);q.push([a+1,b],[a-1,b],[a,b+1],[a,b-1])}}
-function pos(e){const r=C.e.getBoundingClientRect();return{x:Math.floor((e.clientX-r.left)/r.width*W),y:Math.floor((e.clientY-r.top)/r.height*H)}}
-let drawing=false;function down(e){e.preventDefault();C.e.setPointerCapture(e.pointerId);drawing=true;snap();const p=pos(e),l=state.layers[state.active];if(state.tool==='fill'){flood(l,p.x,p.y,hex(state.palette[state.color]));drawing=false;render();return}if(state.tool==='picker'){const c=get(l,p.x,p.y);let bi=0,bd=1e12;state.palette.forEach((h,i)=>{const q=hex(h),d=(q[0]-c[0])**2+(q[1]-c[1])**2+(q[2]-c[2])**2;if(d<bd){bd=d;bi=i}});state.color=bi;renderPalette();drawing=false;return}paint(p);render()}
-function paint(p){const l=state.layers[state.active];put(l,p.x,p.y,state.tool==='eraser'?[0,0,0,0]:hex(state.palette[state.color]))}function move(e){if(!drawing)return;paint(pos(e));render()}function up(){drawing=false}
-async function extractColors(){if(!state.reference)return log('参考画像がありません');const im=new Image();im.src=state.reference;await im.decode();const cv=document.createElement('canvas');cv.width=256;cv.height=256;const x=cv.getContext('2d');x.drawImage(im,0,0,256,256);const d=x.getImageData(0,0,256,256).data,bins=new Map();for(let i=0;i<d.length;i+=16){if(d[i+3]<120)continue;const k=`${d[i]>>4},${d[i+1]>>4},${d[i+2]>>4}`;bins.set(k,(bins.get(k)||0)+1)}const top=[...bins.entries()].sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k])=>{const [r,g,b]=k.split(',').map(Number);return`#${[r,g,b].map(v=>(v*17).toString(16).padStart(2,'0')).join('')}`});if(top.length<6)return log('配色抽出に失敗');state.palette=[...top,...state.palette].slice(0,24);const role={hair:top.find(c=>{const [r,g,b]=hex(c);return Math.max(r,g,b)>140&&Math.max(r,g,b)-Math.min(r,g,b)<75})||top[0],cloth:top.find(c=>{const [r,g,b]=hex(c);return g>r*.8&&g>b})||top[2],accent:top.find(c=>{const [r,g,b]=hex(c);return r>130&&g>80&&b<100})||top[3]};for(const l of state.layers){let target=null;if(/髪/.test(l.name))target=role.hair;if(/胴衣装|袖/.test(l.name))target=role.cloth;if(/装飾/.test(l.name))target=role.accent;if(!target)continue;const tc=hex(target);for(let i=0;i<l.data.length;i+=4)if(l.data[i+3]){const lum=(l.data[i]+l.data[i+1]+l.data[i+2])/765;l.data[i]=Math.min(255,tc[0]*(.55+.6*lum));l.data[i+1]=Math.min(255,tc[1]*(.55+.6*lum));l.data[i+2]=Math.min(255,tc[2]*(.55+.6*lum))}}renderPalette();render();log('参考画像の主要色を適用しました')}
-function quality(){const d=composite(),colors=new Set(),m=new Uint8Array(W*H);let px=0,iso=0;for(let i=0;i<d.length;i+=4)if(d[i+3]){px++;m[i/4]=1;colors.add(`${d[i]},${d[i+1]},${d[i+2]}`)}for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++)if(m[y*W+x]){let n=0;for(let yy=-1;yy<=1;yy++)for(let xx=-1;xx<=1;xx++)if(xx||yy)n+=m[(y+yy)*W+x+xx];if(!n)iso++}const checks={前景:px>1200&&px<6500,色数:colors.size<=40,孤立:iso===0,顔:state.layers.some(l=>l.name==='顔'&&l.data.some((v,i)=>i%4===3&&v)),目口:state.layers.some(l=>l.name==='目・口'&&l.data.some((v,i)=>i%4===3&&v)),髪:state.layers.filter(l=>/髪/.test(l.name)).length>=2};const pass=Object.values(checks).every(Boolean);$('quality').textContent=`判定: ${pass?'構造合格':'要修正'}\n前景画素: ${px}\n使用色: ${colors.size}/40\n孤立1px: ${iso}\n顔レイヤー: ${checks.顔}\n目・口レイヤー: ${checks.目口}\n髪レイヤー: ${checks.髪}\n※魅力・同一人物性は参考画像との目視確認が必要です。`}
-function downloadCanvas(cv,name){cv.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)})}
-function serialize(){return{version:'5.0.0',palette:state.palette,layers:state.layers.map(l=>({name:l.name,visible:l.visible,data:Array.from(l.data)}))}}
-function saveJSON(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(serialize())],{type:'application/json'}));a.download='sprite_studio_v5_project.json';a.click()}
-async function loadJSON(f){const o=JSON.parse(await f.text());state.palette=o.palette;state.layers=o.layers.map(l=>({name:l.name,visible:l.visible,data:new Uint8ClampedArray(l.data)}));state.active=0;renderPalette();render();log('プロジェクトを読み込みました')}
-function reset(){state.layers=makeTemplate();state.active=state.layers.length-1;state.undo=[];state.redo=[];render();log('128デザインを生成しました')}
-function bind(){document.querySelectorAll('.tool').forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x===b))});C.e.addEventListener('pointerdown',down);C.e.addEventListener('pointermove',move);C.e.addEventListener('pointerup',up);C.e.addEventListener('pointercancel',up);$('applyDesign').onclick=reset;$('newBtn').onclick=reset;$('undoBtn').onclick=()=>{if(!state.undo.length)return;state.redo.push(state.layers.map(l=>({name:l.name,visible:l.visible,data:new Uint8ClampedArray(l.data)})));restore(state.undo.pop())};$('redoBtn').onclick=()=>{if(!state.redo.length)return;state.undo.push(state.layers.map(l=>({name:l.name,visible:l.visible,data:new Uint8ClampedArray(l.data)})));restore(state.redo.pop())};$('mirrorBtn').onclick=()=>{snap();for(const l of state.layers){const d=new Uint8ClampedArray(l.data);for(let y=0;y<H;y++)for(let x=0;x<W;x++)l.data.set(d.slice(idx(x,y),idx(x,y)+4),idx(W-1-x,y))}render()};$('gridBtn').onclick=()=>{state.grid=!state.grid;renderGrid()};$('addLayer').onclick=()=>{state.layers.push(blank(`Layer ${state.layers.length+1}`));state.active=state.layers.length-1;render()};$('deleteLayer').onclick=()=>{if(state.layers.length<=1)return;state.layers.splice(state.active,1);state.active=Math.max(0,state.active-1);render()};$('upLayer').onclick=()=>{if(state.active>=state.layers.length-1)return;[state.layers[state.active],state.layers[state.active+1]]=[state.layers[state.active+1],state.layers[state.active]];state.active++;render()};$('downLayer').onclick=()=>{if(state.active<=0)return;[state.layers[state.active],state.layers[state.active-1]]=[state.layers[state.active-1],state.layers[state.active]];state.active--;render()};$('refBtn').onclick=()=>$('refInput').click();$('refInput').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{state.reference=r.result;$('refImg').src=r.result;const im=new Image();im.src=r.result;im.onload=()=>{const x=C.r.getContext('2d');x.clearRect(0,0,W,H);x.globalAlpha=+$('overlayRange').value/100;x.drawImage(im,0,0,W,H)}};r.readAsDataURL(f)};$('overlayRange').oninput=()=>{if(!state.reference)return;const im=new Image();im.src=state.reference;im.onload=()=>{const x=C.r.getContext('2d');x.clearRect(0,0,W,H);x.globalAlpha=+$('overlayRange').value/100;x.drawImage(im,0,0,W,H)}};$('extractBtn').onclick=extractColors;$('addColor').onclick=()=>{state.palette.push($('colorInput').value);state.color=state.palette.length-1;renderPalette()};$('qualityBtn').onclick=quality;$('png128').onclick=()=>downloadCanvas(C.o,'sprite128.png');$('jsonExport').onclick=saveJSON;$('saveBtn').onclick=saveJSON;$('loadBtn').onclick=()=>$('loadInput').click();$('loadInput').onchange=e=>e.target.files[0]&&loadJSON(e.target.files[0]);renderPalette();reset()}
-document.readyState==='loading'?document.addEventListener('DOMContentLoaded',bind):bind();})();
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const canvas = $('editorCanvas'), ctx = canvas.getContext('2d', { alpha: true });
+  const viewport = $('viewport');
+  const MODEL = window.PixelMaskModel;
+  const COLORS = ['#ef5b67','#f1a24c','#f4d35e','#63d29d','#3fa7d6','#667eea','#a66dd4','#e277c4','#a98563','#74c0b8','#b9c46a','#e2875a'];
+  const DEFAULT_PARTS = ['輪郭','髪','顔','胴体・服','前腕','後腕','下半身','装備'];
+  const state = {
+    width: 0, height: 0, rgba: null, alpha: null, sourceCanvas: document.createElement('canvas'), sourceName: 'バッツ戦闘待機',
+    assignments: null, parts: DEFAULT_PARTS.map((name,i)=>({id:i,name,color:COLORS[i]})), activePart: 0,
+    tool: 'pen', zoom: 16, sourceOpacity: 1, maskVisible: true, selectedOnly: false, grid: true,
+    undo: [], redo: [], drawing: false, gesture: null, pointers: new Map(), saveTimer: 0
+  };
+  const STORAGE_KEY = 'pixel-mask-part-editor-v01';
+
+  function loadImage(src, name, restoredAssignments) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth > 128 || img.naturalHeight > 128) return reject(new Error('128×128以下のPNGを使用してください'));
+        state.width = img.naturalWidth; state.height = img.naturalHeight; state.sourceName = name;
+        state.sourceCanvas.width = state.width; state.sourceCanvas.height = state.height;
+        const sctx = state.sourceCanvas.getContext('2d', { willReadFrequently:true });
+        sctx.clearRect(0,0,state.width,state.height); sctx.drawImage(img,0,0);
+        const data = sctx.getImageData(0,0,state.width,state.height); state.rgba = data.data;
+        state.alpha = new Uint8Array(state.width*state.height);
+        for(let i=0;i<state.alpha.length;i++) state.alpha[i]=state.rgba[i*4+3];
+        state.assignments = restoredAssignments && restoredAssignments.length===state.alpha.length ? Int16Array.from(restoredAssignments) : MODEL.createAssignments(state.alpha);
+        state.undo=[]; state.redo=[]; fitCanvas(); render(); renderParts(); updateStats(); resolve();
+      };
+      img.onerror = () => reject(new Error('PNGを読み込めませんでした'));
+      img.src = src;
+    });
+  }
+
+  function fitCanvas() {
+    canvas.width = state.width * state.zoom; canvas.height = state.height * state.zoom;
+    $('zoomLabel').value = `${state.zoom}×`; $('imageName').textContent = state.sourceName; $('imageSize').textContent = `${state.width} × ${state.height}`;
+  }
+
+  function render() {
+    if (!state.rgba) return;
+    const z=state.zoom; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.imageSmoothingEnabled=false;
+    ctx.fillStyle='#9b979f'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(state.sourceOpacity>0){ctx.globalAlpha=state.sourceOpacity;ctx.drawImage(state.sourceCanvas,0,0,canvas.width,canvas.height);ctx.globalAlpha=1;}
+    if(state.maskVisible){
+      for(let i=0;i<state.assignments.length;i++){
+        const p=state.assignments[i]; if(p<0 || (state.selectedOnly&&p!==state.activePart)) continue;
+        ctx.globalAlpha=.58;ctx.fillStyle=state.parts[p]?.color||'#fff';ctx.fillRect((i%state.width)*z,((i/state.width)|0)*z,z,z);
+      } ctx.globalAlpha=1;
+    }
+    if(state.grid && z>=8){ctx.strokeStyle='rgba(33,29,37,.26)';ctx.lineWidth=1;ctx.beginPath();for(let x=0;x<=state.width;x++){ctx.moveTo(x*z+.5,0);ctx.lineTo(x*z+.5,canvas.height)}for(let y=0;y<=state.height;y++){ctx.moveTo(0,y*z+.5);ctx.lineTo(canvas.width,y*z+.5)}ctx.stroke();}
+  }
+
+  function updateStats(){const s=MODEL.stats(state.assignments||[]);$('unassignedCount').textContent=s.unassigned;$('assignedCount').textContent=s.assigned;$('overlapCount').textContent=s.overlap;$('diffCount').textContent=s.diff;renderParts();}
+  function partCounts(){const c=Array(state.parts.length).fill(0);for(const v of state.assignments||[])if(v>=0&&c[v]!=null)c[v]++;return c;}
+  function renderParts(){const counts=partCounts();$('partsList').innerHTML=state.parts.map((p,i)=>`<button class="part-chip ${i===state.activePart?'active':''}" data-part="${i}"><span class="swatch" style="background:${p.color}"></span><span class="part-text"><b>${escapeHtml(p.name)}</b><small>${counts[i]||0} px</small></span></button>`).join('');}
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  function snapshot(){state.undo.push(Int16Array.from(state.assignments));if(state.undo.length>80)state.undo.shift();state.redo=[];}
+  function scheduleSave(){clearTimeout(state.saveTimer);$('saveState').textContent='保存中…';state.saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify({source:state.sourceCanvas.toDataURL('image/png'),sourceName:state.sourceName,width:state.width,height:state.height,assignments:Array.from(state.assignments),parts:state.parts,activePart:state.activePart}));$('saveState').textContent='端末内に自動保存済み';}catch(e){$('saveState').textContent='自動保存できませんでした';}},250);}
+  function eventPixel(e){const r=canvas.getBoundingClientRect();const x=Math.floor((e.clientX-r.left)*canvas.width/r.width/state.zoom),y=Math.floor((e.clientY-r.top)*canvas.height/r.height/state.zoom);if(x<0||x>=state.width||y<0||y>=state.height)return-1;return y*state.width+x;}
+  function colorLabel(index){const p=index*4;return `RGBA(${state.rgba[p]}, ${state.rgba[p+1]}, ${state.rgba[p+2]}, ${state.rgba[p+3]})`;}
+  function setFeedback(message){$('toolFeedback').textContent=message;}
+  function applyAt(index, first=false){
+    if(index<0||state.assignments[index]===-2)return;
+    if(first)snapshot();
+    if(state.tool==='pick'){
+      const p=state.assignments[index];
+      if(p>=0){state.activePart=p;renderParts();render();setFeedback(`パーツ取得：「${state.parts[p].name}」を選択しました。`);}
+      else setFeedback('このドットはまだ未分類です。');
+      return;
+    }
+    let changed=0;
+    if(state.tool==='fill') changed=MODEL.floodSameColor(state.assignments,state.rgba,state.width,state.height,index,state.activePart);
+    else if(state.tool==='eyedrop'){
+      changed=MODEL.eyedropAdjacentSameColor(state.assignments,state.rgba,state.width,state.height,index,state.activePart);
+      setFeedback(`同色スポイト：${colorLabel(index)} の隣接 ${changed} pxを「${state.parts[state.activePart].name}」へ割り当てました。`);
+    } else changed=MODEL.assign(state.assignments,index,state.tool==='erase'?-1:state.activePart)?1:0;
+    render();updateStats();scheduleSave();
+  }
+
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1){state.drawing=true;applyAt(eventPixel(e),true);}else if(state.pointers.size===2){state.drawing=false;const a=[...state.pointers.values()];state.gesture={distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),zoom:state.zoom,centerX:(a[0].x+a[1].x)/2,centerY:(a[0].y+a[1].y)/2,scrollLeft:viewport.scrollLeft,scrollTop:viewport.scrollTop};}});
+  canvas.addEventListener('pointermove',e=>{if(!state.pointers.has(e.pointerId))return;state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1&&state.drawing&&!['fill','eyedrop','pick'].includes(state.tool))applyAt(eventPixel(e));else if(state.pointers.size===2&&state.gesture){const a=[...state.pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,newZoom=Math.max(8,Math.min(28,Math.round(state.gesture.zoom*d/state.gesture.distance)));if(newZoom!==state.zoom){state.zoom=newZoom;fitCanvas();render();}viewport.scrollLeft=state.gesture.scrollLeft-(cx-state.gesture.centerX);viewport.scrollTop=state.gesture.scrollTop-(cy-state.gesture.centerY);}});
+  const endPointer=e=>{state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}};canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
+
+  const TOOL_HELP={pen:'ペン：1ドットずつ選択パーツへ割り当てます。',fill:'同色塗り：同じ割当状態でつながる完全同色領域を塗ります。',eyedrop:'同色スポイト：上下左右につながる完全同色を、現在の割当に関係なく選択パーツへまとめます。',erase:'未分類へ：触れたドットを未分類へ戻します。',pick:'パーツ取得：触れたドットが所属するパーツを選択します。'};
+  document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.tool=b.dataset.tool;setFeedback(TOOL_HELP[state.tool]);}));
+  $('partsList').addEventListener('click',e=>{const b=e.target.closest('[data-part]');if(!b)return;state.activePart=+b.dataset.part;renderParts();render();scheduleSave();});
+  $('sourceOpacity').addEventListener('input',e=>{state.sourceOpacity=+e.target.value/100;render();});
+  $('maskVisible').addEventListener('change',e=>{state.maskVisible=e.target.checked;render();});$('selectedOnly').addEventListener('change',e=>{state.selectedOnly=e.target.checked;render();});$('gridVisible').addEventListener('change',e=>{state.grid=e.target.checked;render();});
+  function setZoom(v){state.zoom=Math.max(8,Math.min(28,v));fitCanvas();render();}
+  $('zoomOut').onclick=()=>setZoom(state.zoom-2);$('zoomIn').onclick=()=>setZoom(state.zoom+2);$('centerBtn').onclick=()=>{viewport.scrollLeft=Math.max(0,(canvas.width-viewport.clientWidth)/2);viewport.scrollTop=Math.max(0,(canvas.height-viewport.clientHeight)/2);};
+  $('undoBtn').onclick=()=>{if(!state.undo.length)return;state.redo.push(Int16Array.from(state.assignments));state.assignments=state.undo.pop();render();updateStats();scheduleSave();};
+  $('redoBtn').onclick=()=>{if(!state.redo.length)return;state.undo.push(Int16Array.from(state.assignments));state.assignments=state.redo.pop();render();updateStats();scheduleSave();};
+  $('addPartBtn').onclick=()=>{const name=prompt('追加するパーツ名');if(!name)return;state.parts.push({id:state.parts.length,name:name.trim(),color:COLORS[state.parts.length%COLORS.length]});state.activePart=state.parts.length-1;renderParts();scheduleSave();};
+  $('renamePartBtn').onclick=()=>{const p=state.parts[state.activePart],name=prompt('パーツ名',p.name);if(!name)return;p.name=name.trim();renderParts();scheduleSave();};
+  $('resetBtn').onclick=()=>{if(!confirm('すべてのマスク割当を未分類へ戻しますか？'))return;snapshot();state.assignments=MODEL.createAssignments(state.alpha);render();updateStats();scheduleSave();};
+  $('fileInput').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const src=await fileToDataURL(f);await loadImage(src,f.name);scheduleSave();});
+  $('helpBtn').onclick=()=>$('helpDialog').showModal();$('closeHelp').onclick=()=>$('helpDialog').close();$('previewBtn').onclick=showPreview;$('closePreview').onclick=()=>$('previewDialog').close();
+
+  function drawSourceTo(c, assignedOnly){c.width=state.width;c.height=state.height;const cctx=c.getContext('2d'),out=cctx.createImageData(state.width,state.height);for(let i=0;i<state.assignments.length;i++){const keep=!assignedOnly||state.assignments[i]>=0;if(keep)for(let k=0;k<4;k++)out.data[i*4+k]=state.rgba[i*4+k];}cctx.putImageData(out,0,0);}
+  function showPreview(){drawSourceTo($('sourcePreview'),false);drawSourceTo($('recomposePreview'),true);const s=MODEL.validate(state.assignments);$('previewMessage').textContent=s.exportReady?'原画と完全一致しています。':'未分類ピクセルがあるため、再合成差は '+s.diff+' です。';$('previewDialog').showModal();}
+  const fileToDataURL=file=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});
+  const canvasBlob=c=>new Promise(resolve=>c.toBlob(resolve,'image/png'));
+  function outputCanvas(filter,colorMap=false){const c=document.createElement('canvas');c.width=state.width;c.height=state.height;const x=c.getContext('2d'),d=x.createImageData(state.width,state.height);for(let i=0;i<state.assignments.length;i++){if(!filter(i))continue;if(colorMap){const col=hexToRgb(state.parts[state.assignments[i]].color);d.data.set([...col,255],i*4);}else d.data.set(state.rgba.slice(i*4,i*4+4),i*4);}x.putImageData(d,0,0);return c;}
+  function hexToRgb(h){return[h.slice(1,3),h.slice(3,5),h.slice(5,7)].map(x=>parseInt(x,16));}
+
+  $('exportBtn').onclick=async()=>{try{$('exportBtn').disabled=true;$('exportBtn').textContent='ZIPを作成中…';const validation=MODEL.validate(state.assignments),files=[];files.push(['source.png',await canvasBlob(outputCanvas(()=>true))]);files.push(['assignment.png',await canvasBlob(outputCanvas(i=>state.assignments[i]>=0,true))]);files.push(['recomposed.png',await canvasBlob(outputCanvas(i=>state.assignments[i]>=0))]);for(let p=0;p<state.parts.length;p++)files.push([`layers/${safeName(state.parts[p].name)}.png`,await canvasBlob(outputCanvas(i=>state.assignments[i]===p))]);const masks={schema_version:'1.0',width:state.width,height:state.height,parts:state.parts,assignments:Array.from(state.assignments)};files.push(['masks.json',new Blob([JSON.stringify(masks,null,2)],{type:'application/json'})]);files.push(['validation.json',new Blob([JSON.stringify({schema_version:'1.0',quality_approved:false,manual_review:'pending',...validation},null,2)],{type:'application/json'})]);const zip=await makeZip(files),url=URL.createObjectURL(zip),a=document.createElement('a');a.href=url;a.download='character_parts.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}catch(e){alert('書き出しに失敗しました: '+e.message);}finally{$('exportBtn').disabled=false;$('exportBtn').textContent='分解ZIPを書き出す';}};
+  const safeName=s=>String(s).trim().replace(/[\\/:*?"<>|\s]+/g,'_')||'part';
+
+  const crcTable=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  function crc32(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0;}
+  async function makeZip(entries){const enc=new TextEncoder(),local=[],central=[];let offset=0;for(const[name,blob]of entries){const n=enc.encode(name),data=new Uint8Array(await blob.arrayBuffer()),crc=crc32(data),lh=new Uint8Array(30+n.length),dv=new DataView(lh.buffer);dv.setUint32(0,0x04034b50,true);dv.setUint16(4,20,true);dv.setUint32(14,crc,true);dv.setUint32(18,data.length,true);dv.setUint32(22,data.length,true);dv.setUint16(26,n.length,true);lh.set(n,30);local.push(lh,data);const ch=new Uint8Array(46+n.length),cd=new DataView(ch.buffer);cd.setUint32(0,0x02014b50,true);cd.setUint16(4,20,true);cd.setUint16(6,20,true);cd.setUint32(16,crc,true);cd.setUint32(20,data.length,true);cd.setUint32(24,data.length,true);cd.setUint16(28,n.length,true);cd.setUint32(42,offset,true);ch.set(n,46);central.push(ch);offset+=lh.length+data.length;}const centralSize=central.reduce((s,x)=>s+x.length,0),end=new Uint8Array(22),ed=new DataView(end.buffer);ed.setUint32(0,0x06054b50,true);ed.setUint16(8,entries.length,true);ed.setUint16(10,entries.length,true);ed.setUint32(12,centralSize,true);ed.setUint32(16,offset,true);return new Blob([...local,...central,end],{type:'application/zip'});}
+
+  async function init(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(saved?.source){state.parts=saved.parts||state.parts;state.activePart=Math.min(saved.activePart||0,state.parts.length-1);await loadImage(saved.source,saved.sourceName||'復元画像',saved.assignments);}else await loadImage('assets/bartz_battle_native_16x24.png','バッツ戦闘待機');setTimeout(()=>$('centerBtn').click(),50);}catch(e){console.error(e);await loadImage('assets/bartz_battle_native_16x24.png','バッツ戦闘待機');}}
+  init();
+})();
