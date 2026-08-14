@@ -13,16 +13,23 @@
     assignments[index] = part;
     return true;
   }
-  function brushAssign(assignments, width, height, start, part, size) {
-    if (start < 0 || start >= assignments.length || assignments[start] === -2) return 0;
+  function brushIndices(width, height, start, size) {
+    const indices = [];
+    if (start < 0 || start >= width * height) return indices;
     const diameter = Math.max(1, Math.min(15, Math.round(size) | 1));
     const radius = (diameter - 1) / 2, cx = start % width, cy = (start / width) | 0;
-    let changed = 0;
     for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
       if (dx * dx + dy * dy > (radius + .35) * (radius + .35)) continue;
       const x = cx + dx, y = cy + dy;
       if (x < 0 || x >= width || y < 0 || y >= height) continue;
-      const index = y * width + x;
+      indices.push(y * width + x);
+    }
+    return indices;
+  }
+  function brushAssign(assignments, width, height, start, part, size) {
+    if (start < 0 || start >= assignments.length || assignments[start] === -2) return 0;
+    let changed = 0;
+    for (const index of brushIndices(width, height, start, size)) {
       if (assignments[index] === -2 || assignments[index] === part) continue;
       assignments[index] = part; changed++;
     }
@@ -194,5 +201,5 @@
     const s = stats(assignments);
     return { ...s, exportReady: s.unassigned === 0 && s.overlap === 0 && s.diff === 0 };
   }
-  return { createAssignments, assign, brushAssign, encodeAssignmentsRLE, decodeAssignmentsRLE, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
+  return { createAssignments, assign, brushIndices, brushAssign, encodeAssignmentsRLE, decodeAssignmentsRLE, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
 });
