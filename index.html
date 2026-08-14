@@ -42,7 +42,7 @@
         <button class="tool" data-tool="rect"><b>四角で囲む</b><small>指で四角形を指定</small></button>
         <button class="tool" data-tool="lasso"><b>指で囲む</b><small>輪郭をなぞって指定</small></button>
         <button class="tool" data-tool="pen"><b>1ドット追加</b><small>細部の補正</small></button>
-        <button class="tool" data-tool="erase"><b>1ドット除外</b><small>未分類へ戻す</small></button>
+        <button class="tool" data-tool="erase"><b>消しゴム</b><small>太さを変えて除去</small></button>
         <button class="tool" data-tool="pick"><b>所属を確認</b><small>パーツを取得</small></button>
       </div>
       <div id="quickSelectOptions" class="quick-select-options">
@@ -56,6 +56,11 @@
           </div>
         </div>
         <label class="safe-toggle"><input id="onlyUnassigned" type="checkbox" checked><span><b>未分類だけ選ぶ</b><small>別パーツを上書きしない安全設定</small></span></label>
+      </div>
+      <div id="brushOptions" class="brush-options hidden">
+        <label for="brushSize"><span><b>消しゴムの太さ</b><small>スライドして変更</small></span><output id="brushSizeValue">3 × 3ドット</output></label>
+        <input id="brushSize" type="range" min="1" max="15" step="2" value="3">
+        <div class="brush-scale" aria-hidden="true"><span>細い</span><i id="brushPreview"></i><span>太い</span></div>
       </div>
     </section>
 
@@ -123,8 +128,8 @@
   </main>
 
   <footer class="bottom-bar">
-    <button id="undoBtn" disabled aria-label="1つ前のマスクへ戻す">↶<span>戻す</span></button>
-    <button id="redoBtn" disabled aria-label="戻したマスクを進める">↷<span>進む</span></button>
+    <button id="undoBtn" class="inactive" aria-disabled="true" aria-label="1つ前のマスクへ戻す">↶<span>戻す</span></button>
+    <button id="redoBtn" class="inactive" aria-disabled="true" aria-label="戻したマスクを進める">↷<span>進む</span></button>
     <button id="centerBtn">◎<span>中央</span></button>
     <button id="previewBtn">◫<span>再合成</span></button>
   </footer>
@@ -137,10 +142,11 @@
   </dialog>
 
   <dialog id="previewDialog">
-    <h2>再合成確認</h2>
+    <h2>マスクの欠け確認</h2>
+    <p class="preview-explanation">2つ目は、分類した全パーツを重ね直した確認用Canvasです。元画像と同じならマスクの欠けはありません。</p>
     <div class="preview-grid">
-      <figure><canvas id="sourcePreview"></canvas><figcaption>原画</figcaption></figure>
-      <figure><canvas id="recomposePreview"></canvas><figcaption>再合成</figcaption></figure>
+      <figure><canvas id="sourcePreview"></canvas><figcaption>① 読み込んだ元画像</figcaption></figure>
+      <figure><canvas id="recomposePreview"></canvas><figcaption>② 全マスクを重ねた確認画像</figcaption></figure>
     </div>
     <p id="previewMessage"></p>
     <button id="closePreview" class="wide-button primary">閉じる</button>

@@ -9,9 +9,43 @@
     return out;
   }
   function assign(assignments, index, part) {
-    if (assignments[index] === -2) return false;
+    if (assignments[index] === -2 || assignments[index] === part) return false;
     assignments[index] = part;
     return true;
+  }
+  function brushAssign(assignments, width, height, start, part, size) {
+    if (start < 0 || start >= assignments.length || assignments[start] === -2) return 0;
+    const diameter = Math.max(1, Math.min(15, Math.round(size) | 1));
+    const radius = (diameter - 1) / 2, cx = start % width, cy = (start / width) | 0;
+    let changed = 0;
+    for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy > (radius + .35) * (radius + .35)) continue;
+      const x = cx + dx, y = cy + dy;
+      if (x < 0 || x >= width || y < 0 || y >= height) continue;
+      const index = y * width + x;
+      if (assignments[index] === -2 || assignments[index] === part) continue;
+      assignments[index] = part; changed++;
+    }
+    return changed;
+  }
+  function encodeAssignmentsRLE(assignments) {
+    if (!assignments?.length) return [];
+    const out = []; let value = assignments[0], count = 1;
+    for (let i = 1; i < assignments.length; i++) {
+      if (assignments[i] === value && count < 65535) count++;
+      else { out.push(value, count); value = assignments[i]; count = 1; }
+    }
+    out.push(value, count); return out;
+  }
+  function decodeAssignmentsRLE(data, length) {
+    if (!Array.isArray(data) || data.length % 2) return null;
+    const out = new Int16Array(length); let cursor = 0;
+    for (let i = 0; i < data.length; i += 2) {
+      const value = data[i], count = data[i + 1];
+      if (!Number.isInteger(value) || !Number.isInteger(count) || count < 1 || cursor + count > length) return null;
+      out.fill(value, cursor, cursor + count); cursor += count;
+    }
+    return cursor === length ? out : null;
   }
   function stats(assignments) {
     let assigned = 0, unassigned = 0, transparent = 0;
@@ -160,5 +194,5 @@
     const s = stats(assignments);
     return { ...s, exportReady: s.unassigned === 0 && s.overlap === 0 && s.diff === 0 };
   }
-  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
+  return { createAssignments, assign, brushAssign, encodeAssignmentsRLE, decodeAssignmentsRLE, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
 });
