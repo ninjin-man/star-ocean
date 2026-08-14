@@ -65,9 +65,29 @@
     }
     return changed;
   }
+  function adjacentColorMask(rgba, width, height, start, tolerance) {
+    const out = new Uint8Array(width * height);
+    if (start < 0 || start >= out.length || rgba[start * 4 + 3] === 0) return out;
+    const p = start * 4, seed = [rgba[p], rgba[p + 1], rgba[p + 2], rgba[p + 3]];
+    const seen = new Uint8Array(out.length), queue = [start];
+    while (queue.length) {
+      const i = queue.pop();
+      if (seen[i]) continue;
+      seen[i] = 1;
+      const q = i * 4;
+      if (rgba[q + 3] === 0 || Math.abs(rgba[q] - seed[0]) > tolerance || Math.abs(rgba[q + 1] - seed[1]) > tolerance || Math.abs(rgba[q + 2] - seed[2]) > tolerance || Math.abs(rgba[q + 3] - seed[3]) > tolerance) continue;
+      out[i] = 1;
+      const x = i % width, y = (i / width) | 0;
+      if (x > 0) queue.push(i - 1);
+      if (x + 1 < width) queue.push(i + 1);
+      if (y > 0) queue.push(i - width);
+      if (y + 1 < height) queue.push(i + width);
+    }
+    return out;
+  }
   function validate(assignments) {
     const s = stats(assignments);
     return { ...s, exportReady: s.unassigned === 0 && s.overlap === 0 && s.diff === 0 };
   }
-  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, validate };
+  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, validate };
 });

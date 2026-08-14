@@ -11,7 +11,7 @@
     width: 0, height: 0, rgba: null, alpha: null, sourceCanvas: document.createElement('canvas'), sourceName: 'バッツ戦闘待機',
     hasSource: false,
     assignments: null, parts: DEFAULT_PARTS.map((name,i)=>({id:i,name,color:COLORS[i]})), activePart: 0,
-    tool: 'pen', zoom: 16, sourceOpacity: 1, maskVisible: true, selectedOnly: false, grid: true,
+    tool: 'assist', zoom: 16, sourceOpacity: 1, maskVisible: true, selectedOnly: false, grid: true, showUnassigned: true, focusPixel: -1,
     undo: [], redo: [], drawing: false, gesture: null, pointers: new Map(), saveTimer: 0,
     preview: null, assistArmed: false, cvReady: false
   };
@@ -68,18 +68,24 @@
         ctx.globalAlpha=.58;ctx.fillStyle=state.parts[p]?.color||'#fff';ctx.fillRect((i%state.width)*z,((i/state.width)|0)*z,z,z);
       } ctx.globalAlpha=1;
     }
+    if(state.showUnassigned){
+      ctx.globalAlpha=.2;ctx.fillStyle='#ffe34f';
+      for(let i=0;i<state.assignments.length;i++)if(state.assignments[i]===-1)ctx.fillRect((i%state.width)*z,((i/state.width)|0)*z,z,z);
+      ctx.globalAlpha=1;
+    }
     if(state.preview){
       const paintPreview=(mask,color,alpha=.78)=>{if(!mask)return;ctx.globalAlpha=alpha;ctx.fillStyle=color;for(let i=0;i<mask.length;i++)if(mask[i])ctx.fillRect((i%state.width)*z,((i/state.width)|0)*z,z,z);ctx.globalAlpha=1;};
       paintPreview(state.preview.mask,state.preview.kind==='contour'?'#38e8ff':'#ffe34f');
       paintPreview(state.preview.add,'#ffe34f');
       paintPreview(state.preview.remove,'#ff4fa3');
     }
+    if(state.focusPixel>=0&&state.assignments[state.focusPixel]===-1){const x=(state.focusPixel%state.width)*z,y=((state.focusPixel/state.width)|0)*z;ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,Math.floor(z/6));ctx.strokeRect(x+1,y+1,z-2,z-2);}
     if(state.grid && z>=8){ctx.strokeStyle='rgba(33,29,37,.26)';ctx.lineWidth=1;ctx.beginPath();for(let x=0;x<=state.width;x++){ctx.moveTo(x*z+.5,0);ctx.lineTo(x*z+.5,canvas.height)}for(let y=0;y<=state.height;y++){ctx.moveTo(0,y*z+.5);ctx.lineTo(canvas.width,y*z+.5)}ctx.stroke();}
   }
 
-  function updateStats(){const s=MODEL.stats(state.assignments||[]);$('unassignedCount').textContent=s.unassigned;$('assignedCount').textContent=s.assigned;$('overlapCount').textContent=s.overlap;$('diffCount').textContent=s.diff;renderParts();}
+  function updateStats(){const s=MODEL.stats(state.assignments||[]),total=s.assigned+s.unassigned,pct=total?Math.round(s.assigned/total*100):0;$('unassignedCount').textContent=s.unassigned;$('assignedCount').textContent=s.assigned;$('overlapCount').textContent=s.overlap;$('diffCount').textContent=s.diff;$('progressText').textContent=`${pct}%`;$('progressBar').style.width=`${pct}%`;renderParts();}
   function partCounts(){const c=Array(state.parts.length).fill(0);for(const v of state.assignments||[])if(v>=0&&c[v]!=null)c[v]++;return c;}
-  function renderParts(){const counts=partCounts();$('partsList').innerHTML=state.parts.map((p,i)=>`<button class="part-chip ${i===state.activePart?'active':''}" data-part="${i}"><span class="swatch" style="background:${p.color}"></span><span class="part-text"><b>${escapeHtml(p.name)}</b><small>${counts[i]||0} px</small></span></button>`).join('');}
+  function renderParts(){const counts=partCounts(),active=state.parts[state.activePart];$('partsList').innerHTML=state.parts.map((p,i)=>`<button class="part-chip ${i===state.activePart?'active':''}" data-part="${i}"><span class="swatch" style="background:${p.color}"></span><span class="part-text"><b>${escapeHtml(p.name)}</b><small>${counts[i]||0} px</small></span></button>`).join('');if(active){$('currentPartName').textContent=active.name;$('currentPartSwatch').style.background=active.color;}}
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function snapshot(){state.undo.push(Int16Array.from(state.assignments));if(state.undo.length>80)state.undo.shift();state.redo=[];}
   function scheduleSave(){clearTimeout(state.saveTimer);$('saveState').textContent='保存中…';state.saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify({source:state.sourceCanvas.toDataURL('image/png'),sourceName:state.sourceName,width:state.width,height:state.height,assignments:Array.from(state.assignments),parts:state.parts,activePart:state.activePart}));$('saveState').textContent='端末内に自動保存済み';}catch(e){$('saveState').textContent='自動保存できませんでした';}},250);}
@@ -112,14 +118,14 @@
   canvas.addEventListener('pointermove',e=>{if(!state.pointers.has(e.pointerId))return;state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1&&state.drawing&&!['fill','eyedrop','assist','pick'].includes(state.tool))applyAt(eventPixel(e));else if(state.pointers.size===2&&state.gesture){const a=[...state.pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,newZoom=Math.max(8,Math.min(28,Math.round(state.gesture.zoom*d/state.gesture.distance)));if(newZoom!==state.zoom){state.zoom=newZoom;fitCanvas();render();}viewport.scrollLeft=state.gesture.scrollLeft-(cx-state.gesture.centerX);viewport.scrollTop=state.gesture.scrollTop-(cy-state.gesture.centerY);}});
   const endPointer=e=>{state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}};canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
 
-  const TOOL_HELP={pen:'ペン：1ドットずつ選択パーツへ割り当てます。',fill:'同色塗り：同じ割当状態でつながる完全同色領域を塗ります。',assist:'OpenCV補助：上の処理を選択し、候補をプレビューします。',erase:'未分類へ：触れたドットを未分類へ戻します。',pick:'パーツ取得：触れたドットが所属するパーツを選択します。'};
-  document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{if(state.preview)cancelAssistPreview();document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.tool=b.dataset.tool;state.assistArmed=state.tool==='assist'&&['exact','approx'].includes($('assistMode').value);setFeedback(TOOL_HELP[state.tool]);if(state.tool==='assist')setAssistGuide(state.assistArmed?'キャンバス上で起点にする色をタップしてください。':'処理を選んで「候補を表示」を押してください。');}));
+  const TOOL_HELP={pen:'1ドット追加：細部を指でなぞって現在のパーツへ追加します。',fill:'同色塗り：同じ割当状態でつながる完全同色領域を塗ります。',assist:'色をまとめて：画像をタップすると、つながった近い色を黄色候補にします。',erase:'1ドット除外：指でなぞった部分を未分類へ戻します。',pick:'所属を確認：触れたドットのパーツを現在の選択先にします。'};
+  document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{if(state.preview)cancelAssistPreview();document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.tool=b.dataset.tool;if(state.tool==='assist'&&!['exact','approx'].includes($('assistMode').value)){$('assistMode').value='approx';setAssistModeUI();}state.assistArmed=state.tool==='assist';$('quickSelectOptions').classList.toggle('hidden',state.tool!=='assist');setFeedback(TOOL_HELP[state.tool]);if(state.tool==='assist')setAssistGuide('画像の色をタップすると、つながった近い色を黄色で表示します。');else setAssistGuide(TOOL_HELP[state.tool]);}));
 
   const maskCount=mask=>mask?mask.reduce((sum,v)=>sum+(v?1:0),0):0;
   function setAssistGuide(message){$('assistGuide').textContent=message;}
   function activateAssistTool(){document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x.dataset.tool==='assist'));state.tool='assist';setFeedback(TOOL_HELP.assist);}
   function showPreviewActions(canConfirm=true,confirmLabel='候補を確定'){$('previewActions').classList.remove('hidden');$('confirmAssist').classList.toggle('hidden',!canConfirm);$('confirmAssist').textContent=confirmLabel;}
-  function cancelAssistPreview(){state.preview=null;state.assistArmed=false;$('previewActions').classList.add('hidden');render();setAssistModeUI();}
+  function cancelAssistPreview(){state.preview=null;state.assistArmed=state.tool==='assist'&&['exact','approx'].includes($('assistMode').value);$('previewActions').classList.add('hidden');render();setAssistModeUI();}
   function setAssistModeUI(){
     const mode=$('assistMode').value,seed=['exact','approx'].includes(mode);
     $('toleranceRow').classList.toggle('hidden',mode!=='approx');$('orphanRow').classList.toggle('hidden',mode!=='orphan');
@@ -128,22 +134,24 @@
     setAssistGuide(guides[mode]);
   }
   async function previewSeedSelection(index){
-    if(!state.cvReady||!state.hasSource)return;
+    if(!state.hasSource)return;
     try{
-      state.assistArmed=false;$('assistRun').disabled=true;setAssistGuide('OpenCVで候補領域を解析中…');
+      $('assistRun').disabled=true;setAssistGuide('候補領域を解析中…');
       const tolerance=$('assistMode').value==='exact'?0:+$('colorTolerance').value;
-      const mask=await CV.adjacentColor(state.rgba,state.width,state.height,index,tolerance);
-      state.preview={kind:'assign',mask};render();showPreviewActions(true,`候補 ${maskCount(mask)} pxを確定`);
-      setAssistGuide(`黄色の ${maskCount(mask)} pxが候補です。確定するまでマスクは変更されません。`);
+      const mask=MODEL.adjacentColorMask(state.rgba,state.width,state.height,index,tolerance);
+      if($('onlyUnassigned').checked)for(let i=0;i<mask.length;i++)if(state.assignments[i]!==-1)mask[i]=0;
+      if(state.preview?.kind==='assign')for(let i=0;i<mask.length;i++)if(state.preview.mask[i])mask[i]=1;
+      state.preview={kind:'assign',mask};state.assistArmed=true;render();showPreviewActions(true,`黄色 ${maskCount(mask)} pxを確定`);
+      setAssistGuide(`黄色の ${maskCount(mask)} pxが候補です。別の場所もタップすると候補へ追加できます。`);
     }catch(error){setAssistGuide(`処理失敗：${error.message}`);state.preview=null;}
-    finally{$('assistRun').disabled=!state.hasSource||!state.cvReady;}
+    finally{$('assistRun').disabled=!state.hasSource;}
   }
   async function runAssist(){
     if(!state.hasSource)return;
-    if(!state.cvReady&&!(await initCV()))return;
     if(state.preview)cancelAssistPreview();
     const mode=$('assistMode').value;activateAssistTool();
     if(['exact','approx'].includes(mode)){state.assistArmed=true;setAssistGuide('キャンバス上で起点にする色をタップしてください。');return;}
+    if(!state.cvReady&&!(await initCV()))return;
     try{
       $('assistRun').disabled=true;setAssistGuide('OpenCVで候補を解析中…');
       if(mode==='orphan'){
@@ -168,12 +176,15 @@
     if(preview.kind==='assign')for(let i=0;i<preview.mask.length;i++)if(preview.mask[i]&&state.assignments[i]!==-2)state.assignments[i]=state.activePart;
     if(preview.kind==='remove')for(let i=0;i<preview.mask.length;i++)if(preview.mask[i]&&state.assignments[i]===state.activePart)state.assignments[i]=-1;
     if(preview.kind==='morph')for(let i=0;i<state.assignments.length;i++){if(preview.remove[i]&&state.assignments[i]===state.activePart)state.assignments[i]=-1;if(preview.add[i]&&state.assignments[i]===-1)state.assignments[i]=state.activePart;}
-    state.preview=null;$('previewActions').classList.add('hidden');render();updateStats();scheduleSave();setAssistGuide('候補を確定しました。Undoで一括して戻せます。');
+    state.preview=null;state.assistArmed=state.tool==='assist';$('previewActions').classList.add('hidden');render();updateStats();scheduleSave();setAssistGuide('確定しました。同じパーツの別の場所を続けてタップできます。');
   }
   $('assistMode').addEventListener('change',()=>{cancelAssistPreview();setAssistModeUI();});
   $('colorTolerance').addEventListener('input',e=>{$('toleranceValue').value=e.target.value;});
   $('orphanSize').addEventListener('input',e=>{$('orphanValue').value=`${e.target.value} px以下`;});
   $('assistRun').onclick=runAssist;$('confirmAssist').onclick=confirmAssistPreview;$('cancelAssist').onclick=cancelAssistPreview;
+  document.querySelectorAll('.tolerance-preset').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.tolerance-preset').forEach(x=>x.classList.remove('active'));button.classList.add('active');$('colorTolerance').value=button.dataset.tolerance;$('toleranceValue').value=button.dataset.tolerance;$('assistMode').value='approx';state.assistArmed=state.tool==='assist';setAssistGuide(`${button.textContent}設定：画像をタップして黄色候補を確認してください。`);}));
+  $('showUnassigned').addEventListener('change',e=>{state.showUnassigned=e.target.checked;render();});
+  $('nextUnassigned').onclick=()=>{const start=Math.max(0,state.focusPixel+1);let index=-1;for(let pass=0;pass<2&&index<0;pass++){const from=pass?0:start,to=pass?start:state.assignments.length;for(let i=from;i<to;i++)if(state.assignments[i]===-1){index=i;break;}}if(index<0){setFeedback('未分類ピクセルはありません。');return;}state.focusPixel=index;const x=(index%state.width)*state.zoom,y=((index/state.width)|0)*state.zoom;viewport.scrollLeft=Math.max(0,x-viewport.clientWidth/2+state.zoom/2);viewport.scrollTop=Math.max(0,y-viewport.clientHeight/2+state.zoom/2);render();setFeedback('白枠が次の未分類ピクセルです。');};
 
   $('partsList').addEventListener('click',e=>{const b=e.target.closest('[data-part]');if(!b)return;if(state.preview)cancelAssistPreview();state.activePart=+b.dataset.part;renderParts();render();scheduleSave();});
   $('sourceOpacity').addEventListener('input',e=>{state.sourceOpacity=+e.target.value/100;render();});
@@ -225,5 +236,5 @@
     catch(error){state.cvReady=false;badge.textContent='読込失敗';badge.className='cv-status error';setAssistGuide(`OpenCV.js読込失敗：${error.message}`);return false;}
     finally{$('assistRun').disabled=!state.hasSource;}
   }
-  setAssistModeUI();init();
+  setAssistModeUI();state.assistArmed=true;init();
 })();

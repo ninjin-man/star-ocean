@@ -17,15 +17,63 @@
   </header>
 
   <main>
-    <section class="source-card" aria-label="入力画像">
-      <div class="section-title source-title">
-        <div><p class="eyebrow">STEP 1 / SOURCE PNG</p><h2>画像を読み込む</h2></div>
-        <span id="sourceBadge" class="source-badge empty">未読込</span>
+    <section class="source-card compact" aria-label="入力画像">
+      <div class="step-line"><span class="step-number">1</span><div><b>画像を選ぶ</b><small>最大128×128のPNG</small></div><span id="sourceBadge" class="source-badge empty">未読込</span></div>
+      <div class="source-actions">
+        <label class="wide-button primary file-button">PNG画像を選択<input id="fileInput" type="file" accept="image/png,image/*"></label>
+        <button id="sampleBtn" class="wide-button muted">サンプル</button>
       </div>
-      <p class="source-guide">最初にパーツ分解するPNG画像を選択してください。最大128×128、透過PNG対応です。</p>
-      <label class="wide-button primary file-button source-file-button">PNG画像を選択<input id="fileInput" type="file" accept="image/png,image/*"></label>
-      <button id="sampleBtn" class="wide-button muted">動作確認用サンプルを表示</button>
-      <p id="loadState" class="load-state" role="status" aria-live="polite">画像を選択すると下のキャンバスに表示されます。</p>
+      <p id="loadState" class="load-state" role="status" aria-live="polite">画像を選択してください。</p>
+    </section>
+
+    <section class="parts-card workflow-card">
+      <div class="step-line"><span class="step-number">2</span><div><b>割り当てるパーツを選ぶ</b><small>現在の選択先</small></div><div class="active-part"><span id="currentPartSwatch"></span><strong id="currentPartName">輪郭</strong></div></div>
+      <div id="partsList" class="parts-list horizontal"></div>
+      <div class="parts-actions"><button id="addPartBtn" class="sub-button">＋追加</button><button id="renamePartBtn" class="sub-button">名前変更</button></div>
+    </section>
+
+    <section class="tool-card">
+      <div class="step-line"><span class="step-number">3</span><div><b>選び方を決める</b><small>おすすめは「色をまとめて」</small></div><span id="cvStatus" class="cv-status loading">仕上げ時に起動</span></div>
+      <div class="quick-tools" role="group" aria-label="選択方法">
+        <button class="tool active" data-tool="assist"><b>色をまとめて</b><small>タップした連続色</small></button>
+        <button class="tool" data-tool="pen"><b>1ドット追加</b><small>細部の補正</small></button>
+        <button class="tool" data-tool="erase"><b>1ドット除外</b><small>未分類へ戻す</small></button>
+        <button class="tool" data-tool="pick"><b>所属を確認</b><small>パーツを取得</small></button>
+      </div>
+      <div id="quickSelectOptions" class="quick-select-options">
+        <span class="option-title">色の近さ</span>
+        <div class="preset-row" role="group" aria-label="色許容値">
+          <button class="tolerance-preset" data-tolerance="0">同色</button>
+          <button class="tolerance-preset active" data-tolerance="3">狭い</button>
+          <button class="tolerance-preset" data-tolerance="7">標準</button>
+          <button class="tolerance-preset" data-tolerance="12">広い</button>
+        </div>
+        <label class="safe-toggle"><input id="onlyUnassigned" type="checkbox" checked><span><b>未分類だけ選ぶ</b><small>別パーツを上書きしない安全設定</small></span></label>
+      </div>
+    </section>
+
+    <section class="canvas-card primary-workspace">
+      <div class="canvas-head">
+        <div><strong id="imageName">画像未読込</strong><small id="imageSize">32 × 32</small></div>
+        <div class="zoom-controls"><button id="zoomOut" aria-label="縮小">−</button><output id="zoomLabel">16×</output><button id="zoomIn" aria-label="拡大">＋</button></div>
+      </div>
+      <div class="progress-head"><span>分解進捗</span><strong id="progressText">0%</strong></div>
+      <div class="progress-track"><span id="progressBar"></span></div>
+      <div id="viewport" class="viewport">
+        <canvas id="editorCanvas" width="512" height="512" aria-label="マスク編集キャンバス"></canvas>
+        <div id="emptyCanvas" class="empty-canvas"><strong>キャンバス準備完了</strong><span>STEP 1でPNG画像を選んでください</span></div>
+      </div>
+      <div id="previewActions" class="preview-actions hidden">
+        <button id="confirmAssist" class="wide-button primary">黄色候補を確定</button>
+        <button id="cancelAssist" class="wide-button muted">取消</button>
+      </div>
+      <p id="assistGuide" class="assist-guide main-guide">画像の色をタップすると、つながった近い色を黄色で表示します。</p>
+      <p id="toolFeedback" class="tool-feedback" aria-live="polite">色をまとめて：キャンバスをタップしてください。</p>
+      <div class="canvas-shortcuts">
+        <label class="safe-toggle compact-toggle"><input id="showUnassigned" type="checkbox" checked><span><b>未分類を薄く表示</b></span></label>
+        <button id="nextUnassigned" class="sub-button">次の未分類へ</button>
+      </div>
+      <p class="canvas-note">黄色＝追加候補、ピンク＝削除候補。確定するまでマスクは変わりません。2本指で移動・拡大できます。</p>
     </section>
 
     <section class="status-card" aria-label="分解状況">
@@ -35,77 +83,30 @@
       <div><span>再合成差</span><strong id="diffCount">0</strong></div>
     </section>
 
-    <section class="assist-card" aria-label="OpenCVマスク補助">
-      <div class="section-title">
-        <div><p class="eyebrow">OPENCV MASK ASSIST</p><h2>補助処理を選択</h2></div>
-        <span id="cvStatus" class="cv-status loading">初回使用時に起動</span>
-      </div>
-      <label class="select-label"><span>処理</span>
+    <details class="assist-card advanced-card">
+      <summary><span><b>仕上げ補助</b><small>ゴミ・境界・穴を確認する</small></span><span>開く</span></summary>
+      <label class="select-label"><span>確認・補正方法</span>
         <select id="assistMode">
-          <option value="exact">完全同色の隣接選択</option>
-          <option value="approx">近似色の隣接選択</option>
-          <option value="orphan">孤立領域を検出</option>
-          <option value="contour">マスク外周を表示</option>
-          <option value="open">Openingをプレビュー</option>
-          <option value="close">Closingをプレビュー</option>
+          <option value="approx" selected>近い色をまとめて選ぶ</option>
+          <option value="exact">完全同色だけ選ぶ</option>
+          <option value="orphan">小さな飛び地を探す</option>
+          <option value="contour">境界線を表示する</option>
+          <option value="open">細いトゲを減らす候補</option>
+          <option value="close">小さな穴を埋める候補</option>
         </select>
       </label>
-      <label id="toleranceRow" class="range-label"><span>色許容値 <output id="toleranceValue">0</output></span><input id="colorTolerance" type="range" min="0" max="16" value="0"></label>
-      <label id="orphanRow" class="range-label hidden"><span>孤立判定 <output id="orphanValue">2 px以下</output></span><input id="orphanSize" type="range" min="1" max="8" value="2"></label>
-      <p id="assistGuide" class="assist-guide">処理を選び、キャンバス上の起点色をタップします。</p>
-      <button id="assistRun" class="wide-button primary">キャンバスで色を選ぶ</button>
-      <div id="previewActions" class="preview-actions hidden">
-        <button id="confirmAssist" class="wide-button primary">候補を確定</button>
-        <button id="cancelAssist" class="wide-button muted">取消</button>
-      </div>
-    </section>
+      <label id="toleranceRow" class="range-label"><span>色許容値 <output id="toleranceValue">3</output></span><input id="colorTolerance" type="range" min="0" max="16" value="3"></label>
+      <label id="orphanRow" class="range-label hidden"><span>飛び地判定 <output id="orphanValue">2 px以下</output></span><input id="orphanSize" type="range" min="1" max="8" value="2"></label>
+      <button id="assistRun" class="wide-button primary">候補を表示</button>
+    </details>
 
-    <section class="toolbar" aria-label="編集ツール">
-      <button class="tool active" data-tool="pen">ペン</button>
-      <button class="tool" data-tool="fill">同色塗り</button>
-      <button class="tool" data-tool="assist">OpenCV補助</button>
-      <button class="tool" data-tool="erase">未分類へ</button>
-      <button class="tool" data-tool="pick">パーツ取得</button>
-    </section>
-
-    <section class="canvas-card">
-      <div class="canvas-head">
-        <div>
-          <strong id="imageName">バッツ戦闘待機</strong>
-          <small id="imageSize">16 × 24</small>
-        </div>
-        <div class="zoom-controls">
-          <button id="zoomOut" aria-label="縮小">−</button>
-          <output id="zoomLabel">16×</output>
-          <button id="zoomIn" aria-label="拡大">＋</button>
-        </div>
-      </div>
-      <div id="viewport" class="viewport">
-        <canvas id="editorCanvas" width="512" height="512" aria-label="マスク編集キャンバス"></canvas>
-        <div id="emptyCanvas" class="empty-canvas">
-          <strong>キャンバス準備完了</strong>
-          <span>上の「PNG画像を選択」から画像を読み込んでください</span>
-        </div>
-      </div>
-      <p id="toolFeedback" class="tool-feedback" aria-live="polite">ペン：1ドットずつ選択パーツへ割り当てます。</p>
-      <p class="canvas-note">1本指で描画・2本指で移動と拡大。元画像の透明部分には描けません。</p>
-    </section>
-
-    <section class="display-card">
+    <details class="display-card advanced-card">
+      <summary><span><b>表示設定</b><small>マスク・グリッド・透明度</small></span><span>開く</span></summary>
       <label><span>元画像</span><input id="sourceOpacity" type="range" min="0" max="100" value="100"></label>
       <label class="switch"><input id="maskVisible" type="checkbox" checked><span>色マスクを表示</span></label>
       <label class="switch"><input id="selectedOnly" type="checkbox"><span>選択パーツだけ表示</span></label>
       <label class="switch"><input id="gridVisible" type="checkbox" checked><span>グリッド</span></label>
-    </section>
-
-    <section class="parts-card">
-      <div class="section-title">
-        <div><p class="eyebrow">ACTIVE PART</p><h2>パーツ</h2></div>
-        <button id="addPartBtn" class="sub-button">＋ 追加</button>
-      </div>
-      <div id="partsList" class="parts-list"></div>
-      <button id="renamePartBtn" class="wide-button muted">選択中の名前を変更</button>
-    </section>
+    </details>
 
     <section class="io-card">
       <button id="exportBtn" class="wide-button primary">分解ZIPを書き出す</button>
@@ -123,14 +124,8 @@
 
   <dialog id="helpDialog">
     <h2>最短の使い方</h2>
-    <ol>
-      <li>パーツ名を選びます。</li>
-      <li>画像の該当ドットを指で塗ります。</li>
-      <li>OpenCV補助では処理を選び、黄色・ピンクの候補を確認してから確定します。</li>
-      <li>未分類が0になるまで繰り返します。</li>
-      <li>再合成を確認してZIPを書き出します。</li>
-    </ol>
-    <p>1ピクセルは常に1パーツだけに所属します。別パーツで塗ると自動的に移動します。</p>
+    <ol><li>PNG画像を選びます。</li><li>割り当て先のパーツを選びます。</li><li>「色をまとめて」のまま画像をタップします。</li><li>黄色候補が正しければ確定します。別の場所も続けてタップすると候補へ追加できます。</li><li>未分類が0になったら再合成を確認して書き出します。</li></ol>
+    <p>通常は「狭い」「未分類だけ選ぶ」で進めてください。細部だけ1ドット追加・除外で直します。</p>
     <button id="closeHelp" class="wide-button primary">閉じる</button>
   </dialog>
 
