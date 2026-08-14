@@ -35,10 +35,35 @@
       <div><span>再合成差</span><strong id="diffCount">0</strong></div>
     </section>
 
+    <section class="assist-card" aria-label="OpenCVマスク補助">
+      <div class="section-title">
+        <div><p class="eyebrow">OPENCV MASK ASSIST</p><h2>補助処理を選択</h2></div>
+        <span id="cvStatus" class="cv-status loading">初回使用時に起動</span>
+      </div>
+      <label class="select-label"><span>処理</span>
+        <select id="assistMode">
+          <option value="exact">完全同色の隣接選択</option>
+          <option value="approx">近似色の隣接選択</option>
+          <option value="orphan">孤立領域を検出</option>
+          <option value="contour">マスク外周を表示</option>
+          <option value="open">Openingをプレビュー</option>
+          <option value="close">Closingをプレビュー</option>
+        </select>
+      </label>
+      <label id="toleranceRow" class="range-label"><span>色許容値 <output id="toleranceValue">0</output></span><input id="colorTolerance" type="range" min="0" max="16" value="0"></label>
+      <label id="orphanRow" class="range-label hidden"><span>孤立判定 <output id="orphanValue">2 px以下</output></span><input id="orphanSize" type="range" min="1" max="8" value="2"></label>
+      <p id="assistGuide" class="assist-guide">処理を選び、キャンバス上の起点色をタップします。</p>
+      <button id="assistRun" class="wide-button primary">キャンバスで色を選ぶ</button>
+      <div id="previewActions" class="preview-actions hidden">
+        <button id="confirmAssist" class="wide-button primary">候補を確定</button>
+        <button id="cancelAssist" class="wide-button muted">取消</button>
+      </div>
+    </section>
+
     <section class="toolbar" aria-label="編集ツール">
       <button class="tool active" data-tool="pen">ペン</button>
       <button class="tool" data-tool="fill">同色塗り</button>
-      <button class="tool" data-tool="eyedrop">同色スポイト</button>
+      <button class="tool" data-tool="assist">OpenCV補助</button>
       <button class="tool" data-tool="erase">未分類へ</button>
       <button class="tool" data-tool="pick">パーツ取得</button>
     </section>
@@ -101,7 +126,7 @@
     <ol>
       <li>パーツ名を選びます。</li>
       <li>画像の該当ドットを指で塗ります。</li>
-      <li>同色スポイトは、触れた色と上下左右につながる完全同色領域を選択パーツへ一括登録します。</li>
+      <li>OpenCV補助では処理を選び、黄色・ピンクの候補を確認してから確定します。</li>
       <li>未分類が0になるまで繰り返します。</li>
       <li>再合成を確認してZIPを書き出します。</li>
     </ol>
@@ -119,6 +144,7 @@
     <button id="closePreview" class="wide-button primary">閉じる</button>
   </dialog>
 
+  <script src="cv-engine.js"></script>
   <script src="model.js"></script>
   <script src="app.js"></script>
 </body>

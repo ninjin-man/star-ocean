@@ -20,7 +20,7 @@ button { color: inherit; }
 h1 { margin:0; font-size:20px; } h2 { margin:0; font-size:19px; }
 .icon-button, .zoom-controls button { width:40px; height:40px; border:1px solid var(--line); border-radius:12px; background:var(--panel-2); font-weight:800; }
 main { max-width:720px; margin:0 auto; padding:14px 12px 28px; display:grid; gap:12px; }
-.source-card, .status-card, .toolbar, .canvas-card, .display-card, .parts-card, .io-card { background:var(--panel); border:1px solid var(--line); border-radius:16px; }
+.source-card, .assist-card, .status-card, .toolbar, .canvas-card, .display-card, .parts-card, .io-card { background:var(--panel); border:1px solid var(--line); border-radius:16px; }
 .source-card { padding:14px; border-color:#4b7962; box-shadow:0 0 0 1px #67d89a18; }
 .source-title { margin-bottom:8px; }
 .source-guide { margin:0 0 12px; color:#d8d2dc; font-size:12px; line-height:1.55; }
@@ -29,6 +29,18 @@ main { max-width:720px; margin:0 auto; padding:14px 12px 28px; display:grid; gap
 .source-badge.empty { background:#4a3033; color:#ffd0d0; }
 .load-state { margin:10px 0 0; min-height:18px; color:var(--muted); font-size:11px; text-align:center; }
 .load-state.error { color:#ff9a9f; }
+.assist-card { padding:14px; }
+.cv-status { padding:5px 9px; border-radius:999px; background:#294938; color:#c9f2da; font-size:11px; font-weight:800; }
+.cv-status.loading { background:#4b402a; color:#ffe6a7; }
+.cv-status.error { background:#4a3033; color:#ffd0d0; }
+.select-label,.range-label { display:grid; gap:7px; margin-top:10px; color:var(--muted); font-size:12px; }
+.select-label select { width:100%; min-height:46px; padding:0 11px; border:1px solid var(--line); border-radius:11px; background:var(--panel-2); color:var(--text); font-size:14px; }
+.range-label input { width:100%; accent-color:var(--accent); }
+.range-label output { color:var(--text); font-weight:800; }
+.assist-guide { margin:11px 0; min-height:36px; padding:9px 10px; border-radius:9px; background:#1f1c25; color:#d8d2dc; font-size:11px; line-height:1.55; }
+.preview-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+.preview-actions .wide-button { margin:0; }
+.hidden { display:none !important; }
 .status-card { display:grid; grid-template-columns:repeat(4,1fr); padding:11px 8px; text-align:center; }
 .status-card div { border-right:1px solid var(--line); } .status-card div:last-child { border:0; }
 .status-card span { display:block; color:var(--muted); font-size:10px; } .status-card strong { display:block; margin-top:3px; font-size:18px; }
