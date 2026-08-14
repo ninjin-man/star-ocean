@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#17151c">
   <title>Pixel Mask Part Editor</title>
-  <link rel="stylesheet" href="style.css?v=09">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <header class="topbar">
@@ -17,8 +17,8 @@
   </header>
 
   <main>
-    <section class="source-card compact" aria-label="入力画像">
-      <div class="step-line"><span class="step-number">1</span><div><b>画像を選ぶ</b><small>最大128×128のPNG</small></div><span id="sourceBadge" class="source-badge empty">未読込</span></div>
+    <section id="sourceCard" class="source-card compact" aria-label="入力画像">
+      <div class="step-line"><span class="step-number">1</span><div><b>画像を選ぶ</b><small>32×32・64×64・最大128×128のPNG</small></div><span id="sourceBadge" class="source-badge empty">未読込</span></div>
       <div class="source-actions">
         <label class="wide-button primary file-button">PNG画像を選択<input id="fileInput" type="file" accept="image/png,image/*"></label>
         <button id="sampleBtn" class="wide-button muted">サンプル</button>
@@ -27,7 +27,7 @@
       <p id="loadState" class="load-state" role="status" aria-live="polite">画像を選択してください。</p>
     </section>
 
-    <section class="canvas-card primary-workspace">
+    <section id="workspaceCard" class="canvas-card primary-workspace">
       <div class="canvas-head">
         <div><strong id="imageName">画像未読込</strong><small id="imageSize">32 × 32</small></div>
         <div class="zoom-controls"><button id="zoomOut" aria-label="縮小">−</button><output id="zoomLabel">16×</output><button id="zoomIn" aria-label="拡大">＋</button></div>
@@ -38,44 +38,46 @@
         <label for="sourceOpacity"><span>元画像の濃さ</span><output id="sourceOpacityValue">100%</output></label>
         <input id="sourceOpacity" type="range" min="0" max="100" value="100">
       </div>
-      <div class="workspace-dock">
-        <div class="dock-title"><span><b>① 修正先パーツ</b><small>間違っている場所の正しい所属を選ぶ</small></span><div class="active-part"><span id="currentPartSwatch"></span><strong id="currentPartName">輪郭</strong></div></div>
-        <div id="partsList" class="parts-list horizontal"></div>
-        <div class="dock-actions"><button id="autoClassifyBtn" class="sub-button auto-classify-button" disabled>自動分類をやり直す</button><button id="addPartBtn" class="sub-button">＋追加</button><button id="renamePartBtn" class="sub-button">名前変更</button></div>
-        <p id="autoClassifyState" class="auto-classify-state">画像読込後、自動分類した結果を手で直せます。</p>
-        <div class="dock-title tool-title"><span><b>② 操作を選ぶ</b><small>選んだらすぐ下のCanvasを操作</small></span><span id="cvStatus" class="cv-status loading">OpenCV 5 / 仕上げ時</span></div>
-        <div class="quick-tools" role="group" aria-label="選択方法">
-          <button class="tool active" data-tool="assist"><b>色をまとめて</b><small>タップした連続色</small></button>
-          <button class="tool" data-tool="rect"><b>四角で囲む</b><small>四角形で指定</small></button>
-          <button class="tool" data-tool="lasso"><b>指で囲む</b><small>輪郭をなぞる</small></button>
-          <button class="tool" data-tool="pen"><b>1ドット追加</b><small>細部の補正</small></button>
-          <button class="tool" data-tool="erase"><b>消しゴム</b><small>太さを変えて除去</small></button>
-          <button class="tool" data-tool="pick"><b>所属を確認</b><small>パーツを取得</small></button>
-        </div>
-        <div id="quickSelectOptions" class="quick-select-options">
-          <div id="colorOptions"><span class="option-title">色の近さ</span><div class="preset-row" role="group" aria-label="色許容値"><button class="tolerance-preset" data-tolerance="0">同色</button><button class="tolerance-preset active" data-tolerance="3">狭い</button><button class="tolerance-preset" data-tolerance="7">標準</button><button class="tolerance-preset" data-tolerance="12">広い</button></div></div>
-          <label class="safe-toggle"><input id="onlyUnassigned" type="checkbox" checked><span><b>未分類だけ選ぶ</b><small>別パーツを上書きしない安全設定</small></span></label>
-        </div>
-        <div id="brushOptions" class="brush-options hidden">
-          <div class="brush-head"><span><b>③ 消しゴムの太さ</b><small>ピンク表示が実際に消えるドット</small></span><output id="brushSizeValue">3 × 3ドット</output></div>
-          <div class="brush-adjust"><button id="brushMinus" type="button" aria-label="消しゴムを細くする">−</button><input id="brushSize" type="range" min="1" max="15" step="2" value="3"><button id="brushPlus" type="button" aria-label="消しゴムを太くする">＋</button></div>
-          <div class="brush-scale" aria-hidden="true"><span>1ドット</span><i id="brushPreview"></i><span>15ドット</span></div>
-        </div>
-      </div>
-      <div class="live-guides"><p id="toolFeedback" class="tool-feedback" aria-live="polite">色をまとめて：キャンバスをタップしてください。</p><p id="assistGuide" class="assist-guide main-guide">画像の色をタップすると、つながった近い色を黄色で表示します。</p></div>
       <div id="viewport" class="viewport">
         <canvas id="editorCanvas" width="512" height="512" aria-label="マスク編集キャンバス"></canvas>
         <div id="emptyCanvas" class="empty-canvas"><strong>キャンバス準備完了</strong><span>STEP 1でPNG画像を選んでください</span></div>
       </div>
-      <div id="previewActions" class="preview-actions hidden">
-        <button id="confirmAssist" class="wide-button primary">黄色候補を確定</button>
-        <button id="cancelAssist" class="wide-button muted">取消</button>
+      <div class="workspace-dock canvas-control-dock">
+        <div id="previewActions" class="preview-actions hidden">
+          <button id="confirmAssist" class="wide-button primary">黄色候補を確定</button>
+          <button id="cancelAssist" class="wide-button muted">取消</button>
+        </div>
+        <div class="part-rail-head"><span class="dock-label">修正先</span><div class="active-part"><span id="currentPartSwatch"></span><strong id="currentPartName">輪郭</strong></div></div>
+        <div id="partsList" class="parts-list horizontal compact-parts"></div>
+        <div class="quick-tools" role="group" aria-label="選択方法">
+          <button class="tool active" data-tool="assist"><b>色選択</b></button>
+          <button class="tool" data-tool="rect"><b>四角</b></button>
+          <button class="tool" data-tool="lasso"><b>囲む</b></button>
+          <button class="tool" data-tool="pen"><b>追加</b></button>
+          <button class="tool" data-tool="erase"><b>消す</b></button>
+          <button class="tool" data-tool="pick"><b>取得</b></button>
+        </div>
+        <div id="quickSelectOptions" class="quick-select-options compact-options">
+          <div id="colorOptions"><div class="preset-row" role="group" aria-label="色許容値"><button class="tolerance-preset" data-tolerance="0">同色</button><button class="tolerance-preset active" data-tolerance="3">狭い</button><button class="tolerance-preset" data-tolerance="7">標準</button><button class="tolerance-preset" data-tolerance="12">広い</button></div></div>
+          <label class="safe-toggle compact-toggle"><input id="onlyUnassigned" type="checkbox" checked><span><b>未分類だけ</b></span></label>
+        </div>
+        <div id="brushOptions" class="brush-options hidden">
+          <div class="brush-head"><span><b>消しゴムの太さ</b><small>ピンクが消去範囲</small></span><output id="brushSizeValue">3 × 3</output></div>
+          <div class="brush-adjust"><button id="brushMinus" type="button" aria-label="消しゴムを細くする">−</button><input id="brushSize" type="range" min="1" max="15" step="2" value="3"><button id="brushPlus" type="button" aria-label="消しゴムを太くする">＋</button></div>
+        </div>
+        <p id="assistGuide" class="assist-guide main-guide" aria-live="polite">画像の色をタップすると、つながった近い色を黄色で表示します。</p>
+        <p id="toolFeedback" class="sr-only" aria-live="polite">色をまとめて：キャンバスをタップしてください。</p>
       </div>
       <div class="canvas-shortcuts">
-        <label class="safe-toggle compact-toggle"><input id="showUnassigned" type="checkbox" checked><span><b>未分類を薄く表示</b></span></label>
-        <button id="nextUnassigned" class="sub-button">次の未分類へ</button>
+        <label class="safe-toggle compact-toggle"><input id="showUnassigned" type="checkbox" checked><span><b>未分類表示</b></span></label>
+        <button id="nextUnassigned" class="sub-button">次の未分類</button>
       </div>
-      <p class="canvas-note">黄色＝追加候補、ピンク＝削除候補。指囲み中は黒縁の水色線と水色の内側で表示します。確定するまでマスクは変わりません。</p>
+      <details class="part-maintenance">
+        <summary>自動分類・パーツ管理</summary>
+        <div class="dock-actions"><button id="autoClassifyBtn" class="sub-button auto-classify-button" disabled>自動分類をやり直す</button><button id="addPartBtn" class="sub-button">＋追加</button><button id="renamePartBtn" class="sub-button">名前変更</button></div>
+        <p id="autoClassifyState" class="auto-classify-state">画像読込後、自動分類した結果を手で直せます。</p>
+        <span id="cvStatus" class="cv-status loading">OpenCV 5 / 仕上げ時</span>
+      </details>
     </section>
 
     <section class="status-card" aria-label="分解状況">
@@ -141,8 +143,8 @@
     <button id="closePreview" class="wide-button primary">閉じる</button>
   </dialog>
 
-  <script src="cv-engine.js?v=09"></script>
-  <script src="model.js?v=09"></script>
-  <script src="app.js?v=09"></script>
+  <script src="cv-engine.js?v=10"></script>
+  <script src="model.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>

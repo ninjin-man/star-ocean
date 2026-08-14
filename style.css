@@ -207,3 +207,72 @@ dialog::backdrop { background:#000a; backdrop-filter:blur(3px); } dialog h2 { ma
   .quick-tools .tool small { font-size:11px; }
   .dock-actions { grid-template-columns:1.5fr .75fr .9fr; }
 }
+
+/* v1.0 canvas-first iPhone workspace */
+.sr-only { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
+body { padding-bottom:calc(72px + var(--safe-bottom)); }
+body.has-source .topbar { display:none; }
+.source-card.is-ready { padding:8px 10px; }
+.source-card.is-ready .step-line,.source-card.is-ready .auto-toggle,.source-card.is-ready .load-state { display:none; }
+.source-card.is-ready .source-actions { margin:0; grid-template-columns:2fr 1fr; }
+.source-card.is-ready .source-actions .wide-button { min-height:42px; }
+.canvas-card { padding:8px; }
+.canvas-head { margin-bottom:6px; }
+.progress-head { margin-bottom:4px; }
+.progress-track { height:6px; margin-bottom:6px; }
+.source-opacity-quick { display:grid; grid-template-columns:1fr; gap:1px; margin:5px 0 6px; padding:6px 9px; }
+.source-opacity-quick label { margin:0; font-size:13px; }
+.source-opacity-quick input { height:22px; }
+.viewport { height:clamp(260px,43dvh,390px); min-height:260px; border-radius:10px; }
+.canvas-control-dock { position:sticky; bottom:calc(66px + var(--safe-bottom)); z-index:12; margin:7px 0 0; padding:7px; border-color:#6a8d7a; background:#1d1a22f5; box-shadow:0 -8px 24px #121016b8; backdrop-filter:blur(14px); }
+.part-rail-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.dock-label { color:#d6ced9; font-size:13px; font-weight:850; }
+.active-part { max-width:58%; min-height:34px; padding:4px 7px; }
+.active-part span { width:18px; height:18px; }
+.parts-list.horizontal.compact-parts { gap:5px; margin:5px -1px 6px; padding:1px 1px 4px; }
+.parts-list.horizontal.compact-parts .part-chip { min-width:96px; flex-basis:96px; min-height:42px; padding:4px 6px; border-radius:9px; }
+.compact-parts .swatch { width:18px; height:18px; border-radius:5px; }
+.compact-parts .part-text b { font-size:13px; }
+.compact-parts .part-text small { font-size:11px; }
+.quick-tools { grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; margin:0; }
+.quick-tools .tool { min-height:46px; min-width:0; padding:4px 1px; border-radius:9px; text-align:center; }
+.quick-tools .tool b { font-size:13px; white-space:nowrap; }
+.compact-options { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:6px; margin-top:6px; padding:6px; }
+.compact-options .tolerance-preset { min-height:38px; font-size:12px; }
+.compact-options .safe-toggle { min-height:38px; margin:0; padding:4px 6px; }
+.compact-options .safe-toggle input { width:20px; height:20px; }
+.brush-options { margin-top:6px; padding:7px; }
+.brush-head b { font-size:14px; }
+.brush-head small { font-size:11px; }
+.brush-options output { padding:4px 7px; font-size:13px; }
+.brush-adjust { grid-template-columns:44px minmax(0,1fr) 44px; gap:6px; margin-top:4px; }
+.brush-adjust button { width:44px; height:44px; font-size:25px; }
+.brush-options input[type="range"] { height:40px; }
+.canvas-control-dock .assist-guide { margin:6px 0 0; min-height:34px; max-height:52px; padding:6px 8px; overflow:auto; font-size:12px; line-height:1.4; }
+.canvas-control-dock .preview-actions { position:static; grid-template-columns:2fr 1fr; padding:0; margin:0 0 6px; border:0; background:transparent; box-shadow:none; backdrop-filter:none; }
+.canvas-control-dock .preview-actions .wide-button { min-height:46px; }
+.canvas-shortcuts { margin-top:6px; }
+.part-maintenance { margin-top:7px; padding:0; border:1px solid #494450; border-radius:10px; background:#201d25; }
+.part-maintenance summary { padding:10px 11px; color:#d9d2dc; font-size:13px; font-weight:800; list-style:none; }
+.part-maintenance summary::-webkit-details-marker { display:none; }
+.part-maintenance[open] { padding:0 9px 9px; }
+.part-maintenance[open] summary { margin:0 -9px 8px; border-bottom:1px solid #494450; }
+.part-maintenance .dock-actions { grid-template-columns:1.6fr .7fr .9fr; }
+.part-maintenance .sub-button { min-height:42px; font-size:12px; }
+.part-maintenance .auto-classify-state { font-size:12px; }
+.part-maintenance .cv-status { display:inline-block; margin-top:3px; }
+.bottom-bar { padding:4px 5px var(--safe-bottom); }
+.bottom-bar button { min-height:58px; font-size:22px; border-radius:10px; }
+.bottom-bar span { margin-top:0; font-size:12px; }
+
+@media (max-width:390px) {
+  .topbar { position:static; padding-top:max(10px,env(safe-area-inset-top)); padding-bottom:8px; }
+  .eyebrow { display:none; }
+  .source-card:not(.is-ready) { padding:10px; }
+  .source-card:not(.is-ready) .auto-toggle small { display:none; }
+  .viewport { height:clamp(250px,41dvh,350px); min-height:250px; }
+  .parts-list.horizontal.compact-parts .part-chip { min-width:90px; flex-basis:90px; }
+  .quick-tools .tool b { font-size:12px; }
+  .compact-options { grid-template-columns:1fr; }
+  .compact-options .safe-toggle { justify-content:center; }
+}

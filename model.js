@@ -26,6 +26,10 @@
     }
     return indices;
   }
+  function recommendedZoom(width, height) {
+    const longest = Math.max(width, height);
+    return Math.max(4, Math.min(16, Math.floor(512 / Math.max(1, longest))));
+  }
   function brushAssign(assignments, width, height, start, part, size) {
     if (start < 0 || start >= assignments.length || assignments[start] === -2) return 0;
     let changed = 0;
@@ -201,5 +205,5 @@
     const s = stats(assignments);
     return { ...s, exportReady: s.unassigned === 0 && s.overlap === 0 && s.diff === 0 };
   }
-  return { createAssignments, assign, brushIndices, brushAssign, encodeAssignmentsRLE, decodeAssignmentsRLE, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
+  return { createAssignments, assign, brushIndices, brushAssign, recommendedZoom, encodeAssignmentsRLE, decodeAssignmentsRLE, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
 });
