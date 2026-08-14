@@ -33,20 +33,24 @@
     </section>
 
     <section class="tool-card">
-      <div class="step-line"><span class="step-number">3</span><div><b>選び方を決める</b><small>おすすめは「色をまとめて」</small></div><span id="cvStatus" class="cv-status loading">仕上げ時に起動</span></div>
+      <div class="step-line"><span class="step-number">3</span><div><b>選び方を決める</b><small>色・四角・指囲みから選択</small></div><span id="cvStatus" class="cv-status loading">OpenCV 5 / 仕上げ時</span></div>
       <div class="quick-tools" role="group" aria-label="選択方法">
         <button class="tool active" data-tool="assist"><b>色をまとめて</b><small>タップした連続色</small></button>
+        <button class="tool" data-tool="rect"><b>四角で囲む</b><small>指で四角形を指定</small></button>
+        <button class="tool" data-tool="lasso"><b>指で囲む</b><small>輪郭をなぞって指定</small></button>
         <button class="tool" data-tool="pen"><b>1ドット追加</b><small>細部の補正</small></button>
         <button class="tool" data-tool="erase"><b>1ドット除外</b><small>未分類へ戻す</small></button>
         <button class="tool" data-tool="pick"><b>所属を確認</b><small>パーツを取得</small></button>
       </div>
       <div id="quickSelectOptions" class="quick-select-options">
-        <span class="option-title">色の近さ</span>
-        <div class="preset-row" role="group" aria-label="色許容値">
-          <button class="tolerance-preset" data-tolerance="0">同色</button>
-          <button class="tolerance-preset active" data-tolerance="3">狭い</button>
-          <button class="tolerance-preset" data-tolerance="7">標準</button>
-          <button class="tolerance-preset" data-tolerance="12">広い</button>
+        <div id="colorOptions">
+          <span class="option-title">色の近さ</span>
+          <div class="preset-row" role="group" aria-label="色許容値">
+            <button class="tolerance-preset" data-tolerance="0">同色</button>
+            <button class="tolerance-preset active" data-tolerance="3">狭い</button>
+            <button class="tolerance-preset" data-tolerance="7">標準</button>
+            <button class="tolerance-preset" data-tolerance="12">広い</button>
+          </div>
         </div>
         <label class="safe-toggle"><input id="onlyUnassigned" type="checkbox" checked><span><b>未分類だけ選ぶ</b><small>別パーツを上書きしない安全設定</small></span></label>
       </div>
@@ -73,7 +77,7 @@
         <label class="safe-toggle compact-toggle"><input id="showUnassigned" type="checkbox" checked><span><b>未分類を薄く表示</b></span></label>
         <button id="nextUnassigned" class="sub-button">次の未分類へ</button>
       </div>
-      <p class="canvas-note">黄色＝追加候補、ピンク＝削除候補。確定するまでマスクは変わりません。2本指で移動・拡大できます。</p>
+      <p class="canvas-note">黄色＝追加候補、ピンク＝削除候補。範囲指定中は白線で表示します。確定するまでマスクは変わりません。</p>
     </section>
 
     <section class="status-card" aria-label="分解状況">
@@ -124,8 +128,8 @@
 
   <dialog id="helpDialog">
     <h2>最短の使い方</h2>
-    <ol><li>PNG画像を選びます。</li><li>割り当て先のパーツを選びます。</li><li>「色をまとめて」のまま画像をタップします。</li><li>黄色候補が正しければ確定します。別の場所も続けてタップすると候補へ追加できます。</li><li>未分類が0になったら再合成を確認して書き出します。</li></ol>
-    <p>通常は「狭い」「未分類だけ選ぶ」で進めてください。細部だけ1ドット追加・除外で直します。</p>
+    <ol><li>PNG画像と割り当て先パーツを選びます。</li><li>同色中心なら「色をまとめて」でタップします。</li><li>複数色の髪や服は「四角で囲む」か「指で囲む」で範囲指定します。</li><li>黄色候補が正しければ確定します。別の場所も続けて指定できます。</li><li>未分類が0になったら再合成を確認して書き出します。</li></ol>
+    <p>通常は「未分類だけ選ぶ」をONのまま使います。細部だけ1ドット追加・除外で直してください。</p>
     <button id="closeHelp" class="wide-button primary">閉じる</button>
   </dialog>
 

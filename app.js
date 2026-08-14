@@ -13,7 +13,7 @@
     assignments: null, parts: DEFAULT_PARTS.map((name,i)=>({id:i,name,color:COLORS[i]})), activePart: 0,
     tool: 'assist', zoom: 16, sourceOpacity: 1, maskVisible: true, selectedOnly: false, grid: true, showUnassigned: true, focusPixel: -1,
     undo: [], redo: [], drawing: false, gesture: null, pointers: new Map(), saveTimer: 0,
-    preview: null, assistArmed: false, cvReady: false
+    preview: null, rangeDraft: null, assistArmed: false, cvReady: false
   };
   const STORAGE_KEY = 'pixel-mask-part-editor-v03';
 
@@ -40,7 +40,7 @@
         state.alpha = new Uint8Array(state.width*state.height);
         for(let i=0;i<state.alpha.length;i++) state.alpha[i]=state.rgba[i*4+3];
         state.assignments = restoredAssignments && restoredAssignments.length===state.alpha.length ? Int16Array.from(restoredAssignments) : MODEL.createAssignments(state.alpha);
-        state.undo=[]; state.redo=[];state.preview=null;state.assistArmed=false;setSourceReady(true);fitCanvas(); render(); renderParts(); updateStats();setLoadState(`${name} を読み込みました（${state.width} × ${state.height}）`);resolve();
+        state.undo=[]; state.redo=[];state.preview=null;state.rangeDraft=null;state.assistArmed=state.tool==='assist';setSourceReady(true);fitCanvas(); render(); renderParts(); updateStats();setLoadState(`${name} を読み込みました（${state.width} × ${state.height}）`);resolve();
       };
       img.onerror = () => reject(new Error('PNGを読み込めませんでした'));
       img.src = src;
@@ -81,6 +81,15 @@
     }
     if(state.focusPixel>=0&&state.assignments[state.focusPixel]===-1){const x=(state.focusPixel%state.width)*z,y=((state.focusPixel/state.width)|0)*z;ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,Math.floor(z/6));ctx.strokeRect(x+1,y+1,z-2,z-2);}
     if(state.grid && z>=8){ctx.strokeStyle='rgba(33,29,37,.26)';ctx.lineWidth=1;ctx.beginPath();for(let x=0;x<=state.width;x++){ctx.moveTo(x*z+.5,0);ctx.lineTo(x*z+.5,canvas.height)}for(let y=0;y<=state.height;y++){ctx.moveTo(0,y*z+.5);ctx.lineTo(canvas.width,y*z+.5)}ctx.stroke();}
+    if(state.rangeDraft){
+      ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,Math.floor(z/7));ctx.setLineDash([Math.max(4,z/2),Math.max(3,z/3)]);ctx.beginPath();
+      if(state.rangeDraft.type==='rect'){
+        const a=state.rangeDraft.start,b=state.rangeDraft.end,x0=Math.min(a%state.width,b%state.width)*z,y0=Math.min((a/state.width)|0,(b/state.width)|0)*z,x1=(Math.max(a%state.width,b%state.width)+1)*z,y1=(Math.max((a/state.width)|0,(b/state.width)|0)+1)*z;ctx.rect(x0+1,y0+1,x1-x0-2,y1-y0-2);
+      }else{
+        const points=state.rangeDraft.points;if(points.length){ctx.moveTo((points[0].x+.5)*z,(points[0].y+.5)*z);for(let i=1;i<points.length;i++)ctx.lineTo((points[i].x+.5)*z,(points[i].y+.5)*z);}
+      }
+      ctx.stroke();ctx.setLineDash([]);
+    }
   }
 
   function updateStats(){const s=MODEL.stats(state.assignments||[]),total=s.assigned+s.unassigned,pct=total?Math.round(s.assigned/total*100):0;$('unassignedCount').textContent=s.unassigned;$('assignedCount').textContent=s.assigned;$('overlapCount').textContent=s.overlap;$('diffCount').textContent=s.diff;$('progressText').textContent=`${pct}%`;$('progressBar').style.width=`${pct}%`;renderParts();}
@@ -90,6 +99,7 @@
   function snapshot(){state.undo.push(Int16Array.from(state.assignments));if(state.undo.length>80)state.undo.shift();state.redo=[];}
   function scheduleSave(){clearTimeout(state.saveTimer);$('saveState').textContent='保存中…';state.saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify({source:state.sourceCanvas.toDataURL('image/png'),sourceName:state.sourceName,width:state.width,height:state.height,assignments:Array.from(state.assignments),parts:state.parts,activePart:state.activePart}));$('saveState').textContent='端末内に自動保存済み';}catch(e){$('saveState').textContent='自動保存できませんでした';}},250);}
   function eventPixel(e){const r=canvas.getBoundingClientRect();const x=Math.floor((e.clientX-r.left)*canvas.width/r.width/state.zoom),y=Math.floor((e.clientY-r.top)*canvas.height/r.height/state.zoom);if(x<0||x>=state.width||y<0||y>=state.height)return-1;return y*state.width+x;}
+  function pixelPoint(index){return{x:index%state.width,y:(index/state.width)|0};}
   function colorLabel(index){const p=index*4;return `RGBA(${state.rgba[p]}, ${state.rgba[p+1]}, ${state.rgba[p+2]}, ${state.rgba[p+3]})`;}
   function setFeedback(message){$('toolFeedback').textContent=message;}
   async function applyAt(index, first=false){
@@ -114,18 +124,35 @@
     render();updateStats();scheduleSave();
   }
 
-  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1){state.drawing=true;applyAt(eventPixel(e),true);}else if(state.pointers.size===2){state.drawing=false;const a=[...state.pointers.values()];state.gesture={distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),zoom:state.zoom,centerX:(a[0].x+a[1].x)/2,centerY:(a[0].y+a[1].y)/2,scrollLeft:viewport.scrollLeft,scrollTop:viewport.scrollTop};}});
-  canvas.addEventListener('pointermove',e=>{if(!state.pointers.has(e.pointerId))return;state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1&&state.drawing&&!['fill','eyedrop','assist','pick'].includes(state.tool))applyAt(eventPixel(e));else if(state.pointers.size===2&&state.gesture){const a=[...state.pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,newZoom=Math.max(8,Math.min(28,Math.round(state.gesture.zoom*d/state.gesture.distance)));if(newZoom!==state.zoom){state.zoom=newZoom;fitCanvas();render();}viewport.scrollLeft=state.gesture.scrollLeft-(cx-state.gesture.centerX);viewport.scrollTop=state.gesture.scrollTop-(cy-state.gesture.centerY);}});
-  const endPointer=e=>{state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}};canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1){state.drawing=true;const index=eventPixel(e);if(['rect','lasso'].includes(state.tool)&&index>=0){state.rangeDraft=state.tool==='rect'?{type:'rect',start:index,end:index}:{type:'lasso',points:[pixelPoint(index)]};render();setAssistGuide(state.tool==='rect'?'選びたい範囲の端まで指を動かしてください。':'選びたい形の外側を指で囲んでください。');}else applyAt(index,true);}else if(state.pointers.size===2){state.drawing=false;state.rangeDraft=null;render();const a=[...state.pointers.values()];state.gesture={distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),zoom:state.zoom,centerX:(a[0].x+a[1].x)/2,centerY:(a[0].y+a[1].y)/2,scrollLeft:viewport.scrollLeft,scrollTop:viewport.scrollTop};}});
+  canvas.addEventListener('pointermove',e=>{if(!state.pointers.has(e.pointerId))return;state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1&&state.drawing){const index=eventPixel(e);if(state.tool==='rect'&&state.rangeDraft&&index>=0){state.rangeDraft.end=index;render();}else if(state.tool==='lasso'&&state.rangeDraft&&index>=0){const point=pixelPoint(index),last=state.rangeDraft.points[state.rangeDraft.points.length-1];if(!last||last.x!==point.x||last.y!==point.y){state.rangeDraft.points.push(point);render();}}else if(!['fill','eyedrop','assist','pick'].includes(state.tool))applyAt(index);}else if(state.pointers.size===2&&state.gesture){const a=[...state.pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,newZoom=Math.max(8,Math.min(28,Math.round(state.gesture.zoom*d/state.gesture.distance)));if(newZoom!==state.zoom){state.zoom=newZoom;fitCanvas();render();}viewport.scrollLeft=state.gesture.scrollLeft-(cx-state.gesture.centerX);viewport.scrollTop=state.gesture.scrollTop-(cy-state.gesture.centerY);}});
+  canvas.addEventListener('pointerup',e=>{if(state.pointers.size===1&&state.drawing&&state.rangeDraft){const index=eventPixel(e);if(state.rangeDraft.type==='rect'&&index>=0)state.rangeDraft.end=index;else if(state.rangeDraft.type==='lasso'&&index>=0)state.rangeDraft.points.push(pixelPoint(index));finalizeRangeSelection();}state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}});
+  canvas.addEventListener('pointercancel',e=>{state.rangeDraft=null;state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}render();});
 
-  const TOOL_HELP={pen:'1ドット追加：細部を指でなぞって現在のパーツへ追加します。',fill:'同色塗り：同じ割当状態でつながる完全同色領域を塗ります。',assist:'色をまとめて：画像をタップすると、つながった近い色を黄色候補にします。',erase:'1ドット除外：指でなぞった部分を未分類へ戻します。',pick:'所属を確認：触れたドットのパーツを現在の選択先にします。'};
-  document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{if(state.preview)cancelAssistPreview();document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.tool=b.dataset.tool;if(state.tool==='assist'&&!['exact','approx'].includes($('assistMode').value)){$('assistMode').value='approx';setAssistModeUI();}state.assistArmed=state.tool==='assist';$('quickSelectOptions').classList.toggle('hidden',state.tool!=='assist');setFeedback(TOOL_HELP[state.tool]);if(state.tool==='assist')setAssistGuide('画像の色をタップすると、つながった近い色を黄色で表示します。');else setAssistGuide(TOOL_HELP[state.tool]);}));
+  const TOOL_HELP={pen:'1ドット追加：細部を指でなぞって現在のパーツへ追加します。',fill:'同色塗り：同じ割当状態でつながる完全同色領域を塗ります。',assist:'色をまとめて：画像をタップすると、つながった近い色を黄色候補にします。',rect:'四角で囲む：指を斜めに動かして四角い範囲を指定します。',lasso:'指で囲む：パーツの外側を指でなぞって囲みます。',erase:'1ドット除外：指でなぞった部分を未分類へ戻します。',pick:'所属を確認：触れたドットのパーツを現在の選択先にします。'};
+  document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{if(state.preview)cancelAssistPreview();state.rangeDraft=null;document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.tool=b.dataset.tool;if(state.tool==='assist'&&!['exact','approx'].includes($('assistMode').value)){$('assistMode').value='approx';setAssistModeUI();}state.assistArmed=state.tool==='assist';const bulk=['assist','rect','lasso'].includes(state.tool);$('quickSelectOptions').classList.toggle('hidden',!bulk);$('colorOptions').classList.toggle('hidden',state.tool!=='assist');setFeedback(TOOL_HELP[state.tool]);setAssistGuide(TOOL_HELP[state.tool]);render();}));
 
   const maskCount=mask=>mask?mask.reduce((sum,v)=>sum+(v?1:0),0):0;
+  function prepareAssignMask(mask){
+    if($('onlyUnassigned').checked)for(let i=0;i<mask.length;i++)if(state.assignments[i]!==-1)mask[i]=0;
+    if(state.preview?.kind==='assign')for(let i=0;i<mask.length;i++)if(state.preview.mask[i])mask[i]=1;
+    return mask;
+  }
+  function finalizeRangeSelection(){
+    const draft=state.rangeDraft;state.rangeDraft=null;if(!draft)return;
+    let mask;
+    if(draft.type==='rect')mask=MODEL.rectVisibleMask(state.alpha,state.width,state.height,draft.start,draft.end);
+    else mask=MODEL.polygonVisibleMask(state.alpha,state.width,state.height,draft.points);
+    prepareAssignMask(mask);
+    const count=maskCount(mask);
+    if(!count){render();setAssistGuide('範囲内に追加できる未分類ピクセルがありません。');return;}
+    state.preview={kind:'assign',mask};render();showPreviewActions(true,`黄色 ${count} pxを確定`);
+    setAssistGuide(`黄色の ${count} pxが候補です。別の範囲も続けて囲むと追加できます。`);
+  }
   function setAssistGuide(message){$('assistGuide').textContent=message;}
   function activateAssistTool(){document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x.dataset.tool==='assist'));state.tool='assist';setFeedback(TOOL_HELP.assist);}
   function showPreviewActions(canConfirm=true,confirmLabel='候補を確定'){$('previewActions').classList.remove('hidden');$('confirmAssist').classList.toggle('hidden',!canConfirm);$('confirmAssist').textContent=confirmLabel;}
-  function cancelAssistPreview(){state.preview=null;state.assistArmed=state.tool==='assist'&&['exact','approx'].includes($('assistMode').value);$('previewActions').classList.add('hidden');render();setAssistModeUI();}
+  function cancelAssistPreview(){state.preview=null;state.rangeDraft=null;state.assistArmed=state.tool==='assist'&&['exact','approx'].includes($('assistMode').value);$('previewActions').classList.add('hidden');render();setAssistModeUI();if(state.tool!=='assist')setAssistGuide(TOOL_HELP[state.tool]);}
   function setAssistModeUI(){
     const mode=$('assistMode').value,seed=['exact','approx'].includes(mode);
     $('toleranceRow').classList.toggle('hidden',mode!=='approx');$('orphanRow').classList.toggle('hidden',mode!=='orphan');
@@ -139,8 +166,7 @@
       $('assistRun').disabled=true;setAssistGuide('候補領域を解析中…');
       const tolerance=$('assistMode').value==='exact'?0:+$('colorTolerance').value;
       const mask=MODEL.adjacentColorMask(state.rgba,state.width,state.height,index,tolerance);
-      if($('onlyUnassigned').checked)for(let i=0;i<mask.length;i++)if(state.assignments[i]!==-1)mask[i]=0;
-      if(state.preview?.kind==='assign')for(let i=0;i<mask.length;i++)if(state.preview.mask[i])mask[i]=1;
+      prepareAssignMask(mask);
       state.preview={kind:'assign',mask};state.assistArmed=true;render();showPreviewActions(true,`黄色 ${maskCount(mask)} pxを確定`);
       setAssistGuide(`黄色の ${maskCount(mask)} pxが候補です。別の場所もタップすると候補へ追加できます。`);
     }catch(error){setAssistGuide(`処理失敗：${error.message}`);state.preview=null;}
@@ -232,7 +258,7 @@
   async function initCV(){
     const badge=$('cvStatus');
     badge.textContent='起動中';badge.className='cv-status loading';$('assistRun').disabled=true;setAssistGuide('OpenCV.jsを初期化しています。初回のみ時間がかかります。');
-    try{await CV.ready();state.cvReady=true;badge.textContent='使用可能';badge.className='cv-status';setAssistModeUI();return true;}
+    try{await CV.ready();state.cvReady=true;badge.textContent='OpenCV 5 使用可能';badge.className='cv-status';setAssistModeUI();return true;}
     catch(error){state.cvReady=false;badge.textContent='読込失敗';badge.className='cv-status error';setAssistGuide(`OpenCV.js読込失敗：${error.message}`);return false;}
     finally{$('assistRun').disabled=!state.hasSource;}
   }

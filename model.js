@@ -85,9 +85,37 @@
     }
     return out;
   }
+  function rectVisibleMask(alpha, width, height, start, end) {
+    const out = new Uint8Array(width * height);
+    if (start < 0 || end < 0 || start >= out.length || end >= out.length) return out;
+    const x0 = Math.min(start % width, end % width), x1 = Math.max(start % width, end % width);
+    const y0 = Math.min((start / width) | 0, (end / width) | 0), y1 = Math.max((start / width) | 0, (end / width) | 0);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = y * width + x; if (alpha[i]) out[i] = 1; }
+    return out;
+  }
+  function pointOnSegment(px, py, ax, ay, bx, by) {
+    const cross = (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+    if (Math.abs(cross) > 1e-7) return false;
+    return px >= Math.min(ax,bx) && px <= Math.max(ax,bx) && py >= Math.min(ay,by) && py <= Math.max(ay,by);
+  }
+  function polygonVisibleMask(alpha, width, height, points) {
+    const out = new Uint8Array(width * height);
+    if (!Array.isArray(points) || points.length < 3) return out;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      const index = y * width + x; if (!alpha[index]) continue;
+      const px = x + .5, py = y + .5; let inside = false, boundary = false;
+      for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const ax = points[j].x + .5, ay = points[j].y + .5, bx = points[i].x + .5, by = points[i].y + .5;
+        if (pointOnSegment(px,py,ax,ay,bx,by)) { boundary = true; break; }
+        if ((by > py) !== (ay > py) && px < (ax - bx) * (py - by) / (ay - by) + bx) inside = !inside;
+      }
+      if (inside || boundary) out[index] = 1;
+    }
+    return out;
+  }
   function validate(assignments) {
     const s = stats(assignments);
     return { ...s, exportReady: s.unassigned === 0 && s.overlap === 0 && s.diff === 0 };
   }
-  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, validate };
+  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, validate };
 });

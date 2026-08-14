@@ -143,6 +143,6 @@ dialog::backdrop { background:#000a; backdrop-filter:blur(3px); } dialog h2 { ma
 .display-card.advanced-card > label { margin-top:12px; }
 .status-card { order:initial; }
 @media (min-width:650px) {
-  .quick-tools { grid-template-columns:repeat(4,1fr); }
+  .quick-tools { grid-template-columns:repeat(3,1fr); }
   .parts-list.horizontal .part-chip { min-width:140px; flex-basis:140px; }
 }
