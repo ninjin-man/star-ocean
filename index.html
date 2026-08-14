@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#17151c">
   <title>Pixel Mask Part Editor</title>
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
   <header class="topbar">
@@ -70,6 +70,7 @@
       </div>
       <div class="canvas-shortcuts">
         <label class="safe-toggle compact-toggle"><input id="showUnassigned" type="checkbox" checked><span><b>未分類表示</b></span></label>
+        <label class="safe-toggle compact-toggle"><input id="showAutoCandidates" type="checkbox" checked><span><b>曖昧候補</b></span></label>
         <button id="nextUnassigned" class="sub-button">次の未分類</button>
       </div>
       <details class="part-maintenance">
@@ -143,8 +144,8 @@
     <button id="closePreview" class="wide-button primary">閉じる</button>
   </dialog>
 
-  <script src="cv-engine.js?v=10"></script>
-  <script src="model.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="cv-engine.js?v=11"></script>
+  <script src="model.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
