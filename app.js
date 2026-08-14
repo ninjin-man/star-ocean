@@ -13,17 +13,17 @@
     assignments: null, parts: DEFAULT_PARTS.map((name,i)=>({id:i,name,color:COLORS[i]})), activePart: 0,
     tool: 'assist', zoom: 16, sourceOpacity: 1, maskVisible: true, selectedOnly: false, grid: true, showUnassigned: true, focusPixel: -1,
     undo: [], redo: [], drawing: false, gesture: null, pointers: new Map(), saveTimer: 0,
-    preview: null, rangeDraft: null, assistArmed: false, cvReady: false
+    preview: null, rangeDraft: null, assistArmed: false, cvReady: false, autoClassified: false
   };
   const STORAGE_KEY = 'pixel-mask-part-editor-v03';
 
   function setLoadState(message, error=false){$('loadState').textContent=message;$('loadState').classList.toggle('error',error);}
-  function setSourceReady(ready){state.hasSource=ready;$('emptyCanvas').classList.toggle('hidden',ready);$('sourceBadge').textContent=ready?'読込済み':'未読込';$('sourceBadge').classList.toggle('empty',!ready);$('exportBtn').disabled=!ready;$('assistRun').disabled=!ready;}
+  function setSourceReady(ready){state.hasSource=ready;$('emptyCanvas').classList.toggle('hidden',ready);$('sourceBadge').textContent=ready?'読込済み':'未読込';$('sourceBadge').classList.toggle('empty',!ready);$('exportBtn').disabled=!ready;$('assistRun').disabled=!ready;$('autoClassifyBtn').disabled=!ready;updateHistoryButtons();}
 
   function initEmptyCanvas(){
     state.width=32;state.height=32;state.sourceName='画像未読込';state.sourceCanvas.width=32;state.sourceCanvas.height=32;
     state.rgba=new Uint8ClampedArray(32*32*4);state.alpha=new Uint8Array(32*32);state.assignments=MODEL.createAssignments(state.alpha);
-    state.undo=[];state.redo=[];setSourceReady(false);fitCanvas();render();renderParts();updateStats();
+    state.undo=[];state.redo=[];state.autoClassified=false;setSourceReady(false);fitCanvas();render();renderParts();updateStats();
   }
 
   function loadImage(src, name, restoredAssignments) {
@@ -39,8 +39,12 @@
         const data = sctx.getImageData(0,0,state.width,state.height); state.rgba = data.data;
         state.alpha = new Uint8Array(state.width*state.height);
         for(let i=0;i<state.alpha.length;i++) state.alpha[i]=state.rgba[i*4+3];
-        state.assignments = restoredAssignments && restoredAssignments.length===state.alpha.length ? Int16Array.from(restoredAssignments) : MODEL.createAssignments(state.alpha);
-        state.undo=[]; state.redo=[];state.preview=null;state.rangeDraft=null;state.assistArmed=state.tool==='assist';setSourceReady(true);fitCanvas(); render(); renderParts(); updateStats();setLoadState(`${name} を読み込みました（${state.width} × ${state.height}）`);resolve();
+        const restored = restoredAssignments && restoredAssignments.length===state.alpha.length;
+        state.assignments = restored ? Int16Array.from(restoredAssignments) : MODEL.createAssignments(state.alpha);
+        state.undo=[]; state.redo=[];state.preview=null;state.rangeDraft=null;state.autoClassified=false;state.assistArmed=state.tool==='assist';setSourceReady(true);fitCanvas();
+        if(!restored&&$('autoOnLoad').checked)runAutoClassification(false);
+        else {render();renderParts();updateStats();}
+        setLoadState(`${name} を読み込みました（${state.width} × ${state.height}）`);resolve();
       };
       img.onerror = () => reject(new Error('PNGを読み込めませんでした'));
       img.src = src;
@@ -82,13 +86,13 @@
     if(state.focusPixel>=0&&state.assignments[state.focusPixel]===-1){const x=(state.focusPixel%state.width)*z,y=((state.focusPixel/state.width)|0)*z;ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,Math.floor(z/6));ctx.strokeRect(x+1,y+1,z-2,z-2);}
     if(state.grid && z>=8){ctx.strokeStyle='rgba(33,29,37,.26)';ctx.lineWidth=1;ctx.beginPath();for(let x=0;x<=state.width;x++){ctx.moveTo(x*z+.5,0);ctx.lineTo(x*z+.5,canvas.height)}for(let y=0;y<=state.height;y++){ctx.moveTo(0,y*z+.5);ctx.lineTo(canvas.width,y*z+.5)}ctx.stroke();}
     if(state.rangeDraft){
-      ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,Math.floor(z/7));ctx.setLineDash([Math.max(4,z/2),Math.max(3,z/3)]);ctx.beginPath();
-      if(state.rangeDraft.type==='rect'){
-        const a=state.rangeDraft.start,b=state.rangeDraft.end,x0=Math.min(a%state.width,b%state.width)*z,y0=Math.min((a/state.width)|0,(b/state.width)|0)*z,x1=(Math.max(a%state.width,b%state.width)+1)*z,y1=(Math.max((a/state.width)|0,(b/state.width)|0)+1)*z;ctx.rect(x0+1,y0+1,x1-x0-2,y1-y0-2);
-      }else{
-        const points=state.rangeDraft.points;if(points.length){ctx.moveTo((points[0].x+.5)*z,(points[0].y+.5)*z);for(let i=1;i<points.length;i++)ctx.lineTo((points[i].x+.5)*z,(points[i].y+.5)*z);}
-      }
-      ctx.stroke();ctx.setLineDash([]);
+      const draft=state.rangeDraft;
+      const tracePath=(close=false)=>{ctx.beginPath();if(draft.type==='rect'){const a=draft.start,b=draft.end,x0=Math.min(a%state.width,b%state.width)*z,y0=Math.min((a/state.width)|0,(b/state.width)|0)*z,x1=(Math.max(a%state.width,b%state.width)+1)*z,y1=(Math.max((a/state.width)|0,(b/state.width)|0)+1)*z;ctx.rect(x0+1,y0+1,x1-x0-2,y1-y0-2);}else if(draft.points.length){ctx.moveTo((draft.points[0].x+.5)*z,(draft.points[0].y+.5)*z);for(let i=1;i<draft.points.length;i++)ctx.lineTo((draft.points[i].x+.5)*z,(draft.points[i].y+.5)*z);if(close)ctx.closePath();}};
+      if(draft.type==='lasso'&&draft.points.length>=3){tracePath(true);ctx.fillStyle='rgba(42,229,255,.22)';ctx.fill();}
+      tracePath(false);ctx.setLineDash([]);ctx.lineJoin='round';ctx.lineCap='round';ctx.strokeStyle='rgba(0,0,0,.92)';ctx.lineWidth=Math.max(7,Math.floor(z/3));ctx.stroke();
+      tracePath(false);ctx.strokeStyle='#41ecff';ctx.lineWidth=Math.max(3,Math.floor(z/7));ctx.stroke();
+      if(draft.type==='lasso'&&draft.points.length>1){const first=draft.points[0],last=draft.points[draft.points.length-1];ctx.beginPath();ctx.moveTo((last.x+.5)*z,(last.y+.5)*z);ctx.lineTo((first.x+.5)*z,(first.y+.5)*z);ctx.setLineDash([Math.max(4,z/2),Math.max(3,z/3)]);ctx.strokeStyle='#fff';ctx.lineWidth=Math.max(2,Math.floor(z/8));ctx.stroke();ctx.setLineDash([]);ctx.beginPath();ctx.arc((first.x+.5)*z,(first.y+.5)*z,Math.max(5,z*.32),0,Math.PI*2);ctx.fillStyle='#ffef52';ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.stroke();}
+      ctx.lineJoin='miter';ctx.lineCap='butt';
     }
   }
 
@@ -96,7 +100,8 @@
   function partCounts(){const c=Array(state.parts.length).fill(0);for(const v of state.assignments||[])if(v>=0&&c[v]!=null)c[v]++;return c;}
   function renderParts(){const counts=partCounts(),active=state.parts[state.activePart];$('partsList').innerHTML=state.parts.map((p,i)=>`<button class="part-chip ${i===state.activePart?'active':''}" data-part="${i}"><span class="swatch" style="background:${p.color}"></span><span class="part-text"><b>${escapeHtml(p.name)}</b><small>${counts[i]||0} px</small></span></button>`).join('');if(active){$('currentPartName').textContent=active.name;$('currentPartSwatch').style.background=active.color;}}
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-  function snapshot(){state.undo.push(Int16Array.from(state.assignments));if(state.undo.length>80)state.undo.shift();state.redo=[];}
+  function updateHistoryButtons(){const transient=!!(state.preview||state.rangeDraft);$('undoBtn').disabled=!state.hasSource||(!transient&&!state.undo.length);$('redoBtn').disabled=!state.hasSource||!state.redo.length;$('undoBtn').title=transient?'未確定候補を取り消す':state.undo.length?`1つ前へ（履歴 ${state.undo.length}）`:'戻せる履歴なし';$('redoBtn').title=state.redo.length?`1つ進む（履歴 ${state.redo.length}）`:'進める履歴なし';}
+  function snapshot(){state.undo.push(Int16Array.from(state.assignments));if(state.undo.length>80)state.undo.shift();state.redo=[];updateHistoryButtons();}
   function scheduleSave(){clearTimeout(state.saveTimer);$('saveState').textContent='保存中…';state.saveTimer=setTimeout(()=>{try{localStorage.setItem(STORAGE_KEY,JSON.stringify({source:state.sourceCanvas.toDataURL('image/png'),sourceName:state.sourceName,width:state.width,height:state.height,assignments:Array.from(state.assignments),parts:state.parts,activePart:state.activePart}));$('saveState').textContent='端末内に自動保存済み';}catch(e){$('saveState').textContent='自動保存できませんでした';}},250);}
   function eventPixel(e){const r=canvas.getBoundingClientRect();const x=Math.floor((e.clientX-r.left)*canvas.width/r.width/state.zoom),y=Math.floor((e.clientY-r.top)*canvas.height/r.height/state.zoom);if(x<0||x>=state.width||y<0||y>=state.height)return-1;return y*state.width+x;}
   function pixelPoint(index){return{x:index%state.width,y:(index/state.width)|0};}
@@ -108,13 +113,13 @@
       if(!state.assistArmed){setAssistGuide('「キャンバスで色を選ぶ」を押してから起点をタップしてください。');return;}
       await previewSeedSelection(index);return;
     }
-    if(first)snapshot();
     if(state.tool==='pick'){
       const p=state.assignments[index];
       if(p>=0){state.activePart=p;renderParts();render();setFeedback(`パーツ取得：「${state.parts[p].name}」を選択しました。`);}
       else setFeedback('このドットはまだ未分類です。');
       return;
     }
+    if(first)snapshot();
     let changed=0;
     if(state.tool==='fill') changed=MODEL.floodSameColor(state.assignments,state.rgba,state.width,state.height,index,state.activePart);
     else if(state.tool==='eyedrop'){
@@ -124,10 +129,10 @@
     render();updateStats();scheduleSave();
   }
 
-  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1){state.drawing=true;const index=eventPixel(e);if(['rect','lasso'].includes(state.tool)&&index>=0){state.rangeDraft=state.tool==='rect'?{type:'rect',start:index,end:index}:{type:'lasso',points:[pixelPoint(index)]};render();setAssistGuide(state.tool==='rect'?'選びたい範囲の端まで指を動かしてください。':'選びたい形の外側を指で囲んでください。');}else applyAt(index,true);}else if(state.pointers.size===2){state.drawing=false;state.rangeDraft=null;render();const a=[...state.pointers.values()];state.gesture={distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),zoom:state.zoom,centerX:(a[0].x+a[1].x)/2,centerY:(a[0].y+a[1].y)/2,scrollLeft:viewport.scrollLeft,scrollTop:viewport.scrollTop};}});
+  canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1){state.drawing=true;const index=eventPixel(e);if(['rect','lasso'].includes(state.tool)&&index>=0){state.rangeDraft=state.tool==='rect'?{type:'rect',start:index,end:index}:{type:'lasso',points:[pixelPoint(index)]};updateHistoryButtons();render();setAssistGuide(state.tool==='rect'?'水色の四角を見ながら、反対側の角まで指を動かしてください。':'黄色の開始点から、黒縁の水色線でパーツの外側を囲んでください。');}else applyAt(index,true);}else if(state.pointers.size===2){state.drawing=false;state.rangeDraft=null;updateHistoryButtons();render();const a=[...state.pointers.values()];state.gesture={distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),zoom:state.zoom,centerX:(a[0].x+a[1].x)/2,centerY:(a[0].y+a[1].y)/2,scrollLeft:viewport.scrollLeft,scrollTop:viewport.scrollTop};}});
   canvas.addEventListener('pointermove',e=>{if(!state.pointers.has(e.pointerId))return;state.pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(state.pointers.size===1&&state.drawing){const index=eventPixel(e);if(state.tool==='rect'&&state.rangeDraft&&index>=0){state.rangeDraft.end=index;render();}else if(state.tool==='lasso'&&state.rangeDraft&&index>=0){const point=pixelPoint(index),last=state.rangeDraft.points[state.rangeDraft.points.length-1];if(!last||last.x!==point.x||last.y!==point.y){state.rangeDraft.points.push(point);render();}}else if(!['fill','eyedrop','assist','pick'].includes(state.tool))applyAt(index);}else if(state.pointers.size===2&&state.gesture){const a=[...state.pointers.values()],d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),cx=(a[0].x+a[1].x)/2,cy=(a[0].y+a[1].y)/2,newZoom=Math.max(8,Math.min(28,Math.round(state.gesture.zoom*d/state.gesture.distance)));if(newZoom!==state.zoom){state.zoom=newZoom;fitCanvas();render();}viewport.scrollLeft=state.gesture.scrollLeft-(cx-state.gesture.centerX);viewport.scrollTop=state.gesture.scrollTop-(cy-state.gesture.centerY);}});
   canvas.addEventListener('pointerup',e=>{if(state.pointers.size===1&&state.drawing&&state.rangeDraft){const index=eventPixel(e);if(state.rangeDraft.type==='rect'&&index>=0)state.rangeDraft.end=index;else if(state.rangeDraft.type==='lasso'&&index>=0)state.rangeDraft.points.push(pixelPoint(index));finalizeRangeSelection();}state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}});
-  canvas.addEventListener('pointercancel',e=>{state.rangeDraft=null;state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}render();});
+  canvas.addEventListener('pointercancel',e=>{state.rangeDraft=null;state.pointers.delete(e.pointerId);if(!state.pointers.size){state.drawing=false;state.gesture=null;}updateHistoryButtons();render();});
 
   const TOOL_HELP={pen:'1ドット追加：細部を指でなぞって現在のパーツへ追加します。',fill:'同色塗り：同じ割当状態でつながる完全同色領域を塗ります。',assist:'色をまとめて：画像をタップすると、つながった近い色を黄色候補にします。',rect:'四角で囲む：指を斜めに動かして四角い範囲を指定します。',lasso:'指で囲む：パーツの外側を指でなぞって囲みます。',erase:'1ドット除外：指でなぞった部分を未分類へ戻します。',pick:'所属を確認：触れたドットのパーツを現在の選択先にします。'};
   document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>{if(state.preview)cancelAssistPreview();state.rangeDraft=null;document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.tool=b.dataset.tool;if(state.tool==='assist'&&!['exact','approx'].includes($('assistMode').value)){$('assistMode').value='approx';setAssistModeUI();}state.assistArmed=state.tool==='assist';const bulk=['assist','rect','lasso'].includes(state.tool);$('quickSelectOptions').classList.toggle('hidden',!bulk);$('colorOptions').classList.toggle('hidden',state.tool!=='assist');setFeedback(TOOL_HELP[state.tool]);setAssistGuide(TOOL_HELP[state.tool]);render();}));
@@ -145,14 +150,14 @@
     else mask=MODEL.polygonVisibleMask(state.alpha,state.width,state.height,draft.points);
     prepareAssignMask(mask);
     const count=maskCount(mask);
-    if(!count){render();setAssistGuide('範囲内に追加できる未分類ピクセルがありません。');return;}
+    if(!count){updateHistoryButtons();render();setAssistGuide('範囲内に追加できるピクセルがありません。「未分類だけ」がONなら、修正時はOFFにしてください。');return;}
     state.preview={kind:'assign',mask};render();showPreviewActions(true,`黄色 ${count} pxを確定`);
     setAssistGuide(`黄色の ${count} pxが候補です。別の範囲も続けて囲むと追加できます。`);
   }
   function setAssistGuide(message){$('assistGuide').textContent=message;}
   function activateAssistTool(){document.querySelectorAll('.tool').forEach(x=>x.classList.toggle('active',x.dataset.tool==='assist'));state.tool='assist';setFeedback(TOOL_HELP.assist);}
-  function showPreviewActions(canConfirm=true,confirmLabel='候補を確定'){$('previewActions').classList.remove('hidden');$('confirmAssist').classList.toggle('hidden',!canConfirm);$('confirmAssist').textContent=confirmLabel;}
-  function cancelAssistPreview(){state.preview=null;state.rangeDraft=null;state.assistArmed=state.tool==='assist'&&['exact','approx'].includes($('assistMode').value);$('previewActions').classList.add('hidden');render();setAssistModeUI();if(state.tool!=='assist')setAssistGuide(TOOL_HELP[state.tool]);}
+  function showPreviewActions(canConfirm=true,confirmLabel='候補を確定'){$('previewActions').classList.remove('hidden');$('confirmAssist').classList.toggle('hidden',!canConfirm);$('confirmAssist').textContent=confirmLabel;updateHistoryButtons();}
+  function cancelAssistPreview(){state.preview=null;state.rangeDraft=null;state.assistArmed=state.tool==='assist'&&['exact','approx'].includes($('assistMode').value);$('previewActions').classList.add('hidden');updateHistoryButtons();render();setAssistModeUI();if(state.tool!=='assist')setAssistGuide(TOOL_HELP[state.tool]);}
   function setAssistModeUI(){
     const mode=$('assistMode').value,seed=['exact','approx'].includes(mode);
     $('toleranceRow').classList.toggle('hidden',mode!=='approx');$('orphanRow').classList.toggle('hidden',mode!=='orphan');
@@ -202,7 +207,7 @@
     if(preview.kind==='assign')for(let i=0;i<preview.mask.length;i++)if(preview.mask[i]&&state.assignments[i]!==-2)state.assignments[i]=state.activePart;
     if(preview.kind==='remove')for(let i=0;i<preview.mask.length;i++)if(preview.mask[i]&&state.assignments[i]===state.activePart)state.assignments[i]=-1;
     if(preview.kind==='morph')for(let i=0;i<state.assignments.length;i++){if(preview.remove[i]&&state.assignments[i]===state.activePart)state.assignments[i]=-1;if(preview.add[i]&&state.assignments[i]===-1)state.assignments[i]=state.activePart;}
-    state.preview=null;state.assistArmed=state.tool==='assist';$('previewActions').classList.add('hidden');render();updateStats();scheduleSave();setAssistGuide('確定しました。同じパーツの別の場所を続けてタップできます。');
+    state.preview=null;state.assistArmed=state.tool==='assist';$('previewActions').classList.add('hidden');updateHistoryButtons();render();updateStats();scheduleSave();setAssistGuide('確定しました。同じパーツの別の場所を続けてタップできます。');
   }
   $('assistMode').addEventListener('change',()=>{cancelAssistPreview();setAssistModeUI();});
   $('colorTolerance').addEventListener('input',e=>{$('toleranceValue').value=e.target.value;});
@@ -212,13 +217,32 @@
   $('showUnassigned').addEventListener('change',e=>{state.showUnassigned=e.target.checked;render();});
   $('nextUnassigned').onclick=()=>{const start=Math.max(0,state.focusPixel+1);let index=-1;for(let pass=0;pass<2&&index<0;pass++){const from=pass?0:start,to=pass?start:state.assignments.length;for(let i=from;i<to;i++)if(state.assignments[i]===-1){index=i;break;}}if(index<0){setFeedback('未分類ピクセルはありません。');return;}state.focusPixel=index;const x=(index%state.width)*state.zoom,y=((index/state.width)|0)*state.zoom;viewport.scrollLeft=Math.max(0,x-viewport.clientWidth/2+state.zoom/2);viewport.scrollTop=Math.max(0,y-viewport.clientHeight/2+state.zoom/2);render();setFeedback('白枠が次の未分類ピクセルです。');};
 
+  function runAutoClassification(askBeforeOverwrite=true){
+    if(!state.hasSource)return false;
+    const alreadyAssigned=state.assignments.some(v=>v>=0);
+    if(askBeforeOverwrite&&alreadyAssigned&&!confirm('現在の分類を自動分類結果で置き換えますか？\n「戻す」で元に戻せます。'))return false;
+    if(state.preview)cancelAssistPreview();
+    snapshot();
+    const result=MODEL.autoClassify(state.rgba,state.alpha,state.width,state.height);
+    state.assignments=result.assignments;state.autoClassified=true;state.focusPixel=-1;
+    $('onlyUnassigned').checked=false;
+    const named=result.counts.map((count,i)=>count?`${state.parts[i]?.name||i} ${count}px`:null).filter(Boolean);
+    $('autoClassifyState').textContent=`仮分類完了：${named.join(' / ')}。間違いを囲んで修正してください。`;
+    setFeedback('自動分類は仮結果です。修正先のパーツを選び、間違った場所だけ囲んで確定してください。');
+    setAssistGuide('修正モード：「未分類だけ選ぶ」をOFFにしました。指囲みで既存分類を上書きできます。');
+    render();updateStats();updateHistoryButtons();scheduleSave();return true;
+  }
+
   $('partsList').addEventListener('click',e=>{const b=e.target.closest('[data-part]');if(!b)return;if(state.preview)cancelAssistPreview();state.activePart=+b.dataset.part;renderParts();render();scheduleSave();});
+  $('autoClassifyBtn').onclick=()=>runAutoClassification(true);
   $('sourceOpacity').addEventListener('input',e=>{state.sourceOpacity=+e.target.value/100;render();});
   $('maskVisible').addEventListener('change',e=>{state.maskVisible=e.target.checked;render();});$('selectedOnly').addEventListener('change',e=>{state.selectedOnly=e.target.checked;render();});$('gridVisible').addEventListener('change',e=>{state.grid=e.target.checked;render();});
   function setZoom(v){state.zoom=Math.max(8,Math.min(28,v));fitCanvas();render();}
   $('zoomOut').onclick=()=>setZoom(state.zoom-2);$('zoomIn').onclick=()=>setZoom(state.zoom+2);$('centerBtn').onclick=()=>{viewport.scrollLeft=Math.max(0,(canvas.width-viewport.clientWidth)/2);viewport.scrollTop=Math.max(0,(canvas.height-viewport.clientHeight)/2);};
-  $('undoBtn').onclick=()=>{if(!state.undo.length)return;state.redo.push(Int16Array.from(state.assignments));state.assignments=state.undo.pop();render();updateStats();scheduleSave();};
-  $('redoBtn').onclick=()=>{if(!state.redo.length)return;state.undo.push(Int16Array.from(state.assignments));state.assignments=state.redo.pop();render();updateStats();scheduleSave();};
+  function undoAction(){if(state.preview||state.rangeDraft){cancelAssistPreview();setFeedback('未確定の候補を取り消しました。');return;}if(!state.undo.length)return;state.redo.push(Int16Array.from(state.assignments));state.assignments=state.undo.pop();if(!state.assignments.some(v=>v>=0)){$('autoClassifyState').textContent='自動分類を取り消しました。「進む」で分類結果を復元できます。';state.autoClassified=false;}updateHistoryButtons();render();updateStats();scheduleSave();setFeedback('1つ前のマスクへ戻しました。');}
+  function redoAction(){if(state.preview||state.rangeDraft)cancelAssistPreview();if(!state.redo.length)return;state.undo.push(Int16Array.from(state.assignments));state.assignments=state.redo.pop();if(state.assignments.some(v=>v>=0))$('autoClassifyState').textContent='履歴の分類結果を復元しました。必要な部分だけ修正してください。';updateHistoryButtons();render();updateStats();scheduleSave();setFeedback('戻したマスクを1つ進めました。');}
+  $('undoBtn').onclick=undoAction;
+  $('redoBtn').onclick=redoAction;
   $('addPartBtn').onclick=()=>{const name=prompt('追加するパーツ名');if(!name)return;state.parts.push({id:state.parts.length,name:name.trim(),color:COLORS[state.parts.length%COLORS.length]});state.activePart=state.parts.length-1;renderParts();scheduleSave();};
   $('renamePartBtn').onclick=()=>{const p=state.parts[state.activePart],name=prompt('パーツ名',p.name);if(!name)return;p.name=name.trim();renderParts();scheduleSave();};
   $('resetBtn').onclick=()=>{if(!confirm('すべてのマスク割当を未分類へ戻しますか？'))return;if(state.preview)cancelAssistPreview();snapshot();state.assignments=MODEL.createAssignments(state.alpha);render();updateStats();scheduleSave();};

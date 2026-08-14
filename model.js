@@ -113,9 +113,52 @@
     }
     return out;
   }
+  function autoClassify(rgba, alpha, width, height) {
+    const assignments = createAssignments(alpha);
+    let minX = width, minY = height, maxX = -1, maxY = -1;
+    const luminances = [];
+    for (let i = 0; i < alpha.length; i++) {
+      if (!alpha[i]) continue;
+      const x = i % width, y = (i / width) | 0, p = i * 4;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      luminances.push((rgba[p] * 54 + rgba[p + 1] * 183 + rgba[p + 2] * 19) >> 8);
+    }
+    if (maxX < minX || maxY < minY) return { assignments, counts: Array(8).fill(0), confidence: 'none' };
+    luminances.sort((a, b) => a - b);
+    const darkLimit = Math.min(92, luminances[Math.floor(luminances.length * .18)] + 10);
+    const boxW = Math.max(1, maxX - minX + 1), boxH = Math.max(1, maxY - minY + 1);
+    const headEnd = minY + boxH * .39, legStart = minY + boxH * .68;
+    const faceLeft = minX + boxW * .24, faceRight = minX + boxW * .76;
+    const faceTop = minY + boxH * .08, faceBottom = minY + boxH * .39;
+    const sideLeft = minX + boxW * .25, sideRight = minX + boxW * .75;
+    const counts = Array(8).fill(0);
+    const isVisible = (x, y) => x >= 0 && x < width && y >= 0 && y < height && alpha[y * width + x] > 0;
+    for (let i = 0; i < alpha.length; i++) {
+      if (!alpha[i]) continue;
+      const x = i % width, y = (i / width) | 0, p = i * 4;
+      const r = rgba[p], g = rgba[p + 1], b = rgba[p + 2];
+      const lum = (r * 54 + g * 183 + b * 19) >> 8;
+      const edge = !isVisible(x - 1, y) || !isVisible(x + 1, y) || !isVisible(x, y - 1) || !isVisible(x, y + 1);
+      const skin = r > 58 && g > 30 && b > 18 && r >= g * .94 && r > b * 1.06 && Math.max(r, g, b) - Math.min(r, g, b) > 12;
+      let part;
+      if (edge && lum <= darkLimit) part = 0;
+      else if (y <= headEnd) {
+        const centralFace = x >= faceLeft && x <= faceRight && y >= faceTop && y <= faceBottom;
+        part = centralFace && (skin || y > minY + boxH * .22) ? 2 : 1;
+      } else if (y < legStart) {
+        if (x < sideLeft) part = 4;
+        else if (x > sideRight) part = 5;
+        else part = 3;
+      } else part = 6;
+      assignments[i] = part;
+      counts[part]++;
+    }
+    return { assignments, counts, confidence: 'rough' };
+  }
   function validate(assignments) {
     const s = stats(assignments);
     return { ...s, exportReady: s.unassigned === 0 && s.overlap === 0 && s.diff === 0 };
   }
-  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, validate };
+  return { createAssignments, assign, stats, floodSameColor, eyedropAdjacentSameColor, adjacentColorMask, rectVisibleMask, polygonVisibleMask, autoClassify, validate };
 });
